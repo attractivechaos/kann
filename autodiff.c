@@ -23,26 +23,25 @@ struct ad_node_t {
 	int n_row, n_col;
 	int n_child, op;
 	const float *x;
-	float *g;
 	struct ad_node_t **child;
 };
 
-static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x, float *g)
+static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x)
 {
 	ad_node_t *s;
 	s = (ad_node_t*)calloc(1, sizeof(ad_node_t));
-	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->x = x, s->g = g;
+	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->x = x;
 	if (s->n_child) s->child = (ad_node_t**)calloc(s->n_child, sizeof(ad_node_t*));
 	return s;
 }
 
-ad_node_t *ad_var(int n_row, int n_col, const float *x, float *g) { return ad_new_core(AD_OP_VAR, n_row, n_col, 0, x, g); }
-ad_node_t *ad_param(int n_row, int n_col, const float *x) { return ad_new_core(AD_OP_PARAM, n_row, n_col, 0, x, 0); }
+ad_node_t *ad_var(int n_row, int n_col, const float *x) { return ad_new_core(AD_OP_VAR, n_row, n_col, 0, x); }
+ad_node_t *ad_param(int n_row, int n_col, const float *x) { return ad_new_core(AD_OP_PARAM, n_row, n_col, 0, x); }
 
 static inline ad_node_t *ad_op2_core(int op, int n_row, int n_col, ad_node_t *x, ad_node_t *y)
 {
 	ad_node_t *s;
-	s = ad_new_core(op, n_row, n_col, 2, 0, 0);
+	s = ad_new_core(op, n_row, n_col, 2, 0);
 	s->child[0] = x, s->child[1] = y;
 	return s;
 }
@@ -60,7 +59,7 @@ AD_FUNC_OP2(ad_dot, AD_OP_DOT, (x->n_row != y->n_row || x->n_col != y->n_col), 1
 static inline ad_node_t *ad_op1_core(int op, int n_row, int n_col, ad_node_t *x)
 {
 	ad_node_t *s;
-	s = ad_new_core(op, n_row, n_col, 1, 0, 0);
+	s = ad_new_core(op, n_row, n_col, 1, 0);
 	s->child[0] = x;
 	return s;
 }
@@ -95,7 +94,7 @@ AD_FUNC_OP1(ad_sigm, AD_OP_SIGM, x->n_row, x->n_col)
 
 typedef struct {
 	int type, n_row, n_col;
-	float *d;
+	float *z;
 } ad_edge_t;
 
 typedef struct {
