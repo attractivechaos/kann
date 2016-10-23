@@ -3,7 +3,9 @@
 #include <math.h>
 #include "autodiff.h"
 
-#define AD_OP_VAR      0
+#define AD_OP_PARAM    -2
+#define AD_OP_VAR      -1
+#define AD_OP_NULL     0
 #define AD_OP_ADD      1
 #define AD_OP_SUB      2
 #define AD_OP_MUL      3   // matrix product
@@ -24,26 +26,29 @@ struct ad_node_t {
 	struct ad_node_t **child;
 };
 
-static inline ad_node_t *ad_new_core(int n_row, int n_col, int n_child, const float *x)
+static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x)
 {
 	ad_node_t *s;
 	s = (ad_node_t*)calloc(1, sizeof(ad_node_t));
-	s->n_row = n_row, s->n_col = n_col, s->x = x;
-	s->n_child = n_child;
+	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->x = x;
 	if (s->n_child) s->child = (ad_node_t**)calloc(s->n_child, sizeof(ad_node_t*));
 	return s;
 }
 
-ad_node_t *ad_bind(int n_row, int n_col, const float *x)
+ad_node_t *ad_var(int n_row, int n_col, const float *x)
 {
-	return ad_new_core(n_row, n_col, 0, x);
+	return ad_new_core(AD_OP_VAR, n_row, n_col, 0, x);
+}
+
+ad_node_t *ad_param(int n_row, int n_col, const float *x)
+{
+	return ad_new_core(AD_OP_PARAM, n_row, n_col, 0, x);
 }
 
 static inline ad_node_t *ad_op2_core(int op, int n_row, int n_col, ad_node_t *x, ad_node_t *y)
 {
 	ad_node_t *s;
-	s = ad_new_core(n_row, n_col, 2, 0);
-	s->op = op;
+	s = ad_new_core(op, n_row, n_col, 2, 0);
 	s->child[0] = x, s->child[1] = y;
 	return s;
 }
@@ -61,8 +66,7 @@ AD_FUNC_OP2(ad_dot, AD_OP_DOT, (x->n_row != y->n_row || x->n_col != y->n_col), 1
 static inline ad_node_t *ad_op1_core(int op, int n_row, int n_col, ad_node_t *x)
 {
 	ad_node_t *s;
-	s = ad_new_core(n_row, n_col, 1, 0);
-	s->op = op;
+	s = ad_new_core(op, n_row, n_col, 1, 0);
 	s->child[0] = x;
 	return s;
 }
@@ -115,10 +119,10 @@ ad_expr_t *ad_expr_compile(ad_node_t *root)
 	ad_expr_t *e;
 
 	kv_pushp(ad_tnode_t, stack, &p);
-	p->p = root, p->n = root->n_child;
+	p->p = root, p->n = 0;
 	while (stack.n) {
 		ad_tnode_t *t = &stack.a[stack.n-1];
-		if (t->n == 0) {
+		if (t->n == t->p->n_child) {
 			kv_pushp(ad_expr1_t, expr, &q);
 			q->op = t->p->op;
 			q->n_operand = t->p->n_child;
@@ -128,9 +132,9 @@ ad_expr_t *ad_expr_compile(ad_node_t *root)
 			free(t->p);
 			--stack.n;
 		} else {
-			--t->n;
 			kv_pushp(ad_tnode_t, stack, &p);
-			p->p = t->p->child[t->n], p->n = p->p->n_child;
+			p->p = t->p->child[t->n], p->n = 0;
+			++t->n;
 		}
 	}
 	free(stack.a);
@@ -144,7 +148,7 @@ void ad_expr_destroy(ad_expr_t *e)
 {
 	int32_t i;
 	for (i = 0; i < e->n; ++i) {
-		if (e->a[i].op != AD_OP_VAR)
+		if (e->a[i].op > 0)
 			free(e->a[i]._.x);
 	}
 	free(e->a);
