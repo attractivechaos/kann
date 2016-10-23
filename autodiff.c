@@ -23,32 +23,26 @@ struct ad_node_t {
 	int n_row, n_col;
 	int n_child, op;
 	const float *x;
+	float *g;
 	struct ad_node_t **child;
 };
 
-static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x)
+static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x, float *g)
 {
 	ad_node_t *s;
 	s = (ad_node_t*)calloc(1, sizeof(ad_node_t));
-	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->x = x;
+	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->x = x, s->g = g;
 	if (s->n_child) s->child = (ad_node_t**)calloc(s->n_child, sizeof(ad_node_t*));
 	return s;
 }
 
-ad_node_t *ad_var(int n_row, int n_col, const float *x)
-{
-	return ad_new_core(AD_OP_VAR, n_row, n_col, 0, x);
-}
-
-ad_node_t *ad_param(int n_row, int n_col, const float *x)
-{
-	return ad_new_core(AD_OP_PARAM, n_row, n_col, 0, x);
-}
+ad_node_t *ad_var(int n_row, int n_col, const float *x, float *g) { return ad_new_core(AD_OP_VAR, n_row, n_col, 0, x, g); }
+ad_node_t *ad_param(int n_row, int n_col, const float *x) { return ad_new_core(AD_OP_PARAM, n_row, n_col, 0, x, 0); }
 
 static inline ad_node_t *ad_op2_core(int op, int n_row, int n_col, ad_node_t *x, ad_node_t *y)
 {
 	ad_node_t *s;
-	s = ad_new_core(op, n_row, n_col, 2, 0);
+	s = ad_new_core(op, n_row, n_col, 2, 0, 0);
 	s->child[0] = x, s->child[1] = y;
 	return s;
 }
@@ -66,7 +60,7 @@ AD_FUNC_OP2(ad_dot, AD_OP_DOT, (x->n_row != y->n_row || x->n_col != y->n_col), 1
 static inline ad_node_t *ad_op1_core(int op, int n_row, int n_col, ad_node_t *x)
 {
 	ad_node_t *s;
-	s = ad_new_core(op, n_row, n_col, 1, 0);
+	s = ad_new_core(op, n_row, n_col, 1, 0, 0);
 	s->child[0] = x;
 	return s;
 }
@@ -92,12 +86,25 @@ AD_FUNC_OP1(ad_sigm, AD_OP_SIGM, x->n_row, x->n_col)
 		*(p) = &(v).a[(v).n++]; \
 	} while (0)
 
+#define AD_DT_NULL    0  // not computed
+#define AD_DT_IDEN    1  // identity matrix
+#define AD_DT_ROWVEC  2  // row vector
+#define AD_DT_MAT     3  // normal matrix
+#define AD_DT_DIAG    4  // diagonal matrix
+#define AD_DT_OUTVEC  5  // (I) x (v)^T
+
+typedef struct {
+	int type, n_row, n_col;
+	float *d;
+} ad_edge_t;
+
 typedef struct {
 	int op, n_operand, n_row, n_col;
 	union {
 		const float *cx;
 		float *x;
 	} _;
+	ad_edge_t e;
 } ad_expr1_t;
 
 struct ad_expr_t {
@@ -127,14 +134,15 @@ ad_expr_t *ad_expr_compile(ad_node_t *root)
 			q->op = t->p->op;
 			q->n_operand = t->p->n_child;
 			q->n_row = t->p->n_row, q->n_col = t->p->n_col;
-			q->_.cx = t->p->x;
+			if (q->op < 0) q->_.cx = t->p->x;
+			else q->_.x = (float*)calloc(q->n_row * q->n_col, sizeof(float));
 			free(t->p->child);
 			free(t->p);
 			--stack.n;
 		} else {
 			kv_pushp(ad_tnode_t, stack, &p);
-			p->p = t->p->child[t->n], p->n = 0;
-			++t->n;
+			t = &stack.a[stack.n-2]; // push may change the whole stack.a array and ofc t
+			p->p = t->p->child[t->n++], p->n = 0;
 		}
 	}
 	free(stack.a);
@@ -164,3 +172,17 @@ void ad_expr_debug(const ad_expr_t *e)
 	}
 	putchar('\n');
 }
+
+/************
+ * Autodiff *
+ ************/
+/*
+const float *ad_expr_forward(ad_expr_t *e)
+{
+	kvec_t(ad_expr1_t) stack = {0,0,0};
+	int32_t i;
+	for (i = 0; i < e->n; ++i) {
+	}
+	return e->a[e->n-1]._.x;
+}
+*/
