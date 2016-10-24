@@ -398,8 +398,7 @@ void ad_backward(int n, ad_node_t **a)
 			} else if (e->dtype == AD_DT_NEGIDEN) {
 				ad_vec_saxpy(p->n_row, -1.0f, p->d, e->p->d);
 			} else if (e->dtype == AD_DT_DIAG) {
-				for (k = 0; k < p->n_row; ++k)
-					e->p->d[k] += p->d[k] * e->z[k];
+				ad_vec_elem_mul(p->n_row, p->d, e->z, e->p->d);
 			} else if (e->dtype == AD_DT_OUTVEC) {
 				for (k = 0; k < p->n_row; ++k)
 					ad_vec_saxpy(e->p->n_col, p->d[k], e->z, e->p->d + k * e->p->n_col);
