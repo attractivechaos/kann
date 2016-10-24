@@ -167,7 +167,7 @@ void ad_op_mmul(ad_node_t *p)
 
 void ad_op_smul(ad_node_t *p) {}
 void ad_op_dot(ad_node_t *p) {}
-void ad_op_ediv(ad_node_t *p) {}
+void ad_op_div(ad_node_t *p) {}
 void ad_op_ce(ad_node_t *p) {}
 
 void ad_op_norm2(ad_node_t *p)
@@ -211,7 +211,7 @@ static ad_op_f ad_op_list[] = {
 	ad_op_mmul,    // 4: matrix product
 	ad_op_smul,    // 5: scalar-to-matrix product
 	ad_op_dot,     // 6: vector dot/inner product
-	ad_op_ediv,    // 7: element-wise division
+	ad_op_div,     // 7: element-wise division
 	ad_op_ce,      // 8: cross-entropy
 	ad_op_norm2,   // 9: x^T x
 	ad_op_sigm     // 10: element-wise sigmoind function
@@ -374,6 +374,8 @@ void ad_backward(int n, ad_node_t **a)
 			if (!e->p->to_back) continue;
 			if (e->dtype == AD_DT_IDEN) {
 				ad_vec_saxpy(p->n_row, 1.0f, p->d, e->p->d);
+			} else if (e->dtype == AD_DT_NEGIDEN) {
+				ad_vec_saxpy(p->n_row, -1.0f, p->d, e->p->d);
 			} else if (e->dtype == AD_DT_DIAG) {
 				for (k = 0; k < p->n_row; ++k)
 					e->p->d[k] += p->d[k] * e->z[k];
