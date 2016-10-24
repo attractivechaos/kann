@@ -3,34 +3,51 @@
 
 #include <stdint.h>
 
-struct ad_node_t;
-typedef struct ad_node_t ad_node_t;
+#define AD_DT_IDEN    1  // identity matrix
+#define AD_DT_NEGIDEN 2  // negative identity matrix
+#define AD_DT_DIAG    3  // diagonal matrix
+#define AD_DT_OUTVEC  4  // (I) x (v)^T
+#define AD_DT_ROWVEC  5  // row vector
+#define AD_DT_MAT     6  // normal matrix
 
-struct ad_expr_t;
-typedef struct ad_expr_t ad_expr_t;
+struct ad_node_t;
+
+typedef struct {
+	int dtype;
+	struct ad_node_t *p;
+	float *z;
+} ad_edge_t;
+
+typedef struct ad_node_t {
+	int n_row, n_col, op;
+	int n_child, to_back;
+	int cnt; // used for topological sorting
+	union {
+		const float *cx;
+		float *x;
+	} _;
+	float *d;
+	ad_edge_t *child;
+} ad_node_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-ad_node_t *ad_var(int n_row, int n_col, const float *x);
+ad_node_t *ad_var(int n_row, int n_col, const float *x, float *d);
 ad_node_t *ad_param(int n_row, int n_col, const float *x);
 
 ad_node_t *ad_add(ad_node_t *x, ad_node_t *y);
 ad_node_t *ad_sub(ad_node_t *x, ad_node_t *y);
-ad_node_t *ad_hmul(ad_node_t *x, ad_node_t *y);
 ad_node_t *ad_mul(ad_node_t *x, ad_node_t *y);
-ad_node_t *ad_smul(ad_node_t *x, ad_node_t *y);
-ad_node_t *ad_dot(ad_node_t *x, ad_node_t *y);
+ad_node_t *ad_mmul(ad_node_t *x, ad_node_t *y);
 
-ad_node_t *ad_square(ad_node_t *x);
+ad_node_t *ad_norm2(ad_node_t *x);
 ad_node_t *ad_sigm(ad_node_t *x);
 
-ad_expr_t *ad_expr_compile(ad_node_t *root);
-void ad_expr_destroy(ad_expr_t *e);
-void ad_expr_debug(const ad_expr_t *e);
-const float *ad_expr_forward(ad_expr_t *e);
-void ad_expr_backward(ad_expr_t *e);
+ad_node_t **ad_compile(ad_node_t *root, int *n_node);
+float ad_eval(int n, ad_node_t **a);
+void ad_free(int n, ad_node_t **a);
 
 #ifdef __cplusplus
 }

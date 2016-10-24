@@ -1,187 +1,399 @@
 #include <stdlib.h>
+#include <string.h>
+#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include "autodiff.h"
 
-#define AD_OP_PARAM    -2
-#define AD_OP_VAR      -1
-#define AD_OP_NULL     0
-#define AD_OP_ADD      1
-#define AD_OP_SUB      2
-#define AD_OP_MUL      3   // matrix product
-#define AD_OP_SMUL     4   // scalar-matrix product
-#define AD_OP_HMUL     5   // Hadamard product
-#define AD_OP_DOT      6   // vector dot (inner product)
-#define AD_OP_SQUARE   101
-#define AD_OP_SIGM     102
-
 /***************************
- * Expression construction *
+ * Basic vector operations *
  ***************************/
 
-struct ad_node_t {
-	int n_row, n_col;
-	int n_child, op;
-	const float *x;
-	struct ad_node_t **child;
+#define kvec_t(type) struct { size_t n, m; type *a; }
+
+#define kv_pop(v) ((v).a[--(v).n])
+
+#define kv_push(type, v, x) do { \
+		if ((v).n == (v).m) { \
+			(v).m = (v).m? (v).m<<1 : 2; \
+			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m); \
+		} \
+		(v).a[(v).n++] = (x); \
+	} while (0)
+
+/*********************
+ * Vector operations *
+ *********************/
+
+#ifdef __SSE__
+#include <xmmintrin.h>
+
+float ad_vec_sdot(int n, const float *x, const float *y)
+{
+	int i, n8 = n>>3<<3;
+	__m128 vs1, vs2;
+	float s, t[4];
+	vs1 = _mm_setzero_ps();
+	vs2 = _mm_setzero_ps();
+	for (i = 0; i < n8; i += 8) {
+		__m128 vx1, vx2, vy1, vy2;
+		vx1 = _mm_loadu_ps(&x[i]);
+		vx2 = _mm_loadu_ps(&x[i+4]);
+		vy1 = _mm_loadu_ps(&y[i]);
+		vy2 = _mm_loadu_ps(&y[i+4]);
+		vs1 = _mm_add_ps(vs1, _mm_mul_ps(vx1, vy1));
+		vs2 = _mm_add_ps(vs2, _mm_mul_ps(vx2, vy2));
+	}
+	for (s = 0.; i < n; ++i) s += x[i] * y[i];
+	_mm_storeu_ps(t, vs1);
+	s += t[0] + t[1] + t[2] + t[3];
+	_mm_storeu_ps(t, vs2);
+	s += t[0] + t[1] + t[2] + t[3];
+	return s;
+}
+void ad_vec_saxpy(int n, float a, const float *x, float *y)
+{
+	int i, n8 = n>>3<<3;
+	__m128 va;
+	va = _mm_set1_ps(a);
+	for (i = 0; i < n8; i += 8) {
+		__m128 vx1, vx2, vy1, vy2, vt1, vt2;
+		vx1 = _mm_loadu_ps(&x[i]);
+		vx2 = _mm_loadu_ps(&x[i+4]);
+		vy1 = _mm_loadu_ps(&y[i]);
+		vy2 = _mm_loadu_ps(&y[i+4]);
+		vt1 = _mm_add_ps(_mm_mul_ps(va, vx1), vy1);
+		vt2 = _mm_add_ps(_mm_mul_ps(va, vx2), vy2);
+		_mm_storeu_ps(&y[i], vt1);
+		_mm_storeu_ps(&y[i+4], vt2);
+	}
+	for (; i < n; ++i) y[i] += a * x[i];
+}
+#else
+void ad_vec_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
+{
+	int i;
+	for (i = 0; i < n; ++i) y[i] += a * x[i];
+}
+float ad_vec_sdot(int n, const float *x, const float *y) // BLAS sdot
+{
+	int i;
+	float s = 0.;
+	for (i = 0; i < n; ++i) s += x[i] * y[i];
+	return s;
+}
+#endif
+
+void ad_vec_elem_mul(int n, const float *x, const float *y, float *z)
+{
+	int i;
+	for (i = 0; i < n; ++i) z[i] += x[i] * y[i];
+}
+
+/*************
+ * Operators *
+ *************/
+
+typedef void (*ad_op_f)(struct ad_node_t*);
+
+void ad_op_add(ad_node_t *p)
+{
+	ad_edge_t *e[2];
+	assert(p->n_col == 1);
+	e[0] = &p->child[0];
+	e[1] = &p->child[1];
+	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
+	memcpy(p->_.x, e[0]->p->_.x, p->n_row * sizeof(float));
+	ad_vec_saxpy(p->n_row, 1.0f, e[1]->p->_.x, p->_.x);
+	if (e[0]->p->to_back) e[0]->dtype = AD_DT_IDEN;
+	if (e[1]->p->to_back) e[1]->dtype = AD_DT_IDEN;
+}
+
+void ad_op_sub(ad_node_t *p)
+{
+	ad_edge_t *e[2];
+	assert(p->n_col == 1);
+	e[0] = &p->child[0];
+	e[1] = &p->child[1];
+	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
+	memcpy(p->_.x, e[0]->p->_.x, p->n_row * sizeof(float));
+	ad_vec_saxpy(p->n_row, -1.0f, e[1]->p->_.x, p->_.x);
+	if (e[0]->p->to_back) e[0]->dtype = AD_DT_IDEN;
+	if (e[1]->p->to_back) e[1]->dtype = AD_DT_NEGIDEN;
+}
+
+void ad_op_mul(ad_node_t *p)
+{
+	ad_edge_t *e[2];
+	assert(p->n_col == 1);
+	e[0] = &p->child[0];
+	e[1] = &p->child[1];
+	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
+	memset(p->_.x, 0, p->n_row * sizeof(float));
+	ad_vec_elem_mul(p->n_row, e[0]->p->_.x, e[1]->p->_.x, p->_.x);
+	if (e[0]->p->to_back) {
+		e[0]->dtype = AD_DT_DIAG;
+		e[0]->z = (float*)realloc(e[0]->z, p->n_row * sizeof(float));
+		memcpy(e[0]->z, e[1]->p->_.x, p->n_row * sizeof(float));
+	}
+	if (e[1]->p->to_back) {
+		e[1]->dtype = AD_DT_DIAG;
+		e[1]->z = (float*)realloc(e[1]->z, p->n_row * sizeof(float));
+		memcpy(e[1]->z, e[0]->p->_.x, p->n_row * sizeof(float));
+	}
+}
+
+void ad_op_mmul(ad_node_t *p)
+{
+	int i, k;
+	ad_edge_t *e[2];
+	assert(p->n_col == 1);
+	e[0] = &p->child[0];
+	e[1] = &p->child[1];
+	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
+	for (i = k = 0; i < p->n_row; ++i, k += e[0]->p->n_col)
+		p->_.x[i] = ad_vec_sdot(e[0]->p->n_col, e[0]->p->_.x + k, e[1]->p->_.x);
+	if (e[0]->p->to_back) {
+		e[0]->dtype = AD_DT_OUTVEC;
+		e[0]->z = (float*)realloc(e[0]->z, e[1]->p->n_row * sizeof(float));
+		memcpy(e[0]->z, e[1]->p->_.x, e[1]->p->n_row * sizeof(float));
+	}
+	if (e[1]->p->to_back) {
+		e[1]->dtype = AD_DT_MAT;
+		e[1]->z = (float*)realloc(e[1]->z, e[0]->p->n_row * e[1]->p->n_col * sizeof(float));
+		memcpy(e[1]->z, e[0]->p->_.x, e[0]->p->n_row * e[1]->p->n_col * sizeof(float));
+	}
+}
+
+void ad_op_smul(ad_node_t *p) {}
+void ad_op_dot(ad_node_t *p) {}
+void ad_op_ediv(ad_node_t *p) {}
+void ad_op_ce(ad_node_t *p) {}
+
+void ad_op_norm2(ad_node_t *p)
+{
+	ad_edge_t *e;
+	assert(p->n_col == 1);
+	e = &p->child[0];
+	p->_.x = (float*)realloc(p->_.x, sizeof(float));
+	p->_.x[0] = ad_vec_sdot(e->p->n_row, e->p->_.x, e->p->_.x);
+	if (e->p->to_back) {
+		e->dtype = AD_DT_ROWVEC;
+		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
+		memcpy(e->z, e->p->_.x, e->p->n_row);
+		ad_vec_saxpy(e->p->n_row, 1.0f, e->p->_.x, e->z);
+	}
+}
+
+void ad_op_sigm(ad_node_t *p)
+{
+	int i;
+	ad_edge_t *e;
+	assert(p->n_col == 1);
+	e = &p->child[0];
+	if (e->p->to_back) {
+		e->dtype = AD_DT_DIAG;
+		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
+	}
+	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
+	for (i = 0; i < p->n_row; ++i) {
+		float y, x = e->p->_.x[i];
+		p->_.x[i] = y = 1.0f / (1.0f + expf(x));
+		if (e->z) e->z[i] = y * (1.0f - y);
+	}
+}
+
+static ad_op_f ad_op_list[] = {
+	0,
+	ad_op_add,     // 1: addition
+	ad_op_sub,     // 2: subtraction
+	ad_op_mul,     // 3: element-wise product
+	ad_op_mmul,    // 4: matrix product
+	ad_op_smul,    // 5: scalar-to-matrix product
+	ad_op_dot,     // 6: vector dot/inner product
+	ad_op_ediv,    // 7: element-wise division
+	ad_op_ce,      // 8: cross-entropy
+	ad_op_norm2,   // 9: x^T x
+	ad_op_sigm     // 10: element-wise sigmoind function
 };
 
-static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x)
+/**********************
+ * Graph construction *
+ **********************/
+
+static inline ad_node_t *ad_new_core(int op, int n_row, int n_col, int n_child, const float *x, float *d)
 {
 	ad_node_t *s;
 	s = (ad_node_t*)calloc(1, sizeof(ad_node_t));
-	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->x = x;
-	if (s->n_child) s->child = (ad_node_t**)calloc(s->n_child, sizeof(ad_node_t*));
+	s->op = op, s->n_row = n_row, s->n_col = n_col, s->n_child = n_child, s->_.cx = x, s->d = d;
+	if (s->n_child) s->child = (ad_edge_t*)calloc(s->n_child, sizeof(ad_edge_t));
+	if (d) s->to_back = 1;
 	return s;
 }
 
-ad_node_t *ad_var(int n_row, int n_col, const float *x) { return ad_new_core(AD_OP_VAR, n_row, n_col, 0, x); }
-ad_node_t *ad_param(int n_row, int n_col, const float *x) { return ad_new_core(AD_OP_PARAM, n_row, n_col, 0, x); }
+ad_node_t *ad_var(int n_row, int n_col, const float *x, float *d) { return ad_new_core(0, n_row, n_col, 0, x, d); }
+ad_node_t *ad_param(int n_row, int n_col, const float *x) { return ad_new_core(0, n_row, n_col, 0, x, 0); }
 
 static inline ad_node_t *ad_op2_core(int op, int n_row, int n_col, ad_node_t *x, ad_node_t *y)
 {
 	ad_node_t *s;
-	s = ad_new_core(op, n_row, n_col, 2, 0);
-	s->child[0] = x, s->child[1] = y;
+	s = ad_new_core(op, n_row, n_col, 2, 0, 0);
+	s->child[0].p = x, s->child[1].p = y;
 	return s;
 }
 
 #define AD_FUNC_OP2(fname, op, cond, _row, _col) \
 	ad_node_t *fname(ad_node_t *x, ad_node_t *y) { return (cond)? 0 : ad_op2_core((op), (_row), (_col), x, y); }
 
-AD_FUNC_OP2(ad_add, AD_OP_ADD, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
-AD_FUNC_OP2(ad_sub, AD_OP_SUB, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
-AD_FUNC_OP2(ad_hmul, AD_OP_HMUL, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
-AD_FUNC_OP2(ad_mul, AD_OP_MUL, (x->n_col != y->n_row), x->n_row, y->n_col)
-AD_FUNC_OP2(ad_smul, AD_OP_SMUL, (x->n_row == 1 && x->n_col == 1), y->n_row, y->n_col)
-AD_FUNC_OP2(ad_dot, AD_OP_DOT, (x->n_row != y->n_row || x->n_col != y->n_col), 1, x->n_col)
+AD_FUNC_OP2(ad_add, 1, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
+AD_FUNC_OP2(ad_sub, 2, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
+AD_FUNC_OP2(ad_mul, 3, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
+AD_FUNC_OP2(ad_mmul, 4, (x->n_col != y->n_row), x->n_row, y->n_col)
+//AD_FUNC_OP2(ad_smul, 5, (x->n_row == 1 && x->n_col == 1), y->n_row, y->n_col)
+//AD_FUNC_OP2(ad_dot, 6, (x->n_row != y->n_row || x->n_col != y->n_col), 1, x->n_col)
+//AD_FUNC_OP2(ad_ediv, 7, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
 
 static inline ad_node_t *ad_op1_core(int op, int n_row, int n_col, ad_node_t *x)
 {
 	ad_node_t *s;
-	s = ad_new_core(op, n_row, n_col, 1, 0);
-	s->child[0] = x;
+	s = ad_new_core(op, n_row, n_col, 1, 0, 0);
+	s->child[0].p = x;
 	return s;
 }
 
 #define AD_FUNC_OP1(fname, op, _row, _col) \
 	ad_node_t *fname(ad_node_t *x) { return ad_op1_core((op), (_row), (_col), x); }
 
-AD_FUNC_OP1(ad_square, AD_OP_SQUARE, 1, x->n_col)
-AD_FUNC_OP1(ad_sigm, AD_OP_SIGM, x->n_row, x->n_col)
+AD_FUNC_OP1(ad_norm2, 9, 1, x->n_col)
+AD_FUNC_OP1(ad_sigm, 10, x->n_row, x->n_col)
 
-/**************************
- * Expression compilation *
- **************************/
+/*******************
+ * Graph traversal *
+ *******************/
 
-#define kvec_t(type) struct { size_t n, m; type *a; }
+typedef struct ad_node_t *ad_node_p;
 
-#define kv_pop(v) ((v).a[--(v).n])
-#define kv_pushp(type, v, p) do { \
-		if ((v).n == (v).m) { \
-			(v).m = (v).m? (v).m<<1 : 2; \
-			(v).a = (type*)realloc((v).a, sizeof(type) * (v).m); \
-		} \
-		*(p) = &(v).a[(v).n++]; \
-	} while (0)
-
-#define AD_DT_NULL    0  // not computed
-#define AD_DT_IDEN    1  // identity matrix
-#define AD_DT_ROWVEC  2  // row vector
-#define AD_DT_MAT     3  // normal matrix
-#define AD_DT_DIAG    4  // diagonal matrix
-#define AD_DT_OUTVEC  5  // (I) x (v)^T
-
-typedef struct {
-	int type, n_row, n_col;
-	float *z;
-} ad_edge_t;
-
-typedef struct {
-	int op, n_operand, n_row, n_col;
-	union {
-		const float *cx;
-		float *x;
-	} _;
-	ad_edge_t e;
-} ad_expr1_t;
-
-struct ad_expr_t {
-	int32_t n;
-	ad_expr1_t *a;
-};
-
-typedef struct {
-	ad_node_t *p;
-	int n;
-} ad_tnode_t;
-
-ad_expr_t *ad_expr_compile(ad_node_t *root)
+ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 {
-	kvec_t(ad_tnode_t) stack = {0,0,0};
-	kvec_t(ad_expr1_t) expr = {0,0,0};
-	ad_tnode_t *p;
-	ad_expr1_t *q;
-	ad_expr_t *e;
+	int i, j;
+	kvec_t(ad_node_p) stack = {0,0,0}, a = {0,0,0};
 
-	kv_pushp(ad_tnode_t, stack, &p);
-	p->p = root, p->n = 0;
+	// generate ad_node_t::cnt
+	kv_push(ad_node_p, stack, root);
 	while (stack.n) {
-		ad_tnode_t *t = &stack.a[stack.n-1];
-		if (t->n == t->p->n_child) {
-			kv_pushp(ad_expr1_t, expr, &q);
-			q->op = t->p->op;
-			q->n_operand = t->p->n_child;
-			q->n_row = t->p->n_row, q->n_col = t->p->n_col;
-			if (q->op < 0) q->_.cx = t->p->x;
-			else q->_.x = (float*)calloc(q->n_row * q->n_col, sizeof(float));
-			free(t->p->child);
-			free(t->p);
-			--stack.n;
-		} else {
-			kv_pushp(ad_tnode_t, stack, &p);
-			t = &stack.a[stack.n-2]; // push may change the whole stack.a array and ofc t
-			p->p = t->p->child[t->n++], p->n = 0;
+		ad_node_t *p = kv_pop(stack);
+		for (i = 0; i < p->n_child; ++i) {
+			ad_node_t *q = p->child[i].p;
+			if (q->cnt == 0) kv_push(ad_node_p, stack, q);
+			++q->cnt;
 		}
 	}
+	// topological sorting (Kahn's algorithm)
+	kv_push(ad_node_p, stack, root);
+	while (stack.n) {
+		ad_node_t *p = kv_pop(stack);
+		kv_push(ad_node_p, a, p);
+		for (i = 0; i < p->n_child; ++i)
+			if (--p->child[i].p->cnt == 0)
+				kv_push(ad_node_p, stack, p->child[i].p);
+	}
 	free(stack.a);
-	e = (ad_expr_t*)calloc(1, sizeof(ad_expr_t));
-	e->n = expr.n;
-	e->a = expr.a;
-	return e;
+	// reverse a
+	for (i = 0; i < a.n>>1; ++i) {
+		ad_node_p t;
+		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
+	}
+	// check cycles
+	for (i = 0; i < a.n; ++i)
+		if (a.a[i]->cnt != 0) break;
+	if (i < a.n) {
+		*n_node = 0;
+		free(a.a);
+		return 0;
+	}
+	// decide which edges to backward
+	for (i = 0; i < a.n; ++i) {
+		ad_node_p p = a.a[i];
+		for (j = 0; j < p->n_child; ++j)
+			if (p->child[j].p->to_back) break;
+		if (j < p->n_child) p->to_back = 1;
+	}
+	*n_node = a.n;
+	return a.a;
 }
 
-void ad_expr_destroy(ad_expr_t *e)
+void ad_free(int n, ad_node_t **a)
 {
-	int32_t i;
-	for (i = 0; i < e->n; ++i) {
-		if (e->a[i].op > 0)
-			free(e->a[i]._.x);
+	int i, j;
+	for (i = 0; i < n; ++i) {
+		for (j = 0; j < a[i]->n_child; ++j)
+			free(a[i]->child[j].z);
+		if (a[i]->n_child) {
+			free(a[i]->_.x);
+			free(a[i]->d);
+		}
+		free(a[i]->child);
 	}
-	free(e->a);
-	free(e);
+	free(a);
 }
 
-void ad_expr_debug(const ad_expr_t *e)
+/*****************************
+ * Automatic differentiation *
+ *****************************/
+
+float ad_forward(int n, ad_node_t **a)
 {
-	int32_t i;
-	for (i = 0; i < e->n; ++i) {
-		if (i > 0) printf(" ");
-		printf("%d,%d", e->a[i].op, e->a[i].n_operand);
+	int i;
+	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+	for (i = 0; i < n; ++i) {
+		ad_node_t *p = a[i];
+		if (p->n_child == 0) continue;
+		ad_op_list[p->op](p);
 	}
-	putchar('\n');
+	return a[n-1]->_.x[0];
 }
 
-/************
- * Autodiff *
- ************/
-/*
-const float *ad_expr_forward(ad_expr_t *e)
+void ad_backward(int n, ad_node_t **a)
 {
-	kvec_t(ad_expr1_t) stack = {0,0,0};
-	int32_t i;
-	for (i = 0; i < e->n; ++i) {
+	int i, j, k;
+	// TODO: special-casing single-var/param expression; for now, it's not working
+	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+	// allocate the gradient array if necessary and zero
+	for (i = 0; i < n; ++i) 
+		if (a[i]->to_back && a[i]->n_child) {
+			a[i]->d = (float*)realloc(a[i]->d, a[i]->n_row * a[i]->n_col * sizeof(float));
+			memset(a[i]->d, 0, a[i]->n_row * a[i]->n_col * sizeof(float));
+		}
+	// backprop
+	a[n-1]->d[0] = 1.0f;
+	for (i = n - 1; i >= 0; --i) {
+		ad_node_t *p = a[i];
+		if (p->n_child == 0) continue;
+		for (j = 0; j < p->n_child; ++j) {
+			ad_edge_t *e = &p->child[j];
+			if (!e->p->to_back) continue;
+			if (e->dtype == AD_DT_IDEN) {
+				ad_vec_saxpy(p->n_row, 1.0f, p->d, e->p->d);
+			} else if (e->dtype == AD_DT_DIAG) {
+				for (k = 0; k < p->n_row; ++k)
+					e->p->d[k] += p->d[k] * e->z[k];
+			} else if (e->dtype == AD_DT_OUTVEC) {
+				for (k = 0; k < p->n_row; ++k)
+					ad_vec_saxpy(e->p->n_col, p->d[k], e->z, e->p->d + k * e->p->n_col);
+			} else if (e->dtype == AD_DT_ROWVEC) {
+				assert(p->n_row == 1);
+				ad_vec_saxpy(e->p->n_row, p->d[0], e->z, e->p->d);
+			} else {
+				assert(0);
+			}
+		}
 	}
-	return e->a[e->n-1]._.x;
 }
-*/
+
+float ad_eval(int n, ad_node_t **a)
+{
+	float fret;
+	fret = ad_forward(n, a);
+	ad_backward(n, a);
+	return fret;
+}
