@@ -180,7 +180,7 @@ void ad_op_norm2(ad_node_t *p)
 	if (e->p->to_back) {
 		e->dtype = AD_DT_ROWVEC;
 		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
-		memcpy(e->z, e->p->_.x, e->p->n_row);
+		memcpy(e->z, e->p->_.x, e->p->n_row * sizeof(float));
 		ad_vec_saxpy(e->p->n_row, 1.0f, e->p->_.x, e->z);
 	}
 }
@@ -203,6 +203,25 @@ void ad_op_sigm(ad_node_t *p)
 	}
 }
 
+void ad_op_tanh(ad_node_t *p)
+{
+	int i;
+	ad_edge_t *e;
+	assert(p->n_col == 1);
+	e = &p->child[0];
+	if (e->p->to_back) {
+		e->dtype = AD_DT_DIAG;
+		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
+	}
+	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
+	for (i = 0; i < p->n_row; ++i) {
+		float y, x = e->p->_.x[i];
+		y = expf(2.0f * x);
+		p->_.x[i] = y = (1.0f - y) / (1.0f + y);
+		if (e->z) e->z[i] = 1.0f - y * y;
+	}
+}
+
 static ad_op_f ad_op_list[] = {
 	0,
 	ad_op_add,     // 1: addition
@@ -214,7 +233,8 @@ static ad_op_f ad_op_list[] = {
 	ad_op_div,     // 7: element-wise division
 	ad_op_ce,      // 8: cross-entropy
 	ad_op_norm2,   // 9: x^T x
-	ad_op_sigm     // 10: element-wise sigmoind function
+	ad_op_sigm,    // 10: element-wise sigmoind function
+	ad_op_tanh     // 11: tanh
 };
 
 /**********************
@@ -266,6 +286,7 @@ static inline ad_node_t *ad_op1_core(int op, int n_row, int n_col, ad_node_t *x)
 
 AD_FUNC_OP1(ad_norm2, 9, 1, x->n_col)
 AD_FUNC_OP1(ad_sigm, 10, x->n_row, x->n_col)
+AD_FUNC_OP1(ad_tanh, 11, x->n_row, x->n_col)
 
 /*******************
  * Graph traversal *
