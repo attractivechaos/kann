@@ -39,7 +39,8 @@ AD_FUNC_OP2(ad_mul, 3, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row,
 AD_FUNC_OP2(ad_mmul, 4, (x->n_col != y->n_row), x->n_row, y->n_col)
 //AD_FUNC_OP2(ad_smul, 5, (x->n_row == 1 && x->n_col == 1), y->n_row, y->n_col)
 //AD_FUNC_OP2(ad_dot, 6, (x->n_row != y->n_row || x->n_col != y->n_col), 1, x->n_col)
-//AD_FUNC_OP2(ad_ediv, 7, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
+//AD_FUNC_OP2(ad_div, 7, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
+AD_FUNC_OP2(ad_ce2, 8, (x->n_row != y->n_row || x->n_col != y->n_col), 1, y->n_col)
 
 static inline ad_node_t *ad_op1_core(int op, int n_row, int n_col, ad_node_t *x)
 {
@@ -148,7 +149,7 @@ void ad_vec_elem_mul(int n, const float *x, const float *y, float *z);
 
 typedef void (*ad_op_f)(struct ad_node_t*);
 
-static ad_op_f ad_op_list[]; // actual operators are defined and implemented at the end of this source file
+static ad_op_f ad_op_list[]; // actual operators are defined and implemented at the bottom of this source file
 
 float ad_forward(int n, ad_node_t **a)
 {
@@ -353,7 +354,32 @@ void ad_op_mmul(ad_node_t *p)
 void ad_op_smul(ad_node_t *p) {}
 void ad_op_dot(ad_node_t *p) {}
 void ad_op_div(ad_node_t *p) {}
-void ad_op_ce(ad_node_t *p) {}
+
+void ad_op_ce2(ad_node_t *p)
+{
+	ad_edge_t *e[2];
+	int i;
+	const float *x, *y;
+	double s;
+
+	e[0] = &p->child[0], e[1] = &p->child[1];
+	assert(p->n_col == 1 && e[1]->p->to_back == 0);
+	x = e[0]->p->_.x, y = e[1]->p->_.x;
+	p->_.x = (float*)realloc(p->_.x, sizeof(float));
+	if (e[0]->p->to_back) {
+		e[0]->dtype = AD_DT_ROWVEC;
+		e[0]->z = (float*)realloc(e[0]->z, e[0]->p->n_row * sizeof(float));
+	}
+	for (i = 0, s = 0.0; i < e[0]->p->n_row; ++i) {
+		float t;
+		t = 1.0f + expf(-x[i]);
+		if (e[0]->p->to_back) e[0]->z[i] = 1.0f / t - y[i];
+		t = logf(t);
+		if (y[i] != 0.0f) s += y[i] * t;
+		if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
+	}
+	p->_.x[0] = s;
+}
 
 void ad_op_norm2(ad_node_t *p)
 {
@@ -416,7 +442,7 @@ static ad_op_f ad_op_list[] = {
 	ad_op_smul,    // 5: scalar-to-matrix product
 	ad_op_dot,     // 6: vector dot/inner product
 	ad_op_div,     // 7: element-wise division
-	ad_op_ce,      // 8: cross-entropy
+	ad_op_ce2,     // 8: binary cross-entropy: F(x,y) = \sum_i -y_i*log(f(x_i)) - (1-y_i)*log(1-f(x_i)); f() is sigmoid
 	ad_op_norm2,   // 9: ||x|| = x^T x
 	ad_op_sigm,    // 10: element-wise sigmoind function
 	ad_op_tanh     // 11: tanh
