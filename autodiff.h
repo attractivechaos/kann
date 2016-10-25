@@ -3,12 +3,12 @@
 
 #include <stdint.h>
 
-#define AD_DT_IDEN    1  // identity matrix
-#define AD_DT_NEGIDEN 2  // negative identity matrix
-#define AD_DT_DIAG    3  // diagonal matrix
-#define AD_DT_VEC     4
-#define AD_DT_OUTMAT  5  // I x A^T
-#define AD_DT_MATOUT  6  // A x I
+#define AD_DT_IDEN    1  // identity matrix: I
+#define AD_DT_NEGIDEN 2  // negative identity matrix: -I
+#define AD_DT_DIAG    3  // diagonal matrix: diag()
+#define AD_DT_VEC     4  // a vector, not a matrix
+#define AD_DT_OUTMAT  5  // I x A, where "x" denotes Kronecker product
+//#define AD_DT_MATOUT  6  // A x I; not implemented yet
 
 struct ad_node_t;
 

@@ -144,7 +144,6 @@ void ad_free(int n, ad_node_t **a)
  *****************************/
 
 void ad_vec_saxpy(int n, float a, const float *x, float *y); // BLAS saxpy
-float ad_vec_sdot(int n, const float *x, const float *y); // BLAS sdot
 void ad_vec_elem_mul(int n, const float *x, const float *y, float *z);
 
 typedef void (*ad_op_f)(struct ad_node_t*);
