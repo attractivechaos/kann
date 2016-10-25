@@ -358,19 +358,20 @@ void ad_op_div(ad_node_t *p) {}
 void ad_op_ce2(ad_node_t *p)
 {
 	ad_edge_t *e[2];
-	int i;
+	int i, n;
 	const float *x, *y;
 	double s;
 
+	assert(p->child[1].p->to_back == 0); // child[1] is the true; we don't backprop this
 	e[0] = &p->child[0], e[1] = &p->child[1];
-	assert(p->n_col == 1 && e[1]->p->to_back == 0);
+	n = e[0]->p->n_row * e[0]->p->n_col;
 	x = e[0]->p->_.x, y = e[1]->p->_.x;
 	p->_.x = (float*)realloc(p->_.x, sizeof(float));
 	if (e[0]->p->to_back) {
 		e[0]->dtype = AD_DT_ROWVEC;
-		e[0]->z = (float*)realloc(e[0]->z, e[0]->p->n_row * sizeof(float));
+		e[0]->z = (float*)realloc(e[0]->z, n * sizeof(float));
 	}
-	for (i = 0, s = 0.0; i < e[0]->p->n_row; ++i) {
+	for (i = 0, s = 0.0; i < n; ++i) {
 		float t;
 		t = 1.0f + expf(-x[i]);
 		if (e[0]->p->to_back) e[0]->z[i] = 1.0f / t - y[i];
@@ -383,16 +384,15 @@ void ad_op_ce2(ad_node_t *p)
 
 void ad_op_norm2(ad_node_t *p)
 {
-	ad_edge_t *e;
-	assert(p->n_col == 1);
-	e = &p->child[0];
+	ad_edge_t *e = &p->child[0];
+	int n = e->p->n_row * e->p->n_col;
 	p->_.x = (float*)realloc(p->_.x, sizeof(float));
-	p->_.x[0] = ad_vec_sdot(e->p->n_row, e->p->_.x, e->p->_.x);
+	p->_.x[0] = ad_vec_sdot(n, e->p->_.x, e->p->_.x);
 	if (e->p->to_back) {
 		e->dtype = AD_DT_ROWVEC;
-		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
-		memcpy(e->z, e->p->_.x, e->p->n_row * sizeof(float));
-		ad_vec_saxpy(e->p->n_row, 1.0f, e->p->_.x, e->z);
+		e->z = (float*)realloc(e->z, n * sizeof(float));
+		memcpy(e->z, e->p->_.x, n * sizeof(float));
+		ad_vec_saxpy(n, 1.0f, e->p->_.x, e->z);
 	}
 }
 
