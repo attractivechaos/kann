@@ -148,7 +148,7 @@ void ad_vec_elem_mul(int n, const float *x, const float *y, float *z);
 
 typedef void (*ad_op_f)(struct ad_node_t*);
 
-static ad_op_f ad_op_list[]; // actual operators are defined and implemented at the bottom of this source file
+extern ad_op_f ad_op_list[]; // actual operators are defined and implemented at the bottom of this source file
 
 float ad_forward(int n, ad_node_t **a)
 {
@@ -186,7 +186,7 @@ void ad_backward(int n, ad_node_t **a)
 				ad_vec_saxpy(p->n_row, -1.0f, p->d, e->p->d);
 			} else if (e->dtype == AD_DT_DIAG) {
 				ad_vec_elem_mul(p->n_row, p->d, e->z, e->p->d);
-			} else if (e->dtype == AD_DT_OUTMAT) {
+			} else if (e->dtype == AD_DT_MATOUT) {
 				int k, l;
 				for (k = 0; k < p->n_row; ++k)
 					for (l = 0; l < e->p->n_row; ++l)
@@ -355,7 +355,7 @@ void ad_op_mtmul(ad_node_t *p)
 	ad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
 	if (e[1]->p->to_back) {
 		n = e[0]->p->n_row * e[0]->p->n_col;
-		e[1]->dtype = AD_DT_OUTMAT;
+		e[1]->dtype = AD_DT_MATOUT;
 		e[1]->z = (float*)realloc(e[1]->z, n * sizeof(float));
 		memcpy(e[1]->z, e[0]->p->_.x, n * sizeof(float));
 	}
@@ -441,7 +441,7 @@ void ad_op_tanh(ad_node_t *p)
 	}
 }
 
-static ad_op_f ad_op_list[] = {
+ad_op_f ad_op_list[] = {
 	0,
 	ad_op_add,     // 1: addition
 	ad_op_sub,     // 2: subtraction
