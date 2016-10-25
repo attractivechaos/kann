@@ -36,7 +36,7 @@ static inline ad_node_t *ad_op2_core(int op, int n_row, int n_col, ad_node_t *x,
 AD_FUNC_OP2(ad_add, 1, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
 AD_FUNC_OP2(ad_sub, 2, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
 AD_FUNC_OP2(ad_mul, 3, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
-AD_FUNC_OP2(ad_mmul, 4, (x->n_col != y->n_row), x->n_row, y->n_col)
+AD_FUNC_OP2(ad_mtmul, 4, (x->n_col != y->n_col), x->n_row, y->n_row)
 //AD_FUNC_OP2(ad_smul, 5, (x->n_row == 1 && x->n_col == 1), y->n_row, y->n_col)
 //AD_FUNC_OP2(ad_dot, 6, (x->n_row != y->n_row || x->n_col != y->n_col), 1, x->n_col)
 //AD_FUNC_OP2(ad_div, 7, (x->n_row != y->n_row || x->n_col != y->n_col), x->n_row, x->n_col)
@@ -165,8 +165,7 @@ float ad_forward(int n, ad_node_t **a)
 
 void ad_backward(int n, ad_node_t **a)
 {
-	int i, j, k;
-	// TODO: special-casing single-var/param expression; for now, it's not working
+	int i, j;
 	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
 	// allocate the gradient array if necessary and zero
 	for (i = 0; i < n; ++i) 
@@ -188,10 +187,12 @@ void ad_backward(int n, ad_node_t **a)
 				ad_vec_saxpy(p->n_row, -1.0f, p->d, e->p->d);
 			} else if (e->dtype == AD_DT_DIAG) {
 				ad_vec_elem_mul(p->n_row, p->d, e->z, e->p->d);
-			} else if (e->dtype == AD_DT_OUTVEC) {
+			} else if (e->dtype == AD_DT_OUTMAT) {
+				int k, l;
 				for (k = 0; k < p->n_row; ++k)
-					ad_vec_saxpy(e->p->n_col, p->d[k], e->z, e->p->d + k * e->p->n_col);
-			} else if (e->dtype == AD_DT_ROWVEC) {
+					for (l = 0; l < e->p->n_row; ++l)
+						ad_vec_saxpy(e->p->n_col, p->d[k * p->n_col + l], e->z + l * e->p->n_col, e->p->d + k * e->p->n_col);
+			} else if (e->dtype == AD_DT_VEC) {
 				assert(p->n_row == 1);
 				ad_vec_saxpy(e->p->n_row, p->d[0], e->z, e->p->d);
 			} else {
@@ -278,6 +279,21 @@ void ad_vec_elem_mul(int n, const float *x, const float *y, float *z)
 	for (i = 0; i < n; ++i) z[i] += x[i] * y[i];
 }
 
+void ad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
+{
+	static const int x = 16;
+	int i, j;
+	for (i = 0; i < n_a_row; i += x) {
+		for (j = 0; j < n_b_row; j += x) {
+			int ii, ie = n_a_row < i + x? n_a_row : i + x;
+			int jj, je = n_b_row < j + x? n_b_row : j + x;
+			for (ii = i; ii < ie; ++ii)
+				for (jj = j; jj < je; ++jj)
+					c[ii*n_b_row+jj] += ad_vec_sdot(n_col, &a[ii*n_col], &b[jj*n_col]);
+		}
+	}
+}
+
 /*************
  * Operators *
  *************/
@@ -329,25 +345,20 @@ void ad_op_mul(ad_node_t *p)
 	}
 }
 
-void ad_op_mmul(ad_node_t *p)
+void ad_op_mtmul(ad_node_t *p)
 {
-	int i, k;
+	int n = p->n_row * p->n_col;
 	ad_edge_t *e[2];
-	assert(p->n_col == 1);
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
-	for (i = k = 0; i < p->n_row; ++i, k += e[0]->p->n_col)
-		p->_.x[i] = ad_vec_sdot(e[0]->p->n_col, e[0]->p->_.x + k, e[1]->p->_.x);
-	if (e[0]->p->to_back) {
-		e[0]->dtype = AD_DT_OUTVEC;
-		e[0]->z = (float*)realloc(e[0]->z, e[1]->p->n_row * sizeof(float));
-		memcpy(e[0]->z, e[1]->p->_.x, e[1]->p->n_row * sizeof(float));
-	}
+	assert(e[0]->p->to_back == 0);
+	p->_.x = (float*)realloc(p->_.x, n * sizeof(float));
+	ad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
 	if (e[1]->p->to_back) {
-		e[1]->dtype = AD_DT_MAT;
-		e[1]->z = (float*)realloc(e[1]->z, e[0]->p->n_row * e[1]->p->n_col * sizeof(float));
-		memcpy(e[1]->z, e[0]->p->_.x, e[0]->p->n_row * e[1]->p->n_col * sizeof(float));
+		n = e[0]->p->n_row * e[0]->p->n_col;
+		e[1]->dtype = AD_DT_OUTMAT;
+		e[1]->z = (float*)realloc(e[1]->z, n * sizeof(float));
+		memcpy(e[1]->z, e[0]->p->_.x, n * sizeof(float));
 	}
 }
 
@@ -368,7 +379,7 @@ void ad_op_ce2(ad_node_t *p)
 	x = e[0]->p->_.x, y = e[1]->p->_.x;
 	p->_.x = (float*)realloc(p->_.x, sizeof(float));
 	if (e[0]->p->to_back) {
-		e[0]->dtype = AD_DT_ROWVEC;
+		e[0]->dtype = AD_DT_VEC;
 		e[0]->z = (float*)realloc(e[0]->z, n * sizeof(float));
 	}
 	for (i = 0, s = 0.0; i < n; ++i) {
@@ -379,7 +390,7 @@ void ad_op_ce2(ad_node_t *p)
 		if (y[i] != 0.0f) s += y[i] * t;
 		if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
 	}
-	p->_.x[0] = s;
+	p->_.x[0] = s / e[0]->p->n_row;
 }
 
 void ad_op_norm2(ad_node_t *p)
@@ -387,9 +398,9 @@ void ad_op_norm2(ad_node_t *p)
 	ad_edge_t *e = &p->child[0];
 	int n = e->p->n_row * e->p->n_col;
 	p->_.x = (float*)realloc(p->_.x, sizeof(float));
-	p->_.x[0] = ad_vec_sdot(n, e->p->_.x, e->p->_.x);
+	p->_.x[0] = ad_vec_sdot(n, e->p->_.x, e->p->_.x) / e->p->n_row;
 	if (e->p->to_back) {
-		e->dtype = AD_DT_ROWVEC;
+		e->dtype = AD_DT_VEC;
 		e->z = (float*)realloc(e->z, n * sizeof(float));
 		memcpy(e->z, e->p->_.x, n * sizeof(float));
 		ad_vec_saxpy(n, 1.0f, e->p->_.x, e->z);
@@ -436,7 +447,7 @@ static ad_op_f ad_op_list[] = {
 	ad_op_add,     // 1: addition
 	ad_op_sub,     // 2: subtraction
 	ad_op_mul,     // 3: element-wise product
-	ad_op_mmul,    // 4: matrix product
+	ad_op_mtmul,   // 4: matrix product
 	ad_op_smul,    // 5: scalar-to-matrix product
 	ad_op_dot,     // 6: vector dot/inner product
 	ad_op_div,     // 7: element-wise division

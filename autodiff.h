@@ -6,9 +6,9 @@
 #define AD_DT_IDEN    1  // identity matrix
 #define AD_DT_NEGIDEN 2  // negative identity matrix
 #define AD_DT_DIAG    3  // diagonal matrix
-#define AD_DT_OUTVEC  4  // (I) x (v)^T
-#define AD_DT_ROWVEC  5  // row vector
-#define AD_DT_MAT     6  // normal matrix
+#define AD_DT_VEC     4
+#define AD_DT_OUTMAT  5  // I x A^T
+#define AD_DT_MATOUT  6  // A x I
 
 struct ad_node_t;
 
