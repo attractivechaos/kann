@@ -284,48 +284,48 @@ void ad_vec_elem_mul(int n, const float *x, const float *y, float *z)
 
 void ad_op_add(ad_node_t *p)
 {
+	int n = p->n_row * p->n_col;
 	ad_edge_t *e[2];
-	assert(p->n_col == 1);
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
-	memcpy(p->_.x, e[0]->p->_.x, p->n_row * sizeof(float));
-	ad_vec_saxpy(p->n_row, 1.0f, e[1]->p->_.x, p->_.x);
+	p->_.x = (float*)realloc(p->_.x, n * sizeof(float));
+	memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
+	ad_vec_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
 	if (e[0]->p->to_back) e[0]->dtype = AD_DT_IDEN;
 	if (e[1]->p->to_back) e[1]->dtype = AD_DT_IDEN;
 }
 
 void ad_op_sub(ad_node_t *p)
 {
+	int n = p->n_row * p->n_col;
 	ad_edge_t *e[2];
-	assert(p->n_col == 1);
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
-	memcpy(p->_.x, e[0]->p->_.x, p->n_row * sizeof(float));
-	ad_vec_saxpy(p->n_row, -1.0f, e[1]->p->_.x, p->_.x);
+	p->_.x = (float*)realloc(p->_.x, n * sizeof(float));
+	memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
+	ad_vec_saxpy(n, -1.0f, e[1]->p->_.x, p->_.x);
 	if (e[0]->p->to_back) e[0]->dtype = AD_DT_IDEN;
 	if (e[1]->p->to_back) e[1]->dtype = AD_DT_NEGIDEN;
 }
 
 void ad_op_mul(ad_node_t *p)
 {
+	int n = p->n_row * p->n_col;
 	ad_edge_t *e[2];
-	assert(p->n_col == 1);
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
-	memset(p->_.x, 0, p->n_row * sizeof(float));
-	ad_vec_elem_mul(p->n_row, e[0]->p->_.x, e[1]->p->_.x, p->_.x);
+	p->_.x = (float*)realloc(p->_.x, n * sizeof(float));
+	memset(p->_.x, 0, n * sizeof(float));
+	ad_vec_elem_mul(n, e[0]->p->_.x, e[1]->p->_.x, p->_.x);
 	if (e[0]->p->to_back) {
 		e[0]->dtype = AD_DT_DIAG;
-		e[0]->z = (float*)realloc(e[0]->z, p->n_row * sizeof(float));
-		memcpy(e[0]->z, e[1]->p->_.x, p->n_row * sizeof(float));
+		e[0]->z = (float*)realloc(e[0]->z, n * sizeof(float));
+		memcpy(e[0]->z, e[1]->p->_.x, n * sizeof(float));
 	}
 	if (e[1]->p->to_back) {
 		e[1]->dtype = AD_DT_DIAG;
-		e[1]->z = (float*)realloc(e[1]->z, p->n_row * sizeof(float));
-		memcpy(e[1]->z, e[0]->p->_.x, p->n_row * sizeof(float));
+		e[1]->z = (float*)realloc(e[1]->z, n * sizeof(float));
+		memcpy(e[1]->z, e[0]->p->_.x, n * sizeof(float));
 	}
 }
 
@@ -398,16 +398,15 @@ void ad_op_norm2(ad_node_t *p)
 
 void ad_op_sigm(ad_node_t *p)
 {
-	int i;
+	int i, n = p->n_row * p->n_col;
 	ad_edge_t *e;
-	assert(p->n_col == 1);
 	e = &p->child[0];
 	if (e->p->to_back) {
 		e->dtype = AD_DT_DIAG;
-		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
+		e->z = (float*)realloc(e->z, n * sizeof(float));
 	}
-	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
-	for (i = 0; i < p->n_row; ++i) {
+	p->_.x = (float*)realloc(p->_.x, n * sizeof(float));
+	for (i = 0; i < n; ++i) {
 		float y, x = e->p->_.x[i];
 		p->_.x[i] = y = 1.0f / (1.0f + expf(x));
 		if (e->z) e->z[i] = y * (1.0f - y);
@@ -416,16 +415,15 @@ void ad_op_sigm(ad_node_t *p)
 
 void ad_op_tanh(ad_node_t *p)
 {
-	int i;
+	int i, n = p->n_row * p->n_col;
 	ad_edge_t *e;
-	assert(p->n_col == 1);
 	e = &p->child[0];
 	if (e->p->to_back) {
 		e->dtype = AD_DT_DIAG;
-		e->z = (float*)realloc(e->z, e->p->n_row * sizeof(float));
+		e->z = (float*)realloc(e->z, n * sizeof(float));
 	}
-	p->_.x = (float*)realloc(p->_.x, p->n_row * sizeof(float));
-	for (i = 0; i < p->n_row; ++i) {
+	p->_.x = (float*)realloc(p->_.x, n * sizeof(float));
+	for (i = 0; i < n; ++i) {
 		float y, x = e->p->_.x[i];
 		y = expf(2.0f * x);
 		p->_.x[i] = y = (1.0f - y) / (1.0f + y);
