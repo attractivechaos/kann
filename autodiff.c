@@ -61,15 +61,14 @@ static inline ad_node_t *ad_op1_core(int op, ad_node_t *x)
 AD_FUNC_OP2(ad_add, 1)
 AD_FUNC_OP2(ad_sub, 2)
 AD_FUNC_OP2(ad_mul, 3)
-AD_FUNC_OP2(ad_smul, 4)
-AD_FUNC_OP2(ad_mtmul, 5)
-AD_FUNC_OP2(ad_ce2, 6)
+AD_FUNC_OP2(ad_mtmul, 4)
+AD_FUNC_OP2(ad_ce2, 5)
 
 #define AD_FUNC_OP1(fname, op) ad_node_t *fname(ad_node_t *x) { return ad_op1_core((op), x); }
 
-AD_FUNC_OP1(ad_norm2, 7)
-AD_FUNC_OP1(ad_sigm, 8)
-AD_FUNC_OP1(ad_tanh, 9)
+AD_FUNC_OP1(ad_norm2, 6)
+AD_FUNC_OP1(ad_sigm, 7)
+AD_FUNC_OP1(ad_tanh, 8)
 
 /*****************************
  * Automatic differentiation *
@@ -344,29 +343,6 @@ int ad_op_mul(ad_node_t *p, int action)
 	return 0;
 }
 
-int ad_op_smul(ad_node_t *p, int action)
-{
-	int n = p->n_row * p->n_col;
-	ad_edge_t *e[2];
-
-	e[0] = &p->child[0];
-	e[1] = &p->child[1];
-	assert(e[0]->p->to_back == 0);
-	if (action == AD_SYNCDIM) {
-		if (e[0]->p->n_row != 1 || e[0]->p->n_col != 1) return -1;
-		p->n_row = e[1]->p->n_row, p->n_col = e[1]->p->n_col;
-	} else if (action == AD_FORWARD) {
-		memset(p->_.x, 0, n * sizeof(float));
-		ad_saxpy(n, e[0]->p->_.x[0], e[1]->p->_.x, p->_.x);
-	} else if (action == AD_BACKWARD) {
-		if (e[1]->p->to_back) {
-			memset(e[1]->p->d, 0, n * sizeof(float));
-			ad_saxpy(n, e[1]->p->_.x[0], p->d, e[1]->p->d);
-		}
-	}
-	return 0;
-}
-
 int ad_op_mtmul(ad_node_t *p, int action)
 {
 	ad_edge_t *e[2];
@@ -485,7 +461,6 @@ ad_op_f ad_op_list[] = {
 	ad_op_add,
 	ad_op_sub,
 	ad_op_mul,
-	ad_op_smul,
 	ad_op_mtmul,
 	ad_op_ce2,
 	ad_op_norm2,
