@@ -365,7 +365,6 @@ int ad_op_smul(ad_node_t *p, int action)
 
 int ad_op_mtmul(ad_node_t *p, int action)
 {
-	int n = p->n_row * p->n_col;
 	ad_edge_t *e[2];
 
 	e[0] = &p->child[0];
@@ -375,11 +374,12 @@ int ad_op_mtmul(ad_node_t *p, int action)
 		if (e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[1]->p->n_row;
 	} else if (action == AD_FORWARD) {
-		memset(p->_.x, 0, n * sizeof(float));
+		memset(p->_.x, 0, p->n_row * p->n_col * sizeof(float));
 		ad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
 	} else if (action == AD_BACKWARD) {
 		if (e[1]->p->to_back) {
 			int i, j, n_col = e[0]->p->n_col;
+			memset(e[1]->p->d, 0, e[1]->p->n_row * e[1]->p->n_col * sizeof(float));
 			for (i = 0; i < e[0]->p->n_row; ++i)
 				for (j = 0; j < e[1]->p->n_row; ++j)
 					ad_saxpy(n_col, p->d[i * e[1]->p->n_row + j], e[0]->p->_.x + i * n_col, e[1]->p->d + j * n_col);
