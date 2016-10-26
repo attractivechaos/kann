@@ -1,8 +1,6 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#include <stdint.h>
-
 #define AD_ALLOC      1
 #define AD_FORWARD    2
 #define AD_BACKWARD   3
@@ -17,8 +15,8 @@ typedef struct {
 
 typedef struct ad_node_t {
 	int n_row, n_col, op;
-	int n_child, to_back;
 	int label, tmp;
+	short n_child, to_back;
 	union {
 		const float *cx;
 		float *x;
