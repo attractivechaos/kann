@@ -165,6 +165,9 @@ float ad_eval(int n, ad_node_t **a, int cal_grad)
 	f = a[n-1]->_.x[0];
 	if (cal_grad) {
 		assert(a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+		for (i = 0; i < n; ++i) // set all grandients to zero
+			if (a[i]->to_back)
+				memset(a[i]->d, 0, a[i]->n_row * a[i]->n_col * sizeof(float));
 		for (i = n - 1, a[i]->d[0] = 1.0f; i >= 0; --i) // backprop
 			if (a[i]->n_child)
 				ad_op_list[a[i]->op](a[i], AD_BACKWARD);
@@ -220,22 +223,6 @@ void ad_saxpy(int n, float a, const float *x, float *y)
 	}
 	for (; i < n; ++i) y[i] += a * x[i];
 }
-void ad_vec_mul(int n, float *x, const float *y)
-{
-	int i, n8 = n>>3<<3;
-	for (i = 0; i < n8; i += 8) {
-		__m128 vx1, vx2, vy1, vy2, vt1, vt2;
-		vx1 = _mm_loadu_ps(&x[i]);
-		vx2 = _mm_loadu_ps(&x[i+4]);
-		vy1 = _mm_loadu_ps(&y[i]);
-		vy2 = _mm_loadu_ps(&y[i+4]);
-		vt1 = _mm_mul_ps(vx1, vy1);
-		vt2 = _mm_mul_ps(vx2, vy2);
-		_mm_storeu_ps(&x[i], vt1);
-		_mm_storeu_ps(&x[i+4], vt2);
-	}
-	for (; i < n; ++i) x[i] *= y[i];
-}
 #else
 float ad_sdot(int n, const float *x, const float *y) // BLAS sdot
 {
@@ -249,12 +236,13 @@ void ad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
 	int i;
 	for (i = 0; i < n; ++i) y[i] += a * x[i];
 }
-void ad_vec_mul(int n, float *a, const float *b)
+#endif
+
+void ad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 {
 	int i;
-	for (i = 0; i < n; ++i) a[i] *= b[i];
+	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
-#endif
 
 void ad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
 {
@@ -293,8 +281,8 @@ int ad_op_add(ad_node_t *p, int action)
 		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
 		ad_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
 	} else if (action == AD_BACKWARD) {
-		if (e[0]->p->to_back) memcpy(e[0]->p->d, p->d, n * sizeof(float));
-		if (e[1]->p->to_back) memcpy(e[1]->p->d, p->d, n * sizeof(float));
+		if (e[0]->p->to_back) ad_saxpy(n, 1.0f, p->d, e[0]->p->d);
+		if (e[1]->p->to_back) ad_saxpy(n, 1.0f, p->d, e[1]->p->d);
 	}
 	return 0;
 }
@@ -313,12 +301,8 @@ int ad_op_sub(ad_node_t *p, int action)
 		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
 		ad_saxpy(n, -1.0f, e[1]->p->_.x, p->_.x);
 	} else if (action == AD_BACKWARD) {
-		if (e[0]->p->to_back) memcpy(e[0]->p->d, p->d, n * sizeof(float));
-		if (e[1]->p->to_back) {
-			int i;
-			memcpy(e[1]->p->d, p->d, n * sizeof(float));
-			for (i = 0; i < n; ++i) e[1]->p->d[i] = -e[1]->p->d[i];
-		}
+		if (e[0]->p->to_back) ad_saxpy(n, 1.0f, p->d, e[0]->p->d);
+		if (e[1]->p->to_back) ad_saxpy(n, -1.0f, p->d, e[1]->p->d);
 	}
 	return 0;
 }
@@ -334,14 +318,12 @@ int ad_op_mul(ad_node_t *p, int action)
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == AD_FORWARD) {
-		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
-		ad_vec_mul(n, p->_.x, e[1]->p->_.x);
+		memset(p->_.x, 0, n * sizeof(float));
+		ad_vec_mul_sum(n, p->_.x, e[0]->p->_.x, e[1]->p->_.x);
 	} else if (action == AD_BACKWARD) {
 		for (i = 0; i < 2; ++i)
-			if (e[i]->p->to_back) {
-				memcpy(e[i]->p->d, p->d, n * sizeof(float));
-				ad_vec_mul(n, e[i]->p->d, e[!i]->p->_.x);
-			}
+			if (e[i]->p->to_back)
+				ad_vec_mul_sum(n, e[i]->p->d, p->d, e[!i]->p->_.x);
 	}
 	return 0;
 }
@@ -361,7 +343,6 @@ int ad_op_mtmul(ad_node_t *p, int action)
 	} else if (action == AD_BACKWARD) {
 		if (e[1]->p->to_back) {
 			int i, j, n_col = e[0]->p->n_col;
-			memset(e[1]->p->d, 0, e[1]->p->n_row * e[1]->p->n_col * sizeof(float));
 			for (i = 0; i < e[0]->p->n_row; ++i)
 				for (j = 0; j < e[1]->p->n_row; ++j)
 					ad_saxpy(n_col, p->d[i * e[1]->p->n_row + j], e[0]->p->_.x + i * n_col, e[1]->p->d + j * n_col);
@@ -397,10 +378,8 @@ int ad_op_ce2(ad_node_t *p, int action)
 		}
 		p->_.x[0] = s / e[0]->p->n_row;
 	} else if (action == AD_BACKWARD) {
-		if (e[0]->p->to_back) {
-			memset(e[0]->p->d, 0, n * sizeof(float));
+		if (e[0]->p->to_back)
 			ad_saxpy(n, p->d[0], e[0]->t, e[0]->p->d);
-		}
 	}
 	return 0;
 }
@@ -408,16 +387,15 @@ int ad_op_ce2(ad_node_t *p, int action)
 int ad_op_norm2(ad_node_t *p, int action)
 {
 	ad_edge_t *e = &p->child[0];
-	int n = e->p->n_row * e->p->n_col;
+	int i, n = e->p->n_row * e->p->n_col;
 	if (action == AD_SYNC_SHAPE) {
 		p->n_row = p->n_col = 1;
 	} else if (action == AD_FORWARD) {
 		p->_.x[0] = ad_sdot(n, e->p->_.x, e->p->_.x);
 	} else if (action == AD_BACKWARD) {
-		if (e->p->to_back) {
-			memcpy(e->p->d, e->p->_.x, n * sizeof(float));
-			ad_saxpy(n, 1.0f, e->p->_.x, e->p->d);
-		}
+		if (e->p->to_back)
+			for (i = 0; i < n; ++i)
+				e->p->d[i] += p->d[i] * (e->p->_.x[i] + e->p->_.x[i]);
 	}
 	return 0;
 }
@@ -434,7 +412,7 @@ int ad_op_sigm(ad_node_t *p, int action)
 	} else if (action == AD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
-				e->p->d[i] = p->_.x[i] * (1.0f - p->_.x[i]);
+				e->p->d[i] += p->d[i] * (p->_.x[i] * (1.0f - p->_.x[i]));
 	}
 	return 0;
 }
@@ -454,7 +432,7 @@ int ad_op_tanh(ad_node_t *p, int action)
 	} else if (action == AD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
-				e->p->d[i] = 1.0f - p->_.x[i] * p->_.x[i];
+				e->p->d[i] += p->d[i] * (1.0f - p->_.x[i] * p->_.x[i]);
 	}
 	return 0;
 }
@@ -471,7 +449,8 @@ int ad_op_relu(ad_node_t *p, int action)
 	} else if (action == AD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
-				e->p->d[i] = e->p->_.x[i] > 0.0f? p->d[i] : 0.0f;
+				if (e->p->_.x[i] > 0.0f)
+					e->p->d[i] += p->d[i];
 	}
 	return 0;
 }
