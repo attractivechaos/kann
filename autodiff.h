@@ -3,19 +3,16 @@
 
 #include <stdint.h>
 
-#define AD_DT_IDEN    1  // identity matrix: I
-#define AD_DT_NEGIDEN 2  // negative identity matrix: -I
-#define AD_DT_DIAG    3  // diagonal matrix: diag()
-#define AD_DT_VEC     4  // a vector, not a matrix
-#define AD_DT_MATOUT  5  // A x I, where "x" denotes Kronecker product
-//#define AD_DT_OUTMAT  6  // I x A, not implemented yet
+#define AD_ALLOC    1
+#define AD_FORWARD  2
+#define AD_BACKWARD 3
+#define AD_SYNCDIM  4
 
 struct ad_node_t;
 
 typedef struct {
-	int dtype;
 	struct ad_node_t *p;
-	float *z;
+	float *t;
 } ad_edge_t;
 
 typedef struct ad_node_t {
@@ -30,20 +27,25 @@ typedef struct ad_node_t {
 	ad_edge_t *child;
 } ad_node_t;
 
+typedef int (*ad_op_f)(ad_node_t*, int);
+extern ad_op_f ad_op_list[];
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+ad_node_t *ad_par(int n_row, int n_col, const float *x);
 ad_node_t *ad_var(int n_row, int n_col, const float *x, float *d);
-ad_node_t *ad_param(int n_row, int n_col, const float *x);
 
 ad_node_t *ad_add(ad_node_t *x, ad_node_t *y);
 ad_node_t *ad_sub(ad_node_t *x, ad_node_t *y);
 ad_node_t *ad_mul(ad_node_t *x, ad_node_t *y);
-ad_node_t *ad_mmul(ad_node_t *x, ad_node_t *y);
+ad_node_t *ad_mtmul(ad_node_t *x, ad_node_t *y);
+ad_node_t *ad_ce2(ad_node_t *x, ad_node_t *y);
 
 ad_node_t *ad_norm2(ad_node_t *x);
 ad_node_t *ad_sigm(ad_node_t *x);
+ad_node_t *ad_tanh(ad_node_t *x);
 
 ad_node_t **ad_compile(ad_node_t *root, int *n_node);
 float ad_eval(int n, ad_node_t **a);
