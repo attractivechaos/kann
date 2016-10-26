@@ -61,8 +61,8 @@ static inline ad_node_t *ad_op1_core(int op, ad_node_t *x)
 AD_FUNC_OP2(ad_add, 1)
 AD_FUNC_OP2(ad_sub, 2)
 AD_FUNC_OP2(ad_mul, 3)
-AD_FUNC_OP2(ad_mtmul, 4)
-AD_FUNC_OP2(ad_smul, 5)
+AD_FUNC_OP2(ad_smul, 4)
+AD_FUNC_OP2(ad_mtmul, 5)
 AD_FUNC_OP2(ad_ce2, 6)
 
 #define AD_FUNC_OP1(fname, op) ad_node_t *fname(ad_node_t *x) { return ad_op1_core((op), x); }
@@ -95,13 +95,13 @@ ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 	int i, j;
 	kvec_t(ad_node_p) stack = {0,0,0}, a = {0,0,0};
 
-	// generate ad_node_t::cnt
+	// generate ad_node_t::tmp
 	kv_push(ad_node_p, stack, root);
 	while (stack.n) {
 		ad_node_t *p = kv_pop(stack);
 		for (i = 0; i < p->n_child; ++i) {
 			ad_node_t *q = p->child[i].p;
-			if (q->cnt == 0) kv_push(ad_node_p, stack, q);
+			if (q->tmp == 0) kv_push(ad_node_p, stack, q);
 			++q->tmp;
 		}
 	}
@@ -258,13 +258,17 @@ void ad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const flo
 {
 	static const int x = 16;
 	int i, j;
+	memset(c, 0, n_a_row * n_b_row * sizeof(float));
 	for (i = 0; i < n_a_row; i += x) {
 		for (j = 0; j < n_b_row; j += x) {
 			int ii, ie = n_a_row < i + x? n_a_row : i + x;
 			int jj, je = n_b_row < j + x? n_b_row : j + x;
-			for (ii = i; ii < ie; ++ii)
-				for (jj = j; jj < je; ++jj)
-					c[ii*n_b_row+jj] += ad_sdot(n_col, &a[ii*n_col], &b[jj*n_col]);
+			for (ii = i; ii < ie; ++ii) {
+				const float *aii = a + ii * n_col, *bjj;
+				float *cii = c + ii * n_b_row;
+				for (jj = j, bjj = b + j * n_col; jj < je; ++jj, bjj += n_col)
+					cii[jj] += ad_sdot(n_col, aii, bjj);
+			}
 		}
 	}
 }
@@ -374,7 +378,6 @@ int ad_op_mtmul(ad_node_t *p, int action)
 		if (e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[1]->p->n_row;
 	} else if (action == AD_FORWARD) {
-		memset(p->_.x, 0, p->n_row * p->n_col * sizeof(float));
 		ad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
 	} else if (action == AD_BACKWARD) {
 		if (e[1]->p->to_back) {
@@ -482,8 +485,8 @@ ad_op_f ad_op_list[] = {
 	ad_op_add,
 	ad_op_sub,
 	ad_op_mul,
-	ad_op_mtmul,
 	ad_op_smul,
+	ad_op_mtmul,
 	ad_op_ce2,
 	ad_op_norm2,
 	ad_op_sigm,
