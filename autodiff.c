@@ -69,6 +69,7 @@ AD_FUNC_OP2(ad_ce2, 5)
 AD_FUNC_OP1(ad_norm2, 6)
 AD_FUNC_OP1(ad_sigm, 7)
 AD_FUNC_OP1(ad_tanh, 8)
+AD_FUNC_OP1(ad_relu, 9)
 
 /*****************************
  * Automatic differentiation *
@@ -153,19 +154,21 @@ void ad_free(int n, ad_node_t **a)
 	free(a);
 }
 
-float ad_eval(int n, ad_node_t **a)
+float ad_eval(int n, ad_node_t **a, int cal_grad)
 {
 	int i;
 	float f;
-	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+	assert(n > 0);
 	for (i = 0; i < n; ++i) // forward pass
 		if (a[i]->n_child)
 			ad_op_list[a[i]->op](a[i], AD_FORWARD);
 	f = a[n-1]->_.x[0];
-	a[n-1]->d[0] = 1.0f;
-	for (i = n - 1; i >= 0; --i) // backprop
-		if (a[i]->n_child)
-			ad_op_list[a[i]->op](a[i], AD_BACKWARD);
+	if (cal_grad) {
+		assert(a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+		for (i = n - 1, a[i]->d[0] = 1.0f; i >= 0; --i) // backprop
+			if (a[i]->n_child)
+				ad_op_list[a[i]->op](a[i], AD_BACKWARD);
+	}
 	return f;
 }
 
@@ -456,6 +459,23 @@ int ad_op_tanh(ad_node_t *p, int action)
 	return 0;
 }
 
+int ad_op_relu(ad_node_t *p, int action)
+{
+	int i, n = p->n_row * p->n_col;
+	ad_edge_t *e = &p->child[0];
+	if (action == AD_SYNC_SHAPE) {
+		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
+	} else if (action == AD_FORWARD) {
+		for (i = 0; i < n; ++i)
+			p->_.x[i] = e->p->_.x[i] > 0.0f? e->p->_.x[i] : 0.0f;
+	} else if (action == AD_BACKWARD) {
+		if (e->p->to_back)
+			for (i = 0; i < n; ++i)
+				e->p->d[i] = e->p->_.x[i] > 0.0f? p->d[i] : 0.0f;
+	}
+	return 0;
+}
+
 ad_op_f ad_op_list[] = {
 	0,
 	ad_op_add,
@@ -466,5 +486,6 @@ ad_op_f ad_op_list[] = {
 	ad_op_norm2,
 	ad_op_sigm,
 	ad_op_tanh,
+	ad_op_relu,
 	0
 };

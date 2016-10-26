@@ -18,7 +18,7 @@ typedef struct {
 typedef struct ad_node_t {
 	int n_row, n_col, op;
 	int n_child, to_back;
-	int tmp;
+	int label, tmp;
 	union {
 		const float *cx;
 		float *x;
@@ -46,9 +46,10 @@ ad_node_t *ad_ce2(ad_node_t *x, ad_node_t *y);   // z(x,y) = \sum_i -y_i*log(f(x
 ad_node_t *ad_norm2(ad_node_t *x);               // z(x) = \sum_i x_i^2 (L2 norm)
 ad_node_t *ad_sigm(ad_node_t *x);                // z(x) = 1/(1+exp(-x)) (element-wise sigmoid)
 ad_node_t *ad_tanh(ad_node_t *x);                // z(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
+ad_node_t *ad_relu(ad_node_t *x);                // z(x) = max{0,x} (element-wise rectifier (aka ReLU))
 
 ad_node_t **ad_compile(ad_node_t *root, int *n_node);
-float ad_eval(int n, ad_node_t **a);
+float ad_eval(int n, ad_node_t **a, int cal_grad);
 void ad_free(int n, ad_node_t **a);
 
 #ifdef __cplusplus
