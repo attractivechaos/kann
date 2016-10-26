@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-#define AD_ALLOC    1
-#define AD_FORWARD  2
-#define AD_BACKWARD 3
-#define AD_SYNCDIM  4
+#define AD_ALLOC      1
+#define AD_FORWARD    2
+#define AD_BACKWARD   3
+#define AD_SYNC_SHAPE 4
 
 struct ad_node_t;
 

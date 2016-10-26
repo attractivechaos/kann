@@ -40,7 +40,7 @@ static inline ad_node_t *ad_op2_core(int op, ad_node_t *x, ad_node_t *y)
 	ad_node_t *s;
 	s = ad_new_core(op, 2);
 	s->child[0].p = x, s->child[1].p = y;
-	if (ad_op_list[op](s, AD_SYNCDIM) < 0) {
+	if (ad_op_list[op](s, AD_SYNC_SHAPE) < 0) {
 		free(s->child); free(s);
 		return 0;
 	}
@@ -52,7 +52,7 @@ static inline ad_node_t *ad_op1_core(int op, ad_node_t *x)
 	ad_node_t *s;
 	s = ad_new_core(op, 1);
 	s->child[0].p = x;
-	ad_op_list[op](s, AD_SYNCDIM);
+	ad_op_list[op](s, AD_SYNC_SHAPE);
 	return s;
 }
 
@@ -283,7 +283,7 @@ int ad_op_add(ad_node_t *p, int action)
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == AD_FORWARD) {
@@ -303,7 +303,7 @@ int ad_op_sub(ad_node_t *p, int action)
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == AD_FORWARD) {
@@ -327,7 +327,7 @@ int ad_op_mul(ad_node_t *p, int action)
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == AD_FORWARD) {
@@ -350,7 +350,7 @@ int ad_op_mtmul(ad_node_t *p, int action)
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
 	assert(e[0]->p->to_back == 0);
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		if (e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[1]->p->n_row;
 	} else if (action == AD_FORWARD) {
@@ -375,7 +375,7 @@ int ad_op_ce2(ad_node_t *p, int action)
 	assert(p->child[1].p->to_back == 0); // child[1] is the true; we don't backprop this
 	e[0] = &p->child[0], e[1] = &p->child[1];
 	n = e[0]->p->n_row * e[0]->p->n_col;
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		p->n_row = p->n_col = 1;
 	} else if (action == AD_ALLOC) {
 		if (e[0]->p->to_back)
@@ -406,7 +406,7 @@ int ad_op_norm2(ad_node_t *p, int action)
 {
 	ad_edge_t *e = &p->child[0];
 	int n = e->p->n_row * e->p->n_col;
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		p->n_row = p->n_col = 1;
 	} else if (action == AD_FORWARD) {
 		p->_.x[0] = ad_sdot(n, e->p->_.x, e->p->_.x);
@@ -423,7 +423,7 @@ int ad_op_sigm(ad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
 	ad_edge_t *e = &p->child[0];
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
 	} else if (action == AD_FORWARD) {
 		for (i = 0; i < n; ++i)
@@ -440,7 +440,7 @@ int ad_op_tanh(ad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
 	ad_edge_t *e = &p->child[0];
-	if (action == AD_SYNCDIM) {
+	if (action == AD_SYNC_SHAPE) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
 	} else if (action == AD_FORWARD) {
 		for (i = 0; i < n; ++i) {
