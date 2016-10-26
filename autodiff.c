@@ -89,6 +89,7 @@ AD_FUNC_OP1(ad_tanh, 9)
 
 typedef struct ad_node_t *ad_node_p;
 
+// IMPORTANT: ad_node_t::tmp MUST BE set to zero
 ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 {
 	int i, j;
@@ -101,7 +102,7 @@ ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 		for (i = 0; i < p->n_child; ++i) {
 			ad_node_t *q = p->child[i].p;
 			if (q->cnt == 0) kv_push(ad_node_p, stack, q);
-			++q->cnt;
+			++q->tmp;
 		}
 	}
 	// topological sorting (Kahn's algorithm)
@@ -110,7 +111,7 @@ ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 		ad_node_t *p = kv_pop(stack);
 		kv_push(ad_node_p, a, p);
 		for (i = 0; i < p->n_child; ++i)
-			if (--p->child[i].p->cnt == 0)
+			if (--p->child[i].p->tmp == 0)
 				kv_push(ad_node_p, stack, p->child[i].p);
 	}
 	free(stack.a);
@@ -120,9 +121,7 @@ ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
 	// check cycles
-	for (i = 0; i < a.n; ++i)
-		if (a.a[i]->cnt != 0) break;
-	assert(i == a.n); // if the graph is constructed with ad_add() etc, there should be no cycles
+	for (i = 0; i < a.n; ++i) assert(a.a[i]->tmp == 0); // if the graph is constructed with ad_add() etc, there should be no cycles
 	// set ad_node_t::to_back and allocate
 	for (i = 0; i < a.n; ++i) {
 		ad_node_p p = a.a[i];
@@ -155,32 +154,20 @@ void ad_free(int n, ad_node_t **a)
 	free(a);
 }
 
-float ad_forward(int n, ad_node_t **a)
-{
-	int i;
-	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
-	for (i = 0; i < n; ++i)
-		if (a[i]->n_child)
-			ad_op_list[a[i]->op](a[i], AD_FORWARD);
-	return a[n-1]->_.x[0];
-}
-
-void ad_backward(int n, ad_node_t **a)
-{
-	int i;
-	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
-	a[n-1]->d[0] = 1.0f;
-	for (i = n - 1; i >= 0; --i)
-		if (a[i]->n_child)
-			ad_op_list[a[i]->op](a[i], AD_BACKWARD);
-}
-
 float ad_eval(int n, ad_node_t **a)
 {
-	float fret;
-	fret = ad_forward(n, a);
-	ad_backward(n, a);
-	return fret;
+	int i;
+	float f;
+	assert(n > 0 && a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+	for (i = 0; i < n; ++i) // forward pass
+		if (a[i]->n_child)
+			ad_op_list[a[i]->op](a[i], AD_FORWARD);
+	f = a[n-1]->_.x[0];
+	a[n-1]->d[0] = 1.0f;
+	for (i = n - 1; i >= 0; --i) // backprop
+		if (a[i]->n_child)
+			ad_op_list[a[i]->op](a[i], AD_BACKWARD);
+	return f;
 }
 
 /*********************
