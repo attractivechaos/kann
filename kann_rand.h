@@ -3,16 +3,16 @@
 
 #include <stdint.h>
 
-//#define KANN_RAND_LOCK
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void kann_srand(uint64_t seed);
-double kann_drand(void);
-double kann_normal(int *iset, double *gset);
-void kann_shuffle(int n, float **x, float **y, char **rname);
+void *kann_srand_r(uint64_t seed); // remember to call free() on the returned pointer
+uint64_t kann_lrand(void *kr);
+double kann_drand(void *kr);
+double kann_normal(void *kr);
+void kann_shuffle(void *kr, int n, float **x, float **y, char **rname);
 
 #ifdef __cplusplus
 }
