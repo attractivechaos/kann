@@ -1,6 +1,8 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
+#include <stdio.h>
+
 #define KAD_ALLOC      1
 #define KAD_FORWARD    2
 #define KAD_BACKWARD   3
@@ -49,6 +51,9 @@ kad_node_t *kad_relu(kad_node_t *x);                // z(x) = max{0,x} (element-
 kad_node_t **kad_compile(kad_node_t *root, int *n_node);
 float kad_eval(int n, kad_node_t **a, int cal_grad);
 void kad_free(int n, kad_node_t **a);
+
+int kad_write(FILE *fp, int n_node, kad_node_t **node);
+kad_node_t **kad_read(FILE *fp, int *_n_node);
 
 #ifdef __cplusplus
 }

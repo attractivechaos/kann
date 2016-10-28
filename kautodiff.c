@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <stdio.h>
 #include <math.h>
 #include "kautodiff.h"
 
@@ -173,6 +172,64 @@ float kad_eval(int n, kad_node_t **a, int cal_grad)
 				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	}
 	return f;
+}
+
+/***********************
+ * Load and save graph *
+ ***********************/
+
+int kad_write(FILE *fp, int n_node, kad_node_t **node)
+{
+	int i, j;
+	fwrite(&n_node, sizeof(int), 1, fp);
+	for (i = 0; i < n_node; ++i) node[i]->tmp = i;
+	for (i = 0; i < n_node; ++i) {
+		kad_node_t *p = node[i];
+		fwrite(&p->n_child, sizeof(short), 1, fp);
+		if (p->n_child) {
+			fwrite(&p->op, sizeof(int), 1, fp);
+			for (j = 0; j < p->n_child; ++j)
+				fwrite(&p->child[j].p->tmp, sizeof(int), 1, fp);
+		} else {
+			fwrite(&p->label, sizeof(int), 1, fp);
+			fwrite(&p->n_row, sizeof(int), 1, fp);
+			fwrite(&p->n_col, sizeof(int), 1, fp);
+			fwrite(&p->to_back, sizeof(short), 1, fp);
+		}
+	}
+	for (i = 0; i < n_node; ++i) node[i]->tmp = i;
+	return 0;
+}
+
+kad_node_t **kad_read(FILE *fp, int *_n_node)
+{
+	int i, j, n_node;
+	kad_node_t **node;
+	fread(&n_node, sizeof(int), 1, fp);
+	node = (kad_node_t**)malloc(n_node * sizeof(kad_node_t*));
+	for (i = 0; i < n_node; ++i) {
+		kad_node_t *p;
+		p = node[i] = (kad_node_t*)calloc(1, sizeof(kad_node_t));
+		fread(&p->n_child, sizeof(short), 1, fp);
+		if (p->n_child) {
+			p->child = (kad_edge_t*)calloc(1, sizeof(kad_edge_t));
+			fread(&p->op, sizeof(int), 1, fp);
+			for (j = 0; j < p->n_child; ++j) {
+				int k;
+				fread(&k, sizeof(int), 1, fp);
+				assert(k < i);
+				p->child[j].p = node[k];
+			}
+			kad_op_list[p->op](p, KAD_SYNC_SHAPE);
+		} else {
+			fread(&p->label, sizeof(int), 1, fp);
+			fread(&p->n_row, sizeof(int), 1, fp);
+			fread(&p->n_col, sizeof(int), 1, fp);
+			fread(&p->to_back, sizeof(short), 1, fp);
+		}
+	}
+	*_n_node = n_node;
+	return node;
 }
 
 /*********************
