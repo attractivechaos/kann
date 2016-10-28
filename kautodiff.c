@@ -326,20 +326,28 @@ void kad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const fl
 
 int kad_op_add(kad_node_t *p, int action)
 {
-	int n = p->n_row * p->n_col;
+	int i, n = p->n_row * p->n_col;
 	kad_edge_t *e[2];
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
 	if (action == KAD_SYNC_SHAPE) {
-		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
+		if ((e[0]->p->n_row != e[1]->p->n_row && e[1]->p->n_row != 1) || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
-		kad_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
+		if (e[1]->p->n_row == 1)
+			for (i = 0; i < e[0]->p->n_row; ++i)
+				kad_saxpy(e[0]->p->n_col, 1.0f, e[1]->p->_.x, &p->_.x[i*e[0]->p->n_col]);
+		else kad_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
 	} else if (action == KAD_BACKWARD) {
 		if (e[0]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[0]->p->d);
-		if (e[1]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[1]->p->d);
+		if (e[1]->p->to_back) {
+			if (e[1]->p->n_row == 1)
+				for (i = 0; i < e[0]->p->n_row; ++i)
+					kad_saxpy(e[0]->p->n_col, 1.0f, &p->d[i*e[0]->p->n_col], e[1]->p->d);
+			else kad_saxpy(n, 1.0f, p->d, e[1]->p->d);
+		}
 	}
 	return 0;
 }

@@ -105,3 +105,13 @@ void kann_shuffle(void *kr, int n, float **x, float **y, char **rname)
    }
    free(s);
 }
+
+void kann_rand_weight(void *kr, int n_row, int n_col, float *w)
+{
+	int i, j;
+	double s;
+	s = 1.0 / sqrt(n_col);
+	for (i = 0; i < n_row; ++i)
+		for (j = 0; j < n_col; ++j)
+			w[i*n_col+j] = kann_normal(kr) * s;
+}

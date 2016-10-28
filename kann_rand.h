@@ -13,6 +13,7 @@ uint64_t kann_lrand(void *kr);
 double kann_drand(void *kr);
 double kann_normal(void *kr);
 void kann_shuffle(void *kr, int n, float **x, float **y, char **rname);
+void kann_rand_weight(void *kr, int n_row, int n_col, float *w);
 
 #ifdef __cplusplus
 }
