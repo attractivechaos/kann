@@ -3,73 +3,73 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
-#include "autodiff.h"
+#include "kautodiff.h"
 
 /**********************
  * Graph construction *
  **********************/
 
-static inline ad_node_t *ad_new_core(int op, int n_child)
+static inline kad_node_t *kad_new_core(int op, int n_child)
 {
-	ad_node_t *s;
-	s = (ad_node_t*)calloc(1, sizeof(ad_node_t));
+	kad_node_t *s;
+	s = (kad_node_t*)calloc(1, sizeof(kad_node_t));
 	s->op = op, s->n_child = n_child;
-	if (s->n_child) s->child = (ad_edge_t*)calloc(s->n_child, sizeof(ad_edge_t));
+	if (s->n_child) s->child = (kad_edge_t*)calloc(s->n_child, sizeof(kad_edge_t));
 	return s;
 }
 
-ad_node_t *ad_par(int n_row, int n_col, const float *x)
+kad_node_t *kad_par(int n_row, int n_col, const float *x)
 {
-	ad_node_t *s;
-	s = ad_new_core(0, 0);
+	kad_node_t *s;
+	s = kad_new_core(0, 0);
 	s->n_row = n_row, s->n_col = n_col;
 	s->_.cx = x;
 	return s;
 }
 
-ad_node_t *ad_var(int n_row, int n_col, const float *x, float *d)
+kad_node_t *kad_var(int n_row, int n_col, const float *x, float *d)
 {
-	ad_node_t *s;
-	s = ad_par(n_row, n_col, x);
+	kad_node_t *s;
+	s = kad_par(n_row, n_col, x);
 	s->d = d, s->to_back = 1;
 	return s;
 }
 
-static inline ad_node_t *ad_op2_core(int op, ad_node_t *x, ad_node_t *y)
+static inline kad_node_t *kad_op2_core(int op, kad_node_t *x, kad_node_t *y)
 {
-	ad_node_t *s;
-	s = ad_new_core(op, 2);
+	kad_node_t *s;
+	s = kad_new_core(op, 2);
 	s->child[0].p = x, s->child[1].p = y;
-	if (ad_op_list[op](s, AD_SYNC_SHAPE) < 0) {
+	if (kad_op_list[op](s, KAD_SYNC_SHAPE) < 0) {
 		free(s->child); free(s);
 		return 0;
 	}
 	return s;
 }
 
-static inline ad_node_t *ad_op1_core(int op, ad_node_t *x)
+static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 {
-	ad_node_t *s;
-	s = ad_new_core(op, 1);
+	kad_node_t *s;
+	s = kad_new_core(op, 1);
 	s->child[0].p = x;
-	ad_op_list[op](s, AD_SYNC_SHAPE);
+	kad_op_list[op](s, KAD_SYNC_SHAPE);
 	return s;
 }
 
-#define AD_FUNC_OP2(fname, op) ad_node_t *fname(ad_node_t *x, ad_node_t *y) { return ad_op2_core((op), x, y); }
+#define KAD_FUNC_OP2(fname, op) kad_node_t *fname(kad_node_t *x, kad_node_t *y) { return kad_op2_core((op), x, y); }
 
-AD_FUNC_OP2(ad_add, 1)
-AD_FUNC_OP2(ad_sub, 2)
-AD_FUNC_OP2(ad_mul, 3)
-AD_FUNC_OP2(ad_mtmul, 4)
-AD_FUNC_OP2(ad_ce2, 5)
+KAD_FUNC_OP2(kad_add, 1)
+KAD_FUNC_OP2(kad_sub, 2)
+KAD_FUNC_OP2(kad_mul, 3)
+KAD_FUNC_OP2(kad_mtmul, 4)
+KAD_FUNC_OP2(kad_ce2, 5)
 
-#define AD_FUNC_OP1(fname, op) ad_node_t *fname(ad_node_t *x) { return ad_op1_core((op), x); }
+#define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
-AD_FUNC_OP1(ad_norm2, 6)
-AD_FUNC_OP1(ad_sigm, 7)
-AD_FUNC_OP1(ad_tanh, 8)
-AD_FUNC_OP1(ad_relu, 9)
+KAD_FUNC_OP1(kad_norm2, 6)
+KAD_FUNC_OP1(kad_sigm, 7)
+KAD_FUNC_OP1(kad_tanh, 8)
+KAD_FUNC_OP1(kad_relu, 9)
 
 /*****************************
  * Automatic differentiation *
@@ -87,44 +87,44 @@ AD_FUNC_OP1(ad_relu, 9)
 		(v).a[(v).n++] = (x); \
 	} while (0)
 
-typedef struct ad_node_t *ad_node_p;
+typedef struct kad_node_t *kad_node_p;
 
-// IMPORTANT: ad_node_t::tmp MUST BE set to zero
-ad_node_t **ad_compile(ad_node_t *root, int *n_node)
+// IMPORTANT: kad_node_t::tmp MUST BE set to zero
+kad_node_t **kad_compile(kad_node_t *root, int *n_node)
 {
 	int i, j;
-	kvec_t(ad_node_p) stack = {0,0,0}, a = {0,0,0};
+	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
 
-	// generate ad_node_t::tmp
-	kv_push(ad_node_p, stack, root);
+	// generate kad_node_t::tmp
+	kv_push(kad_node_p, stack, root);
 	while (stack.n) {
-		ad_node_t *p = kv_pop(stack);
+		kad_node_t *p = kv_pop(stack);
 		for (i = 0; i < p->n_child; ++i) {
-			ad_node_t *q = p->child[i].p;
-			if (q->tmp == 0) kv_push(ad_node_p, stack, q);
+			kad_node_t *q = p->child[i].p;
+			if (q->tmp == 0) kv_push(kad_node_p, stack, q);
 			++q->tmp;
 		}
 	}
 	// topological sorting (Kahn's algorithm)
-	kv_push(ad_node_p, stack, root);
+	kv_push(kad_node_p, stack, root);
 	while (stack.n) {
-		ad_node_t *p = kv_pop(stack);
-		kv_push(ad_node_p, a, p);
+		kad_node_t *p = kv_pop(stack);
+		kv_push(kad_node_p, a, p);
 		for (i = 0; i < p->n_child; ++i)
 			if (--p->child[i].p->tmp == 0)
-				kv_push(ad_node_p, stack, p->child[i].p);
+				kv_push(kad_node_p, stack, p->child[i].p);
 	}
 	free(stack.a);
 	// reverse a
 	for (i = 0; i < a.n>>1; ++i) {
-		ad_node_p t;
+		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
 	// check cycles
-	for (i = 0; i < a.n; ++i) assert(a.a[i]->tmp == 0); // if the graph is constructed with ad_add() etc, there should be no cycles
-	// set ad_node_t::to_back and allocate
+	for (i = 0; i < a.n; ++i) assert(a.a[i]->tmp == 0); // if the graph is constructed with kad_add() etc, there should be no cycles
+	// set kad_node_t::to_back and allocate
 	for (i = 0; i < a.n; ++i) {
-		ad_node_p p = a.a[i];
+		kad_node_p p = a.a[i];
 		if (p->n_child == 0) continue;
 		p->_.x = (float*)realloc(p->_.x, p->n_row * p->n_col * sizeof(float));
 		for (j = 0; j < p->n_child; ++j)
@@ -132,14 +132,14 @@ ad_node_t **ad_compile(ad_node_t *root, int *n_node)
 		if (j < p->n_child) {
 			p->to_back = 1;
 			p->d = (float*)realloc(p->d, p->n_row * p->n_col * sizeof(float));
-			ad_op_list[p->op](p, AD_ALLOC);
+			kad_op_list[p->op](p, KAD_ALLOC);
 		}
 	}
 	*n_node = a.n;
 	return a.a;
 }
 
-void ad_free(int n, ad_node_t **a)
+void kad_free(int n, kad_node_t **a)
 {
 	int i, j;
 	for (i = 0; i < n; ++i) {
@@ -154,14 +154,14 @@ void ad_free(int n, ad_node_t **a)
 	free(a);
 }
 
-float ad_eval(int n, ad_node_t **a, int cal_grad)
+float kad_eval(int n, kad_node_t **a, int cal_grad)
 {
 	int i;
 	float f;
 	assert(n > 0);
 	for (i = 0; i < n; ++i) // forward pass
 		if (a[i]->n_child)
-			ad_op_list[a[i]->op](a[i], AD_FORWARD);
+			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
 	f = a[n-1]->_.x[0];
 	if (cal_grad) {
 		assert(a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
@@ -170,7 +170,7 @@ float ad_eval(int n, ad_node_t **a, int cal_grad)
 				memset(a[i]->d, 0, a[i]->n_row * a[i]->n_col * sizeof(float));
 		for (i = n - 1, a[i]->d[0] = 1.0f; i >= 0; --i) // backprop
 			if (a[i]->n_child)
-				ad_op_list[a[i]->op](a[i], AD_BACKWARD);
+				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	}
 	return f;
 }
@@ -182,7 +182,7 @@ float ad_eval(int n, ad_node_t **a, int cal_grad)
 #ifdef __SSE__
 #include <xmmintrin.h>
 
-float ad_sdot(int n, const float *x, const float *y)
+float kad_sdot(int n, const float *x, const float *y)
 {
 	int i, n8 = n>>3<<3;
 	__m128 vs1, vs2;
@@ -205,7 +205,7 @@ float ad_sdot(int n, const float *x, const float *y)
 	s += t[0] + t[1] + t[2] + t[3];
 	return s;
 }
-void ad_saxpy(int n, float a, const float *x, float *y)
+void kad_saxpy(int n, float a, const float *x, float *y)
 {
 	int i, n8 = n>>3<<3;
 	__m128 va;
@@ -224,27 +224,27 @@ void ad_saxpy(int n, float a, const float *x, float *y)
 	for (; i < n; ++i) y[i] += a * x[i];
 }
 #else
-float ad_sdot(int n, const float *x, const float *y) // BLAS sdot
+float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 {
 	int i;
 	float s = 0.;
 	for (i = 0; i < n; ++i) s += x[i] * y[i];
 	return s;
 }
-void ad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
+void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
 {
 	int i;
 	for (i = 0; i < n; ++i) y[i] += a * x[i];
 }
 #endif
 
-void ad_vec_mul_sum(int n, float *a, const float *b, const float *c)
+void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 {
 	int i;
 	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
 
-void ad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
+void kad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
 {
 	static const int x = 16;
 	int i, j;
@@ -257,7 +257,7 @@ void ad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const flo
 				const float *aii = a + ii * n_col, *bjj;
 				float *cii = c + ii * n_b_row;
 				for (jj = j, bjj = b + j * n_col; jj < je; ++jj, bjj += n_col)
-					cii[jj] += ad_sdot(n_col, aii, bjj);
+					cii[jj] += kad_sdot(n_col, aii, bjj);
 			}
 		}
 	}
@@ -267,104 +267,104 @@ void ad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const flo
  * Operators *
  *************/
 
-int ad_op_add(ad_node_t *p, int action)
+int kad_op_add(kad_node_t *p, int action)
 {
 	int n = p->n_row * p->n_col;
-	ad_edge_t *e[2];
+	kad_edge_t *e[2];
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == AD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_SHAPE) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
-		ad_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
-	} else if (action == AD_BACKWARD) {
-		if (e[0]->p->to_back) ad_saxpy(n, 1.0f, p->d, e[0]->p->d);
-		if (e[1]->p->to_back) ad_saxpy(n, 1.0f, p->d, e[1]->p->d);
+		kad_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
+	} else if (action == KAD_BACKWARD) {
+		if (e[0]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[0]->p->d);
+		if (e[1]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[1]->p->d);
 	}
 	return 0;
 }
 
-int ad_op_sub(ad_node_t *p, int action)
+int kad_op_sub(kad_node_t *p, int action)
 {
 	int n = p->n_row * p->n_col;
-	ad_edge_t *e[2];
+	kad_edge_t *e[2];
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == AD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_SHAPE) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
-		ad_saxpy(n, -1.0f, e[1]->p->_.x, p->_.x);
-	} else if (action == AD_BACKWARD) {
-		if (e[0]->p->to_back) ad_saxpy(n, 1.0f, p->d, e[0]->p->d);
-		if (e[1]->p->to_back) ad_saxpy(n, -1.0f, p->d, e[1]->p->d);
+		kad_saxpy(n, -1.0f, e[1]->p->_.x, p->_.x);
+	} else if (action == KAD_BACKWARD) {
+		if (e[0]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[0]->p->d);
+		if (e[1]->p->to_back) kad_saxpy(n, -1.0f, p->d, e[1]->p->d);
 	}
 	return 0;
 }
 
-int ad_op_mul(ad_node_t *p, int action)
+int kad_op_mul(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
-	ad_edge_t *e[2];
+	kad_edge_t *e[2];
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == AD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_SHAPE) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		memset(p->_.x, 0, n * sizeof(float));
-		ad_vec_mul_sum(n, p->_.x, e[0]->p->_.x, e[1]->p->_.x);
-	} else if (action == AD_BACKWARD) {
+		kad_vec_mul_sum(n, p->_.x, e[0]->p->_.x, e[1]->p->_.x);
+	} else if (action == KAD_BACKWARD) {
 		for (i = 0; i < 2; ++i)
 			if (e[i]->p->to_back)
-				ad_vec_mul_sum(n, e[i]->p->d, p->d, e[!i]->p->_.x);
+				kad_vec_mul_sum(n, e[i]->p->d, p->d, e[!i]->p->_.x);
 	}
 	return 0;
 }
 
-int ad_op_mtmul(ad_node_t *p, int action)
+int kad_op_mtmul(kad_node_t *p, int action)
 {
-	ad_edge_t *e[2];
+	kad_edge_t *e[2];
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
 	assert(e[0]->p->to_back == 0);
-	if (action == AD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_SHAPE) {
 		if (e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[1]->p->n_row;
-	} else if (action == AD_FORWARD) {
-		ad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
-	} else if (action == AD_BACKWARD) {
+	} else if (action == KAD_FORWARD) {
+		kad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
+	} else if (action == KAD_BACKWARD) {
 		if (e[1]->p->to_back) {
 			int i, j, n_col = e[0]->p->n_col;
 			for (i = 0; i < e[0]->p->n_row; ++i)
 				for (j = 0; j < e[1]->p->n_row; ++j)
-					ad_saxpy(n_col, p->d[i * e[1]->p->n_row + j], e[0]->p->_.x + i * n_col, e[1]->p->d + j * n_col);
+					kad_saxpy(n_col, p->d[i * e[1]->p->n_row + j], e[0]->p->_.x + i * n_col, e[1]->p->d + j * n_col);
 		}
 	}
 	return 0;
 }
 
-int ad_op_ce2(ad_node_t *p, int action)
+int kad_op_ce2(kad_node_t *p, int action)
 {
-	ad_edge_t *e[2];
+	kad_edge_t *e[2];
 	int i, n;
 
 	assert(p->child[1].p->to_back == 0); // child[1] is the true; we don't backprop this
 	e[0] = &p->child[0], e[1] = &p->child[1];
 	n = e[0]->p->n_row * e[0]->p->n_col;
-	if (action == AD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_SHAPE) {
 		p->n_row = p->n_col = 1;
-	} else if (action == AD_ALLOC) {
+	} else if (action == KAD_ALLOC) {
 		if (e[0]->p->to_back)
 			e[0]->t = (float*)realloc(e[0]->t, n * sizeof(float));
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		const float *x, *y;
 		double s;
 		x = e[0]->p->_.x, y = e[1]->p->_.x;
@@ -377,22 +377,22 @@ int ad_op_ce2(ad_node_t *p, int action)
 			if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
 		}
 		p->_.x[0] = s / e[0]->p->n_row;
-	} else if (action == AD_BACKWARD) {
+	} else if (action == KAD_BACKWARD) {
 		if (e[0]->p->to_back)
-			ad_saxpy(n, p->d[0], e[0]->t, e[0]->p->d);
+			kad_saxpy(n, p->d[0], e[0]->t, e[0]->p->d);
 	}
 	return 0;
 }
 
-int ad_op_norm2(ad_node_t *p, int action)
+int kad_op_norm2(kad_node_t *p, int action)
 {
-	ad_edge_t *e = &p->child[0];
+	kad_edge_t *e = &p->child[0];
 	int i, n = e->p->n_row * e->p->n_col;
-	if (action == AD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_SHAPE) {
 		p->n_row = p->n_col = 1;
-	} else if (action == AD_FORWARD) {
-		p->_.x[0] = ad_sdot(n, e->p->_.x, e->p->_.x);
-	} else if (action == AD_BACKWARD) {
+	} else if (action == KAD_FORWARD) {
+		p->_.x[0] = kad_sdot(n, e->p->_.x, e->p->_.x);
+	} else if (action == KAD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
 				e->p->d[i] += p->d[i] * (e->p->_.x[i] + e->p->_.x[i]);
@@ -400,16 +400,16 @@ int ad_op_norm2(ad_node_t *p, int action)
 	return 0;
 }
 
-int ad_op_sigm(ad_node_t *p, int action)
+int kad_op_sigm(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
-	ad_edge_t *e = &p->child[0];
-	if (action == AD_SYNC_SHAPE) {
+	kad_edge_t *e = &p->child[0];
+	if (action == KAD_SYNC_SHAPE) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->_.x[i] = 1.0f / (1.0f + expf(e->p->_.x[i]));
-	} else if (action == AD_BACKWARD) {
+	} else if (action == KAD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
 				e->p->d[i] += p->d[i] * (p->_.x[i] * (1.0f - p->_.x[i]));
@@ -417,19 +417,19 @@ int ad_op_sigm(ad_node_t *p, int action)
 	return 0;
 }
 
-int ad_op_tanh(ad_node_t *p, int action)
+int kad_op_tanh(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
-	ad_edge_t *e = &p->child[0];
-	if (action == AD_SYNC_SHAPE) {
+	kad_edge_t *e = &p->child[0];
+	if (action == KAD_SYNC_SHAPE) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) {
 			float y;
 			y = expf(-2.0f * e->p->_.x[i]);
 			p->_.x[i] = (1.0f - y) / (1.0f + y);
 		}
-	} else if (action == AD_BACKWARD) {
+	} else if (action == KAD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
 				e->p->d[i] += p->d[i] * (1.0f - p->_.x[i] * p->_.x[i]);
@@ -437,16 +437,16 @@ int ad_op_tanh(ad_node_t *p, int action)
 	return 0;
 }
 
-int ad_op_relu(ad_node_t *p, int action)
+int kad_op_relu(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
-	ad_edge_t *e = &p->child[0];
-	if (action == AD_SYNC_SHAPE) {
+	kad_edge_t *e = &p->child[0];
+	if (action == KAD_SYNC_SHAPE) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
-	} else if (action == AD_FORWARD) {
+	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->_.x[i] = e->p->_.x[i] > 0.0f? e->p->_.x[i] : 0.0f;
-	} else if (action == AD_BACKWARD) {
+	} else if (action == KAD_BACKWARD) {
 		if (e->p->to_back)
 			for (i = 0; i < n; ++i)
 				if (e->p->_.x[i] > 0.0f)
@@ -455,16 +455,16 @@ int ad_op_relu(ad_node_t *p, int action)
 	return 0;
 }
 
-ad_op_f ad_op_list[] = {
+kad_op_f kad_op_list[] = {
 	0,
-	ad_op_add,
-	ad_op_sub,
-	ad_op_mul,
-	ad_op_mtmul,
-	ad_op_ce2,
-	ad_op_norm2,
-	ad_op_sigm,
-	ad_op_tanh,
-	ad_op_relu,
+	kad_op_add,
+	kad_op_sub,
+	kad_op_mul,
+	kad_op_mtmul,
+	kad_op_ce2,
+	kad_op_norm2,
+	kad_op_sigm,
+	kad_op_tanh,
+	kad_op_relu,
 	0
 };
