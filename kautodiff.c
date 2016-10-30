@@ -39,7 +39,7 @@ static inline kad_node_t *kad_op2_core(int op, kad_node_t *x, kad_node_t *y)
 	kad_node_t *s;
 	s = kad_new_core(op, 2);
 	s->child[0].p = x, s->child[1].p = y;
-	if (kad_op_list[op](s, KAD_SYNC_SHAPE) < 0) {
+	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
 		free(s->child); free(s);
 		return 0;
 	}
@@ -51,7 +51,7 @@ static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 	kad_node_t *s;
 	s = kad_new_core(op, 1);
 	s->child[0].p = x;
-	kad_op_list[op](s, KAD_SYNC_SHAPE);
+	kad_op_list[op](s, KAD_SYNC_DIM);
 	return s;
 }
 
@@ -220,7 +220,7 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 				assert(k < i);
 				p->child[j].p = node[k];
 			}
-			kad_op_list[p->op](p, KAD_SYNC_SHAPE);
+			kad_op_list[p->op](p, KAD_SYNC_DIM);
 		} else {
 			fread(&p->label, sizeof(int), 1, fp);
 			fread(&p->n_row, sizeof(int), 1, fp);
@@ -331,7 +331,7 @@ int kad_op_add(kad_node_t *p, int action)
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		if ((e[0]->p->n_row != e[1]->p->n_row && e[1]->p->n_row != 1) || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == KAD_FORWARD) {
@@ -359,7 +359,7 @@ int kad_op_sub(kad_node_t *p, int action)
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == KAD_FORWARD) {
@@ -379,7 +379,7 @@ int kad_op_mul(kad_node_t *p, int action)
 
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
 	} else if (action == KAD_FORWARD) {
@@ -400,7 +400,7 @@ int kad_op_mtmul(kad_node_t *p, int action)
 	e[0] = &p->child[0];
 	e[1] = &p->child[1];
 	assert(e[0]->p->to_back == 0);
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		if (e[0]->p->n_col != e[1]->p->n_col) return -1;
 		p->n_row = e[0]->p->n_row, p->n_col = e[1]->p->n_row;
 	} else if (action == KAD_FORWARD) {
@@ -424,7 +424,7 @@ int kad_op_ce2(kad_node_t *p, int action)
 	assert(p->child[1].p->to_back == 0); // child[1] is the true; we don't backprop this
 	e[0] = &p->child[0], e[1] = &p->child[1];
 	n = e[0]->p->n_row * e[0]->p->n_col;
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		p->n_row = p->n_col = 1;
 	} else if (action == KAD_ALLOC) {
 		if (e[0]->p->to_back)
@@ -453,7 +453,7 @@ int kad_op_norm2(kad_node_t *p, int action)
 {
 	kad_edge_t *e = &p->child[0];
 	int i, n = e->p->n_row * e->p->n_col;
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		p->n_row = p->n_col = 1;
 	} else if (action == KAD_FORWARD) {
 		p->_.x[0] = kad_sdot(n, e->p->_.x, e->p->_.x);
@@ -469,7 +469,7 @@ int kad_op_sigm(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
 	kad_edge_t *e = &p->child[0];
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
@@ -486,7 +486,7 @@ int kad_op_tanh(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
 	kad_edge_t *e = &p->child[0];
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) {
@@ -506,7 +506,7 @@ int kad_op_relu(kad_node_t *p, int action)
 {
 	int i, n = p->n_row * p->n_col;
 	kad_edge_t *e = &p->child[0];
-	if (action == KAD_SYNC_SHAPE) {
+	if (action == KAD_SYNC_DIM) {
 		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)

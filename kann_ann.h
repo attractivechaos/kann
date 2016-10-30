@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+void kann_set_batch(int B, int n_node, kad_node_t **node);
+
 #ifdef __cplusplus
 }
 #endif
