@@ -18,23 +18,15 @@ static inline kad_node_t *kad_new_core(int n_d, int op, int n_child)
 	return s;
 }
 
-static inline kad_node_t *kad_set_dim(int n_d, va_list ap)
-{
-	kad_node_t *p;
-	int i;
-	assert(n_d >= 0 && n_d <= KAD_MAX_DIM);
-	p = kad_new_core(n_d, 0, 0);
-	for (i = 0; i < n_d; ++i)
-		p->d[i] = va_arg(ap, int);
-	return p;
-}
-
 kad_node_t *kad_par(const float *x, int n_d, ...)
 {
+	int i;
 	kad_node_t *p;
 	va_list ap;
 	va_start(ap, n_d);
-	p = kad_set_dim(n_d, ap);
+	p = kad_new_core(n_d, 0, 0);
+	for (i = 0; i < n_d; ++i)
+		p->d[i] = va_arg(ap, int);
 	p->_.cx = x;
 	va_end(ap);
 	return p;
@@ -42,12 +34,15 @@ kad_node_t *kad_par(const float *x, int n_d, ...)
 
 kad_node_t *kad_var(const float *x, float *g, int n_d, ...)
 {
+	int i;
 	kad_node_t *p;
 	va_list ap;
 	va_start(ap, n_d);
-	p = kad_set_dim(n_d, ap);
-	va_end(ap);
+	p = kad_new_core(n_d, 0, 0);
+	for (i = 0; i < n_d; ++i)
+		p->d[i] = va_arg(ap, int);
 	p->_.cx = x, p->g = g, p->to_back = 1;
+	va_end(ap);
 	return p;
 }
 
