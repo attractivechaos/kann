@@ -44,10 +44,9 @@ extern "C" {
 kad_node_t *kad_par(const float *x, int n_d, ...);
 kad_node_t *kad_var(const float *x, float *g, int n_d, ...);
 
-kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // z(x,y) = x + y (element-wise/matrix addition)
-kad_node_t *kad_sub(kad_node_t *x, kad_node_t *y);   // z(x,y) = x - y (element-wise/matrix subtraction)
+kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // z(x,y) = x + y (element-wise addition)
 kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // z(x,y) = x * y (element-wise product)
-kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // z(x,y) = x * y^T (general matrix product, with y transposed; only y is differentiable)
+kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // z(x,y) = x * y^T (matrix product, with y transposed)
 kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // z(x,y) = \sum_i -y_i*log(f(x_i)) - (1-y_i)*log(1-f(x_i)); f() is sigmoid (binary cross-entropy for sigmoid; only x differentiable)
 
 kad_node_t *kad_norm2(kad_node_t *x); // z(x) = \sum_i x_i^2 (L2 norm)

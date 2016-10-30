@@ -392,12 +392,11 @@ int kad_op_cmul(kad_node_t *p, int action)
 
 	q[0] = p->child[0].p;
 	q[1] = p->child[1].p;
-	assert(q[0]->to_back == 0);
 	if (q[0]->n_d == 1 && q[1]->n_d == 2)      n_a_row = 1, n_b_row = q[1]->d[0], n_col = q[0]->d[0];
 	else if (q[0]->n_d == 2 && q[1]->n_d == 1) n_a_row = q[0]->d[0], n_b_row = 1, n_col = q[1]->d[0];
 	else if (q[0]->n_d == 2 && q[1]->n_d == 2) n_a_row = q[0]->d[0], n_b_row = q[1]->d[0], n_col = q[0]->d[1];
 	if (action == KAD_SYNC_DIM) {
-		if (q[0]->n_d == 1 && q[1]->n_d == 2) { // vector x matrix
+		if (q[0]->n_d == 1 && q[1]->n_d == 2) {
 			if (q[0]->d[0] != q[1]->d[1]) return -1;
 			p->n_d = 1, p->d[1] = q[0]->d[0];
 		} else if (q[0]->n_d == 2 && q[1]->n_d == 1) {
@@ -410,6 +409,10 @@ int kad_op_cmul(kad_node_t *p, int action)
 	} else if (action == KAD_FORWARD) {
 		kad_mat_mtmul(n_col, n_a_row, q[0]->_.x, n_b_row, q[1]->_.x, p->_.x);
 	} else if (action == KAD_BACKWARD) {
+		if (q[0]->to_back) // TODO: is this correct?
+			for (j = 0; j < n_b_row; ++j)
+				for (i = 0; i < n_a_row; ++i)
+					kad_saxpy(n_col, p->g[i * n_b_row + j], q[1]->_.x + j * n_col, q[0]->g + i * n_col);
 		if (q[1]->to_back)
 			for (i = 0; i < n_a_row; ++i)
 				for (j = 0; j < n_b_row; ++j)
