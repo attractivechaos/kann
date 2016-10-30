@@ -4,6 +4,8 @@
 #define KAD_LABEL_INPUT  1
 #define KAD_LABEL_OUTPUT 2
 
+#include "kautodiff.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

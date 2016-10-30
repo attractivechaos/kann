@@ -3,7 +3,7 @@
 #include "kann_rand.h"
 #include "kann_ann.h"
 #include "kann_mlp.h"
-
+/*
 kann_mlp_t *kann_mlp_init(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
 {
 	int i, j, n_par = 0;
@@ -53,3 +53,4 @@ void kann_mlp_gradient(int n, const float *x, float *g, void *data)
 	kad_eval(m->n_mt, m->mt, 1);
 	memcpy(g, m->g, n * sizeof(float));
 }
+*/

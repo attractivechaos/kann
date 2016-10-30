@@ -8,6 +8,8 @@
 #define KAD_BACKWARD   3
 #define KAD_SYNC_DIM   4
 
+#define KAD_MAX_DIM    4
+
 struct kad_node_t;
 
 typedef struct {
@@ -16,18 +18,18 @@ typedef struct {
 } kad_edge_t;
 
 typedef struct kad_node_t {
-	int op;               // operator; kad_op_list[op] is the actual function
-	int n_row, n_col;     // matrix dimension
+	short n_d;            // number of dimensions; no larger than KAD_MAX_DIM
+	short op;             // operator; kad_op_list[op] is the actual function
 	int label;            // label for external uses
 	int tmp;              // temporary field; MUST BE zero before calling kad_compile()
 	short n_child;        // number of child nodes
 	short to_back;        // whether to do back propogation
-	int s_row, s_col;     // shape; only used for conv2d; both zeros or s_row*s_col=n_col
+	int d[KAD_MAX_DIM];   // dimensions
 	union {               
 		const float *cx; 
 		float *x;         // allocated for internal nodes
 	} _;                  
-	float *d;             // gradient; allocated for internal nodes
+	float *g;             // gradient; allocated for internal nodes
 	kad_edge_t *child;    // child nodes
 	void *ptr;
 } kad_node_t;
@@ -39,13 +41,13 @@ extern kad_op_f kad_op_list[];
 extern "C" {
 #endif
 
-kad_node_t *kad_par(int n_row, int n_col, const float *x);
-kad_node_t *kad_var(int n_row, int n_col, const float *x, float *d);
+kad_node_t *kad_par(const float *x, int n_d, ...);
+kad_node_t *kad_var(const float *x, float *g, int n_d, ...);
 
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // z(x,y) = x + y (element-wise/matrix addition)
 kad_node_t *kad_sub(kad_node_t *x, kad_node_t *y);   // z(x,y) = x - y (element-wise/matrix subtraction)
 kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // z(x,y) = x * y (element-wise product)
-kad_node_t *kad_mtmul(kad_node_t *x, kad_node_t *y); // z(x,y) = x * y^T (general matrix product, with y transposed; only y is differentiable)
+kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // z(x,y) = x * y^T (general matrix product, with y transposed; only y is differentiable)
 kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // z(x,y) = \sum_i -y_i*log(f(x_i)) - (1-y_i)*log(1-f(x_i)); f() is sigmoid (binary cross-entropy for sigmoid; only x differentiable)
 
 kad_node_t *kad_norm2(kad_node_t *x); // z(x) = \sum_i x_i^2 (L2 norm)
@@ -63,5 +65,12 @@ kad_node_t **kad_read(FILE *fp, int *_n_node);
 #ifdef __cplusplus
 }
 #endif
+
+static inline int kad_len(const kad_node_t *p)
+{
+	int n = 1, i;
+	for (i = 0; i < p->n_d; ++i) n *= p->d[i];
+	return n;
+}
 
 #endif

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdarg.h>
 #include <math.h>
 #include "kautodiff.h"
 
@@ -8,36 +9,52 @@
  * Graph construction *
  **********************/
 
-static inline kad_node_t *kad_new_core(int op, int n_child)
+static inline kad_node_t *kad_new_core(int n_d, int op, int n_child)
 {
 	kad_node_t *s;
 	s = (kad_node_t*)calloc(1, sizeof(kad_node_t));
-	s->op = op, s->n_child = n_child;
+	s->n_d = n_d, s->op = op, s->n_child = n_child;
 	if (s->n_child) s->child = (kad_edge_t*)calloc(s->n_child, sizeof(kad_edge_t));
 	return s;
 }
 
-kad_node_t *kad_par(int n_row, int n_col, const float *x)
+static inline kad_node_t *kad_set_dim(int n_d, va_list ap)
 {
-	kad_node_t *s;
-	s = kad_new_core(0, 0);
-	s->n_row = n_row, s->n_col = n_col;
-	s->_.cx = x;
-	return s;
+	kad_node_t *p;
+	int i;
+	assert(n_d >= 0 && n_d <= KAD_MAX_DIM);
+	p = kad_new_core(n_d, 0, 0);
+	for (i = 0; i < n_d; ++i)
+		p->d[i] = va_arg(ap, int);
+	return p;
 }
 
-kad_node_t *kad_var(int n_row, int n_col, const float *x, float *d)
+kad_node_t *kad_par(const float *x, int n_d, ...)
 {
-	kad_node_t *s;
-	s = kad_par(n_row, n_col, x);
-	s->d = d, s->to_back = 1;
-	return s;
+	kad_node_t *p;
+	va_list ap;
+	va_start(ap, n_d);
+	p = kad_set_dim(n_d, ap);
+	p->_.cx = x;
+	va_end(ap);
+	return p;
+}
+
+kad_node_t *kad_var(const float *x, float *g, int n_d, ...)
+{
+	kad_node_t *p;
+	va_list ap;
+	va_start(ap, n_d);
+	p = kad_set_dim(n_d, ap);
+	va_end(ap);
+	p->_.cx = x, p->g = g, p->to_back = 1;
+	return p;
 }
 
 static inline kad_node_t *kad_op2_core(int op, kad_node_t *x, kad_node_t *y)
 {
 	kad_node_t *s;
-	s = kad_new_core(op, 2);
+	s = kad_new_core(0, op, 2);
 	s->child[0].p = x, s->child[1].p = y;
 	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
 		free(s->child); free(s);
@@ -49,7 +66,7 @@ static inline kad_node_t *kad_op2_core(int op, kad_node_t *x, kad_node_t *y)
 static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 {
 	kad_node_t *s;
-	s = kad_new_core(op, 1);
+	s = kad_new_core(0, op, 1);
 	s->child[0].p = x;
 	kad_op_list[op](s, KAD_SYNC_DIM);
 	return s;
@@ -58,17 +75,16 @@ static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 #define KAD_FUNC_OP2(fname, op) kad_node_t *fname(kad_node_t *x, kad_node_t *y) { return kad_op2_core((op), x, y); }
 
 KAD_FUNC_OP2(kad_add, 1)
-KAD_FUNC_OP2(kad_sub, 2)
-KAD_FUNC_OP2(kad_mul, 3)
-KAD_FUNC_OP2(kad_mtmul, 4)
-KAD_FUNC_OP2(kad_ce2, 5)
+KAD_FUNC_OP2(kad_mul, 2)
+KAD_FUNC_OP2(kad_cmul, 3)
+KAD_FUNC_OP2(kad_ce2, 4)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
-KAD_FUNC_OP1(kad_norm2, 6)
-KAD_FUNC_OP1(kad_sigm, 7)
-KAD_FUNC_OP1(kad_tanh, 8)
-KAD_FUNC_OP1(kad_relu, 9)
+KAD_FUNC_OP1(kad_norm2, 5)
+KAD_FUNC_OP1(kad_sigm, 6)
+KAD_FUNC_OP1(kad_tanh, 7)
+KAD_FUNC_OP1(kad_relu, 8)
 
 /*****************************
  * Automatic differentiation *
@@ -125,12 +141,12 @@ kad_node_t **kad_compile(kad_node_t *root, int *n_node)
 	for (i = 0; i < a.n; ++i) {
 		kad_node_p p = a.a[i];
 		if (p->n_child == 0) continue;
-		p->_.x = (float*)realloc(p->_.x, p->n_row * p->n_col * sizeof(float));
+		p->_.x = (float*)realloc(p->_.x, kad_len(p) * sizeof(float));
 		for (j = 0; j < p->n_child; ++j)
 			if (p->child[j].p->to_back) break;
 		if (j < p->n_child) {
 			p->to_back = 1;
-			p->d = (float*)realloc(p->d, p->n_row * p->n_col * sizeof(float));
+			p->g = (float*)realloc(p->g, kad_len(p) * sizeof(float));
 			kad_op_list[p->op](p, KAD_ALLOC);
 		}
 	}
@@ -146,7 +162,7 @@ void kad_free(int n, kad_node_t **a)
 			free(a[i]->child[j].t);
 		if (a[i]->n_child) {
 			free(a[i]->_.x);
-			free(a[i]->d);
+			free(a[i]->g);
 		}
 		free(a[i]->child);
 	}
@@ -163,11 +179,11 @@ float kad_eval(int n, kad_node_t **a, int cal_grad)
 			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
 	f = a[n-1]->_.x[0];
 	if (cal_grad) {
-		assert(a[n-1]->n_row == 1 && a[n-1]->n_col == 1);
+		assert(a[n-1]->n_d == 0);
 		for (i = 0; i < n; ++i) // set all grandients to zero
 			if (a[i]->to_back)
-				memset(a[i]->d, 0, a[i]->n_row * a[i]->n_col * sizeof(float));
-		for (i = n - 1, a[i]->d[0] = 1.0f; i >= 0; --i) // backprop
+				memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
+		for (i = n - 1, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
 			if (a[i]->n_child)
 				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	}
@@ -177,7 +193,7 @@ float kad_eval(int n, kad_node_t **a, int cal_grad)
 /***********************
  * Load and save graph *
  ***********************/
-
+/*
 int kad_write(FILE *fp, int n_node, kad_node_t **node)
 {
 	int i, j;
@@ -231,7 +247,7 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 	*_n_node = n_node;
 	return node;
 }
-
+*/
 /*********************
  * Vector operations *
  *********************/
@@ -326,92 +342,83 @@ void kad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const fl
 
 int kad_op_add(kad_node_t *p, int action)
 {
-	int i, n = p->n_row * p->n_col;
-	kad_edge_t *e[2];
+	int i, n0, n1;
+	kad_node_t *q[2];
 
-	e[0] = &p->child[0];
-	e[1] = &p->child[1];
+	q[0] = p->child[0].p, n0 = kad_len(q[0]);
+	q[1] = p->child[1].p, n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
-		if ((e[0]->p->n_row != e[1]->p->n_row && e[1]->p->n_row != 1) || e[0]->p->n_col != e[1]->p->n_col) return -1;
-		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
+		if (n0 % n1 != 0) return -1;
+		p->n_d = q[0]->n_d;
+		if (p->n_d) memcpy(p->d, q[0]->d, p->n_d * sizeof(int));
 	} else if (action == KAD_FORWARD) {
-		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
-		if (e[1]->p->n_row == 1)
-			for (i = 0; i < e[0]->p->n_row; ++i)
-				kad_saxpy(e[0]->p->n_col, 1.0f, e[1]->p->_.x, &p->_.x[i*e[0]->p->n_col]);
-		else kad_saxpy(n, 1.0f, e[1]->p->_.x, p->_.x);
+		memcpy(p->_.x, q[0]->_.x, n0 * sizeof(float));
+		for (i = 0; i < n0; i += n1)
+			kad_saxpy(n1, 1.0f, q[1]->_.x, p->_.x + i);
 	} else if (action == KAD_BACKWARD) {
-		if (e[0]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[0]->p->d);
-		if (e[1]->p->to_back) {
-			if (e[1]->p->n_row == 1)
-				for (i = 0; i < e[0]->p->n_row; ++i)
-					kad_saxpy(e[0]->p->n_col, 1.0f, &p->d[i*e[0]->p->n_col], e[1]->p->d);
-			else kad_saxpy(n, 1.0f, p->d, e[1]->p->d);
-		}
-	}
-	return 0;
-}
-
-int kad_op_sub(kad_node_t *p, int action)
-{
-	int n = p->n_row * p->n_col;
-	kad_edge_t *e[2];
-
-	e[0] = &p->child[0];
-	e[1] = &p->child[1];
-	if (action == KAD_SYNC_DIM) {
-		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
-		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
-	} else if (action == KAD_FORWARD) {
-		memcpy(p->_.x, e[0]->p->_.x, n * sizeof(float));
-		kad_saxpy(n, -1.0f, e[1]->p->_.x, p->_.x);
-	} else if (action == KAD_BACKWARD) {
-		if (e[0]->p->to_back) kad_saxpy(n, 1.0f, p->d, e[0]->p->d);
-		if (e[1]->p->to_back) kad_saxpy(n, -1.0f, p->d, e[1]->p->d);
+		if (q[0]->to_back) kad_saxpy(n0, 1.0f, p->g, q[0]->g);
+		if (q[1]->to_back)
+			for (i = 0; i < n0; i += n1)
+				kad_saxpy(n1, 1.0f, p->g + i, q[1]->g);
 	}
 	return 0;
 }
 
 int kad_op_mul(kad_node_t *p, int action)
 {
-	int i, n = p->n_row * p->n_col;
-	kad_edge_t *e[2];
+	int i, n0, n1;
+	kad_node_t *q[2];
 
-	e[0] = &p->child[0];
-	e[1] = &p->child[1];
+	q[0] = p->child[0].p, n0 = kad_len(q[0]);
+	q[1] = p->child[1].p, n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
-		if (e[0]->p->n_row != e[1]->p->n_row || e[0]->p->n_col != e[1]->p->n_col) return -1;
-		p->n_row = e[0]->p->n_row, p->n_col = e[0]->p->n_col;
+		if (n0 % n1 != 0) return -1;
+		p->n_d = q[0]->n_d;
+		if (p->n_d) memcpy(p->d, q[0]->d, p->n_d * sizeof(int));
 	} else if (action == KAD_FORWARD) {
-		memset(p->_.x, 0, n * sizeof(float));
-		kad_vec_mul_sum(n, p->_.x, e[0]->p->_.x, e[1]->p->_.x);
+		memset(p->_.x, 0, n0 * sizeof(float));
+		for (i = 0; i < n0; i += n1) // TODO: optimize when n1==1
+			kad_vec_mul_sum(n1, p->_.x + i, q[0]->_.x + i, q[1]->_.x);
 	} else if (action == KAD_BACKWARD) {
-		for (i = 0; i < 2; ++i)
-			if (e[i]->p->to_back)
-				kad_vec_mul_sum(n, e[i]->p->d, p->d, e[!i]->p->_.x);
+		if (q[0]->to_back)
+			for (i = 0; i < n0; i += n1)
+				kad_vec_mul_sum(n1, q[0]->g + i, p->g + i, q[1]->_.x);
+		if (q[1]->to_back)
+			for (i = 0; i < n0; i += n1)
+				kad_vec_mul_sum(n1, q[1]->g, p->g + i, q[0]->_.x + i);
 	}
 	return 0;
 }
 
-int kad_op_mtmul(kad_node_t *p, int action)
+int kad_op_cmul(kad_node_t *p, int action)
 {
-	kad_edge_t *e[2];
+	int i, j, n_a_row, n_b_row, n_col;
+	kad_node_t *q[2];
 
-	e[0] = &p->child[0];
-	e[1] = &p->child[1];
-	assert(e[0]->p->to_back == 0);
+	q[0] = p->child[0].p;
+	q[1] = p->child[1].p;
+	assert(q[0]->to_back == 0);
+	if (q[0]->n_d == 1 && q[1]->n_d == 2)      n_a_row = 1, n_b_row = q[1]->d[0], n_col = q[0]->d[0];
+	else if (q[0]->n_d == 2 && q[1]->n_d == 1) n_a_row = q[0]->d[0], n_b_row = 1, n_col = q[1]->d[0];
+	else if (q[0]->n_d == 2 && q[1]->n_d == 2) n_a_row = q[0]->d[0], n_b_row = q[1]->d[0], n_col = q[0]->d[1];
 	if (action == KAD_SYNC_DIM) {
-		if (e[0]->p->n_col != e[1]->p->n_col) return -1;
-		p->n_row = e[0]->p->n_row, p->n_col = e[1]->p->n_row;
+		if (q[0]->n_d == 1 && q[1]->n_d == 2) { // vector x matrix
+			if (q[0]->d[0] != q[1]->d[1]) return -1;
+			p->n_d = 1, p->d[1] = q[0]->d[0];
+		} else if (q[0]->n_d == 2 && q[1]->n_d == 1) {
+			if (q[0]->d[1] != q[1]->d[0]) return -1;
+			p->n_d = 1, p->d[1] = q[1]->d[0];
+		} else if (q[0]->n_d == 2 && q[1]->n_d == 2) {
+			if (q[0]->d[1] != q[1]->d[1]) return -1;
+			p->n_d = 2, p->d[0] = q[0]->d[0], p->d[1] = q[1]->d[0];
+		} else return -1;
 	} else if (action == KAD_FORWARD) {
-		kad_mat_mtmul(e[0]->p->n_col, e[0]->p->n_row, e[0]->p->_.x, e[1]->p->n_row, e[1]->p->_.x, p->_.x);
+		kad_mat_mtmul(n_col, n_a_row, q[0]->_.x, n_b_row, q[1]->_.x, p->_.x);
 	} else if (action == KAD_BACKWARD) {
-		if (e[1]->p->to_back) {
-			int i, j, n_col = e[0]->p->n_col;
-			for (i = 0; i < e[0]->p->n_row; ++i)
-				for (j = 0; j < e[1]->p->n_row; ++j)
-					kad_saxpy(n_col, p->d[i * e[1]->p->n_row + j], e[0]->p->_.x + i * n_col, e[1]->p->d + j * n_col);
-		}
+		if (q[1]->to_back)
+			for (i = 0; i < n_a_row; ++i)
+				for (j = 0; j < n_b_row; ++j)
+					kad_saxpy(n_col, p->g[i * n_b_row + j], q[0]->_.x + i * n_col, q[1]->g + j * n_col);
 	}
 	return 0;
 }
@@ -419,21 +426,23 @@ int kad_op_mtmul(kad_node_t *p, int action)
 int kad_op_ce2(kad_node_t *p, int action)
 {
 	kad_edge_t *e[2];
-	int i, n;
+	int i, n0, n1;
 
-	assert(p->child[1].p->to_back == 0); // child[1] is the true; we don't backprop this
 	e[0] = &p->child[0], e[1] = &p->child[1];
-	n = e[0]->p->n_row * e[0]->p->n_col;
+	assert(e[1]->p->to_back == 0); // child[1] is the true; we don't backprop this
+	n0 = kad_len(e[0]->p);
+	n1 = kad_len(e[1]->p);
 	if (action == KAD_SYNC_DIM) {
-		p->n_row = p->n_col = 1;
+		if (n0 != n1) return -1;
+		p->n_d = 0;
 	} else if (action == KAD_ALLOC) {
 		if (e[0]->p->to_back)
-			e[0]->t = (float*)realloc(e[0]->t, n * sizeof(float));
+			e[0]->t = (float*)realloc(e[0]->t, n0 * sizeof(float));
 	} else if (action == KAD_FORWARD) {
 		const float *x, *y;
 		double s;
 		x = e[0]->p->_.x, y = e[1]->p->_.x;
-		for (i = 0, s = 0.0; i < n; ++i) {
+		for (i = 0, s = 0.0; i < n0; ++i) {
 			float t;
 			t = 1.0f + expf(-x[i]);
 			if (e[0]->p->to_back) e[0]->t[i] = 1.0f / t - y[i];
@@ -441,81 +450,87 @@ int kad_op_ce2(kad_node_t *p, int action)
 			if (y[i] != 0.0f) s += y[i] * t;
 			if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
 		}
-		p->_.x[0] = s / e[0]->p->n_row;
 	} else if (action == KAD_BACKWARD) {
 		if (e[0]->p->to_back)
-			kad_saxpy(n, p->d[0], e[0]->t, e[0]->p->d);
+			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
 	}
 	return 0;
 }
 
 int kad_op_norm2(kad_node_t *p, int action)
 {
-	kad_edge_t *e = &p->child[0];
-	int i, n = e->p->n_row * e->p->n_col;
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_row = p->n_col = 1;
+		p->n_d = 0;
 	} else if (action == KAD_FORWARD) {
-		p->_.x[0] = kad_sdot(n, e->p->_.x, e->p->_.x);
+		p->_.x[0] = kad_sdot(n, q->_.x, q->_.x);
 	} else if (action == KAD_BACKWARD) {
-		if (e->p->to_back)
+		if (q->to_back)
 			for (i = 0; i < n; ++i)
-				e->p->d[i] += p->d[i] * (e->p->_.x[i] + e->p->_.x[i]);
+				q->g[i] += p->g[i] * (q->_.x[i] + q->_.x[i]);
 	}
 	return 0;
 }
 
 int kad_op_sigm(kad_node_t *p, int action)
 {
-	int i, n = p->n_row * p->n_col;
-	kad_edge_t *e = &p->child[0];
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
+		p->n_d = q->n_d;
+		memcpy(p->d, q->d, p->n_d * sizeof(int));
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
-			p->_.x[i] = 1.0f / (1.0f + expf(e->p->_.x[i]));
+			p->_.x[i] = 1.0f / (1.0f + expf(q->_.x[i]));
 	} else if (action == KAD_BACKWARD) {
-		if (e->p->to_back)
+		if (q->to_back)
 			for (i = 0; i < n; ++i)
-				e->p->d[i] += p->d[i] * (p->_.x[i] * (1.0f - p->_.x[i]));
+				q->g[i] += p->g[i] * (p->_.x[i] * (1.0f - p->_.x[i]));
 	}
 	return 0;
 }
 
 int kad_op_tanh(kad_node_t *p, int action)
 {
-	int i, n = p->n_row * p->n_col;
-	kad_edge_t *e = &p->child[0];
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
+		p->n_d = q->n_d;
+		memcpy(p->d, q->d, p->n_d * sizeof(int));
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) {
 			float y;
-			y = expf(-2.0f * e->p->_.x[i]);
+			y = expf(-2.0f * q->_.x[i]);
 			p->_.x[i] = (1.0f - y) / (1.0f + y);
 		}
 	} else if (action == KAD_BACKWARD) {
-		if (e->p->to_back)
+		if (q->to_back)
 			for (i = 0; i < n; ++i)
-				e->p->d[i] += p->d[i] * (1.0f - p->_.x[i] * p->_.x[i]);
+				q->g[i] += p->g[i] * (1.0f - p->_.x[i] * p->_.x[i]);
 	}
 	return 0;
 }
 
 int kad_op_relu(kad_node_t *p, int action)
 {
-	int i, n = p->n_row * p->n_col;
-	kad_edge_t *e = &p->child[0];
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_row = e->p->n_row, p->n_col = e->p->n_col;
+		p->n_d = q->n_d;
+		memcpy(p->d, q->d, p->n_d * sizeof(int));
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
-			p->_.x[i] = e->p->_.x[i] > 0.0f? e->p->_.x[i] : 0.0f;
+			p->_.x[i] = q->_.x[i] > 0.0f? q->_.x[i] : 0.0f;
 	} else if (action == KAD_BACKWARD) {
-		if (e->p->to_back)
+		if (q->to_back)
 			for (i = 0; i < n; ++i)
-				if (e->p->_.x[i] > 0.0f)
-					e->p->d[i] += p->d[i];
+				if (q->_.x[i] > 0.0f)
+					q->g[i] += p->g[i];
 	}
 	return 0;
 }
@@ -523,9 +538,8 @@ int kad_op_relu(kad_node_t *p, int action)
 kad_op_f kad_op_list[] = {
 	0,
 	kad_op_add,
-	kad_op_sub,
 	kad_op_mul,
-	kad_op_mtmul,
+	kad_op_cmul,
 	kad_op_ce2,
 	kad_op_norm2,
 	kad_op_sigm,
