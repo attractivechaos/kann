@@ -188,7 +188,7 @@ float kad_eval(int n, kad_node_t **a, int cal_grad)
 /***********************
  * Load and save graph *
  ***********************/
-/*
+
 int kad_write(FILE *fp, int n_node, kad_node_t **node)
 {
 	int i, j;
@@ -202,13 +202,13 @@ int kad_write(FILE *fp, int n_node, kad_node_t **node)
 			for (j = 0; j < p->n_child; ++j)
 				fwrite(&p->child[j].p->tmp, sizeof(int), 1, fp);
 		} else {
+			fwrite(&p->n_d, sizeof(short), 1, fp);
+			if (p->n_d) fwrite(p->d, sizeof(int), p->n_d, fp);
 			fwrite(&p->label, sizeof(int), 1, fp);
-			fwrite(&p->n_row, sizeof(int), 1, fp);
-			fwrite(&p->n_col, sizeof(int), 1, fp);
 			fwrite(&p->to_back, sizeof(short), 1, fp);
 		}
 	}
-	for (i = 0; i < n_node; ++i) node[i]->tmp = i;
+	for (i = 0; i < n_node; ++i) node[i]->tmp = 0;
 	return 0;
 }
 
@@ -233,16 +233,16 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 			}
 			kad_op_list[p->op](p, KAD_SYNC_DIM);
 		} else {
+			fread(&p->n_d, sizeof(short), 1, fp);
+			if (p->n_d) fread(p->d, sizeof(int), p->n_d, fp);
 			fread(&p->label, sizeof(int), 1, fp);
-			fread(&p->n_row, sizeof(int), 1, fp);
-			fread(&p->n_col, sizeof(int), 1, fp);
 			fread(&p->to_back, sizeof(short), 1, fp);
 		}
 	}
 	*_n_node = n_node;
 	return node;
 }
-*/
+
 /*********************
  * Vector operations *
  *********************/
