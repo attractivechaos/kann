@@ -312,7 +312,7 @@ void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
 
-void kad_mat_mtmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
+void kad_mat_cmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
 {
 	static const int x = 16;
 	int i, j;
@@ -407,7 +407,7 @@ int kad_op_cmul(kad_node_t *p, int action)
 			p->n_d = 2, p->d[0] = q[0]->d[0], p->d[1] = q[1]->d[0];
 		} else return -1;
 	} else if (action == KAD_FORWARD) {
-		kad_mat_mtmul(n_col, n_a_row, q[0]->_.x, n_b_row, q[1]->_.x, p->_.x);
+		kad_mat_cmul(n_col, n_a_row, q[0]->_.x, n_b_row, q[1]->_.x, p->_.x);
 	} else if (action == KAD_BACKWARD) {
 		if (q[0]->to_back) // TODO: is this correct?
 			for (j = 0; j < n_b_row; ++j)
