@@ -38,8 +38,6 @@ int kann_n_out(kann_t *a);
 int kann_n_par(kann_t *a);
 
 void kann_mopt_init(kann_mopt_t *mo);
-void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
-void kann_set_batch_size(int B, int n_node, kad_node_t **node);
 
 #ifdef __cplusplus
 }

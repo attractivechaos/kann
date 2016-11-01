@@ -65,7 +65,7 @@ void kann_mopt_init(kann_mopt_t *mo)
 	mo->decay = 0.9f;
 }
 
-void kann_set_batch_size(int B, int n_node, kad_node_t **node)
+static void kann_set_batch_size(int B, int n_node, kad_node_t **node)
 {
 	int i;
 	for (i = 0; i < n_node; ++i) {
@@ -78,8 +78,9 @@ void kann_set_batch_size(int B, int n_node, kad_node_t **node)
 			kad_op_list[node[i]->op](node[i], KAD_SYNC_DIM);
 }
 
-void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y)
+void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
 {
+	extern void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 	float **x, **y, **vx, **vy, *bx, *by, *rmsp_r;
 	int i, n_train, n_validate, n_in, n_out, n_par;
 
