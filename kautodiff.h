@@ -34,6 +34,11 @@ typedef struct kad_node_t {
 	void *ptr;
 } kad_node_t;
 
+typedef struct {
+	void *data;
+	double (*func)(void*);
+} kad_rng_t;
+
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[];
 
@@ -56,6 +61,7 @@ kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier
 
 kad_node_t **kad_compile(kad_node_t *root, int *n_node);
 float kad_eval(int n, kad_node_t **a, int cal_grad);
+void kad_free_node(kad_node_t *p);
 void kad_free(int n, kad_node_t **a);
 
 int kad_write(FILE *fp, int n_node, kad_node_t **node);

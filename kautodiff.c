@@ -149,18 +149,23 @@ kad_node_t **kad_compile(kad_node_t *root, int *n_node)
 	return a.a;
 }
 
+void kad_free_node(kad_node_t *p)
+{
+	int j;
+	for (j = 0; j < p->n_child; ++j)
+		free(p->child[j].t);
+	if (p->n_child) {
+		free(p->_.x);
+		free(p->g);
+	}
+	free(p->child);
+	free(p);
+}
+
 void kad_free(int n, kad_node_t **a)
 {
-	int i, j;
-	for (i = 0; i < n; ++i) {
-		for (j = 0; j < a[i]->n_child; ++j)
-			free(a[i]->child[j].t);
-		if (a[i]->n_child) {
-			free(a[i]->_.x);
-			free(a[i]->g);
-		}
-		free(a[i]->child);
-	}
+	int i;
+	for (i = 0; i < n; ++i) kad_free_node(a[i]);
 	free(a);
 }
 
@@ -465,9 +470,11 @@ int kad_op_norm2(kad_node_t *p, int action)
 	} else if (action == KAD_FORWARD) {
 		p->_.x[0] = kad_sdot(n, q->_.x, q->_.x);
 	} else if (action == KAD_BACKWARD) {
-		if (q->to_back)
+		if (q->to_back) {
+			float s = 1.0f / n;
 			for (i = 0; i < n; ++i)
-				q->g[i] += p->g[i] * (q->_.x[i] + q->_.x[i]);
+				q->g[i] += s * p->g[i] * (q->_.x[i] + q->_.x[i]);
+		}
 	}
 	return 0;
 }
@@ -484,9 +491,11 @@ int kad_op_sigm(kad_node_t *p, int action)
 		for (i = 0; i < n; ++i)
 			p->_.x[i] = 1.0f / (1.0f + expf(q->_.x[i]));
 	} else if (action == KAD_BACKWARD) {
-		if (q->to_back)
+		if (q->to_back) {
+			float s = 1.0f / n;
 			for (i = 0; i < n; ++i)
-				q->g[i] += p->g[i] * (p->_.x[i] * (1.0f - p->_.x[i]));
+				q->g[i] += s * p->g[i] * (p->_.x[i] * (1.0f - p->_.x[i]));
+		}
 	}
 	return 0;
 }
