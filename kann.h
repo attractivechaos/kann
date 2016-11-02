@@ -40,6 +40,7 @@ int kann_n_out(kann_t *a);
 int kann_n_par(kann_t *a);
 
 void kann_mopt_init(kann_mopt_t *mo);
+void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);
 
 kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
