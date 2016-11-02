@@ -4,7 +4,7 @@ CPPFLAGS=
 ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
 INCLUDES=	-I.
 OBJS=		kautodiff.o kann_rand.o kann_data.o ann.o model.o
-PROG=
+PROG=		kann
 LIBS=		-lm -lz
 
 .SUFFIXES:.c .o
@@ -13,7 +13,10 @@ LIBS=		-lm -lz
 .c.o:
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
-all:libkann.a
+all:libkann.a $(PROG)
+
+kann:libkann.a cli.o main.o
+		$(CC) $^ -o $@ $(LIBS)
 
 libkann.a:$(OBJS)
 		$(AR) -csru $@ $(OBJS)
@@ -30,8 +33,9 @@ depend:
 # DO NOT DELETE
 
 ann.o: kann_rand.h kann.h kautodiff.h
+cli.o: kann.h kautodiff.h kann_data.h
 kann_data.o: kseq.h kann_data.h
 kann_rand.o: kann_rand.h
 kautodiff.o: kautodiff.h
+main.o: kann.h kautodiff.h
 model.o: kann_rand.h kann.h kautodiff.h
-test.o: kautodiff.h
