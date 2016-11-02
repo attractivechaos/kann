@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "kann_rand.h"
-#include "kann_ann.h"
+#include "kann.h"
 
 kann_t *kann_init(uint64_t seed)
 {

@@ -1,5 +1,5 @@
-#ifndef KANN_ANN_H
-#define KANN_ANN_H
+#ifndef KANN_H
+#define KANN_H
 
 #define KAD_LABEL_IN        1
 #define KAD_LABEL_OUT_PRE   2
