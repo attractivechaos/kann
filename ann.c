@@ -21,7 +21,7 @@ void kann_destroy(kann_t *a)
 	free(a);
 }
 
-void kann_sync_ptr(kann_t *a)
+void kann_sync(kann_t *a)
 {
 	int i;
 	a->in = a->out_pre = a->out_truth = 0;
