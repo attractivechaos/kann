@@ -73,9 +73,13 @@ static void kann_set_batch_size(int B, int n_node, kad_node_t **node)
 		if (p->n_child == 0 && (p->label == KAD_LABEL_IN || p->label == KAD_LABEL_OUT_PRE || p->label == KAD_LABEL_OUT_TRUTH))
 			p->d[0] = B;
 	}
-	for (i = 0; i < n_node; ++i)
-		if (node[i]->n_child)
-			kad_op_list[node[i]->op](node[i], KAD_SYNC_DIM);
+	for (i = 0; i < n_node; ++i) {
+		kad_node_t *p = node[i];
+		if (p->n_child == 0) continue;
+		kad_op_list[p->op](p, KAD_SYNC_DIM);
+		kad_op_list[p->op](p, KAD_ALLOC);
+		p->_.x = (float*)realloc(p->_.x, kad_len(p) * sizeof(float));
+	}
 }
 
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
@@ -120,14 +124,18 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		while (rest > 0) {
 			int j, mb = rest < mo->mb_size? rest : mo->mb_size;
 			kann_set_batch_size(mb, a->n, a->v);
+//			kad_debug(stderr, a->n, a->v);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  &x[rest+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], &y[rest+j], n_out * sizeof(float));
 			}
+			//fprintf(stderr, "here\n");
 			kad_eval(a->n, a->v, 1);
+			//fprintf(stderr, "there\n");
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			rest -= mb;
 		}
+		fprintf(stderr, "here: %g\n", a->v[a->n-1]->_.x[0]);
 	}
 
 	// free

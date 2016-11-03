@@ -13,7 +13,7 @@ int main_mlp_train(int argc, char *argv[])
 	kann_t *ann;
 
 	kann_mopt_init(&mo);
-	while ((c = getopt(argc, argv, "h:l:s:e:")) != 0) {
+	while ((c = getopt(argc, argv, "h:l:s:e:")) >= 0) {
 		if (c == 'h') n_hidden_neurons = atoi(optarg);
 		else if (c == 'l') n_hidden_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);

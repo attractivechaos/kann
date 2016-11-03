@@ -66,6 +66,7 @@ void kad_free(int n, kad_node_t **a);
 
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
+void kad_debug(FILE *fp, int n, kad_node_t **v);
 
 #ifdef __cplusplus
 }
