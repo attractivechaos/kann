@@ -6,6 +6,7 @@
 #define KAD_LABEL_IN        1
 #define KAD_LABEL_OUT_PRE   2
 #define KAD_LABEL_OUT_TRUTH 3
+#define KAD_LABEL_OUT_EST   4
 
 #include <stdint.h>
 #include "kautodiff.h"
@@ -25,6 +26,7 @@ typedef struct {
 	int n;
 	kad_node_t **v;
 	kad_node_t *out_pre, *out_truth, *in;
+	kad_node_t *out_est;
 	float *t, *g;
 } kann_t;
 

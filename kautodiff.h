@@ -42,6 +42,8 @@ typedef struct {
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[];
 
+#define kad_for1(p) (kad_op_list[(p)->op]((p), KAD_FORWARD))
+
 #ifdef __cplusplus
 extern "C" {
 #endif

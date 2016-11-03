@@ -17,6 +17,7 @@ void kann_destroy(kann_t *a)
 {
 	free(a->t); free(a->g);
 	if (a->v) kad_free(a->n, a->v);
+	kad_free_node(a->out_est);
 	free(a->rng.data);
 	free(a);
 }
@@ -57,7 +58,7 @@ int kann_n_par(kann_t *a)
 void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
-	mo->lr = 0.001f;
+	mo->lr = 0.01f;
 	mo->fv = 0.1f;
 	mo->mb_size = 64;
 	mo->epoch_lazy = 10;
@@ -65,7 +66,7 @@ void kann_mopt_init(kann_mopt_t *mo)
 	mo->decay = 0.9f;
 }
 
-static void kann_set_batch_size(int B, int n_node, kad_node_t **node)
+static void kann_set_batch_size(int B, int n_node, kad_node_t **node, kad_node_t *extra)
 {
 	int i;
 	for (i = 0; i < n_node; ++i) {
@@ -73,9 +74,9 @@ static void kann_set_batch_size(int B, int n_node, kad_node_t **node)
 		if (p->n_child == 0 && (p->label == KAD_LABEL_IN || p->label == KAD_LABEL_OUT_PRE || p->label == KAD_LABEL_OUT_TRUTH))
 			p->d[0] = B;
 	}
-	for (i = 0; i < n_node; ++i) {
-		kad_node_t *p = node[i];
-		if (p->n_child == 0) continue;
+	for (i = 0; i <= n_node; ++i) {
+		kad_node_t *p = i < n_node? node[i] : extra;
+		if (p == 0 || p->n_child == 0) continue;
 		kad_op_list[p->op](p, KAD_SYNC_DIM);
 		kad_op_list[p->op](p, KAD_ALLOC);
 		p->_.x = (float*)realloc(p->_.x, kad_len(p) * sizeof(float));
@@ -103,7 +104,7 @@ void print_mat(kad_node_t *p)
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
 {
 	extern void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
-	float **x, **y, **vx, **vy, *bx, *by, *rmsp_r;
+	float **x, **y, *bx, *by, *rmsp_r;
 	int i, n_train, n_validate, n_in, n_out, n_par;
 
 	// copy and shuffle
@@ -118,8 +119,6 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	// set validation set
 	n_validate = mo->fv > 0.0f && mo->fv < 1.0f? (int)(mo->fv * n + .499) : n;
 	n_train = n - n_validate;
-	vx = x + n_train;
-	vy = y? y + n_train : 0;
 
 	// prepare mini-batch buffer
 	n_in = kann_n_in(a);
@@ -141,19 +140,20 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		kann_shuffle(a->rng.data, n_train, x, y, 0);
 		while (n_proc < n_train) {
 			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
-			kann_set_batch_size(mb, a->n, a->v);
-			//kad_debug(stderr, a->n, a->v);
+			kann_set_batch_size(mb, a->n, a->v, a->out_est);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			//fprintf(stderr, "here\n");
 			kad_eval(a->n, a->v, 1);
-			//fprintf(stderr, "there\n");
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			n_proc += mb;
 		}
-//		fprintf(stderr, "here: %g\n", a->v[a->n-1]->_.x[0]);
+		{
+			kad_for1(a->out_est);
+			print_mat(a->out_est);
+			fprintf(stderr, "here: %g\n", a->v[a->n-1]->_.x[0]);
+		}
 	}
 
 	// free

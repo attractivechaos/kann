@@ -34,6 +34,7 @@ kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neur
 		prev = kad_add(kad_cmul(prev, w), b);
 	}
 	prev->label = KAD_LABEL_OUT_PRE;
+	a->out_est = kad_sigm(prev);
 	root = kad_ce2(prev, out);
 	a->v = kad_compile(root, &a->n);
 	kann_sync(a);

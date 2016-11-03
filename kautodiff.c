@@ -175,8 +175,7 @@ float kad_eval(int n, kad_node_t **a, int cal_grad)
 	float f;
 	assert(n > 0);
 	for (i = 0; i < n; ++i) // forward pass
-		if (a[i]->n_child)
-			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
+		if (a[i]->n_child) kad_for1(a[i]);
 	f = a[n-1]->_.x[0];
 	if (cal_grad) {
 		assert(a[n-1]->n_d == 0);
@@ -481,6 +480,7 @@ int kad_op_ce2(kad_node_t *p, int action)
 			if (y[i] != 0.0f) s += y[i] * t;
 			if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
 		}
+		p->_.x[0] = s;
 	} else if (action == KAD_BACKWARD) {
 		if (e[0]->p->to_back)
 			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
