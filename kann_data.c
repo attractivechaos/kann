@@ -98,5 +98,11 @@ kann_data_t *kann_data_read(const char *fn)
 
 void kann_data_free(kann_data_t *d)
 {
+	int i;
+	for (i = 0; i < d->n_row; ++i) {
+		free(d->rname[i]);
+		free(d->x[i]);
+	}
+	for (i = 0; i < d->n_col; ++i) free(d->cname[i]);
 	free(d->x); free(d->cname); free(d->rname); free(d->grp); free(d);
 }

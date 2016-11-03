@@ -16,7 +16,7 @@ LIBS=		-lm -lz
 all:libkann.a $(PROG)
 
 kann:libkann.a cli.o main.o
-		$(CC) $^ -o $@ $(LIBS)
+		$(CC) cli.o main.o -o $@ -L. -lkann $(LIBS)
 
 libkann.a:$(OBJS)
 		$(AR) -csru $@ $(OBJS)

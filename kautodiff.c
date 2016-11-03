@@ -427,6 +427,7 @@ int kad_op_cmul(kad_node_t *p, int action)
 	if (q[0]->n_d == 1 && q[1]->n_d == 2)      n_a_row = 1, n_b_row = q[1]->d[0], n_col = q[0]->d[0];
 	else if (q[0]->n_d == 2 && q[1]->n_d == 1) n_a_row = q[0]->d[0], n_b_row = 1, n_col = q[1]->d[0];
 	else if (q[0]->n_d == 2 && q[1]->n_d == 2) n_a_row = q[0]->d[0], n_b_row = q[1]->d[0], n_col = q[0]->d[1];
+	else abort();
 	if (action == KAD_SYNC_DIM) {
 		if (q[0]->n_d == 1 && q[1]->n_d == 2) {
 			if (q[0]->d[0] != q[1]->d[1]) return -1;

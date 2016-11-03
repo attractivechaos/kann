@@ -79,6 +79,24 @@ static void kann_set_batch_size(int B, int n_node, kad_node_t **node)
 		kad_op_list[p->op](p, KAD_SYNC_DIM);
 		kad_op_list[p->op](p, KAD_ALLOC);
 		p->_.x = (float*)realloc(p->_.x, kad_len(p) * sizeof(float));
+		p->g = (float*)realloc(p->g, kad_len(p) * sizeof(float));
+	}
+}
+
+void print_mat(kad_node_t *p)
+{
+	int i, j;
+	if (p->n_d == 0) fprintf(stderr, "%g\n", p->_.x[0]);
+	else if (p->n_d == 1) {
+		for (i = 0; i < p->d[0]; ++i)
+			fprintf(stderr, " %5g", p->_.x[i]);
+		fputc('\n', stderr);
+	} else if (p->n_d == 2) {
+		for (i = 0; i < p->d[0]; ++i) {
+			for (j = 0; j < p->d[1]; ++j)
+				fprintf(stderr, " %5g", p->_.x[i*p->d[1]+j]);
+			fputc('\n', stderr);
+		}
 	}
 }
 
@@ -98,8 +116,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	kann_shuffle(a->rng.data, n, x, y, 0);
 
 	// set validation set
-	n_train = mo->fv > 0.0f && mo->fv < 1.0f? (int)(mo->fv * n + .499) : n;
-	n_validate = n - n_train;
+	n_validate = mo->fv > 0.0f && mo->fv < 1.0f? (int)(mo->fv * n + .499) : n;
+	n_train = n - n_validate;
 	vx = x + n_train;
 	vy = y? y + n_train : 0;
 
@@ -119,23 +137,23 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 
 	// main loop
 	for (i = 0; i < mo->max_epoch; ++i) {
-		int rest = n_train;
+		int n_proc = 0;
 		kann_shuffle(a->rng.data, n_train, x, y, 0);
-		while (rest > 0) {
-			int j, mb = rest < mo->mb_size? rest : mo->mb_size;
+		while (n_proc < n_train) {
+			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
 			kann_set_batch_size(mb, a->n, a->v);
-//			kad_debug(stderr, a->n, a->v);
+			//kad_debug(stderr, a->n, a->v);
 			for (j = 0; j < mb; ++j) {
-				memcpy(&bx[j*n_in],  &x[rest+j], n_in  * sizeof(float));
-				memcpy(&by[j*n_out], &y[rest+j], n_out * sizeof(float));
+				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
+				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
 			//fprintf(stderr, "here\n");
 			kad_eval(a->n, a->v, 1);
 			//fprintf(stderr, "there\n");
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
-			rest -= mb;
+			n_proc += mb;
 		}
-		fprintf(stderr, "here: %g\n", a->v[a->n-1]->_.x[0]);
+//		fprintf(stderr, "here: %g\n", a->v[a->n-1]->_.x[0]);
 	}
 
 	// free
