@@ -473,13 +473,12 @@ int kad_op_ce2(kad_node_t *p, int action)
 		double s;
 		x = e[0]->p->_.x, y = e[1]->p->_.x;
 		for (i = 0, s = 0.0; i < n0; ++i) {
-			float t, t1, t2;
+			float t, t1, t2, y1 = 1.0f - y[i];
 			t = expf(-x[i]);
 			t1 = 1.0f / (1.0f + t);
 			t2 = t * t1;
 			if (e[0]->p->to_back) e[0]->t[i] = (t1 - y[i]) / n0;
-			t = (y[i] == 0.0f? 0.0f : y[i] * logf(t1 / y[i] + tiny)) + (1.0f - y[i] == 0.0f? 0.0f : (1.0f - y[i]) * logf(t2 / (1.0f - y[i]) + tiny));
-			s += -t;
+			s -= (y[i] == 0.0f? 0.0f : y[i] * logf(t1 / y[i] + tiny)) + (y1 == 0.0f? 0.0f : y1 * logf(t2 / y1 + tiny));
 		}
 		p->_.x[0] = s / n0;
 	} else if (action == KAD_BACKWARD) {
