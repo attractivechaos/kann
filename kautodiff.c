@@ -454,6 +454,7 @@ int kad_op_cmul(kad_node_t *p, int action)
 
 int kad_op_ce2(kad_node_t *p, int action)
 {
+	static const float tiny = 1e-9f;
 	kad_edge_t *e[2];
 	int i, n0, n1;
 
@@ -472,12 +473,13 @@ int kad_op_ce2(kad_node_t *p, int action)
 		double s;
 		x = e[0]->p->_.x, y = e[1]->p->_.x;
 		for (i = 0, s = 0.0; i < n0; ++i) {
-			float t;
-			t = 1.0f + expf(-x[i]);
-			if (e[0]->p->to_back) e[0]->t[i] = (1.0f / t - y[i]) / n0;
-			t = x[i] < -30.0f? -x[i] : logf(t);
-			if (y[i] != 0.0f) s += y[i] * t;
-			if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
+			float t, t1, t2;
+			t = expf(-x[i]);
+			t1 = 1.0f / (1.0f + t);
+			t2 = t * t1;
+			if (e[0]->p->to_back) e[0]->t[i] = (t1 - y[i]) / n0;
+			t = (y[i] == 0.0f? 0.0f : y[i] * logf(t1 / y[i] + tiny)) + (1.0f - y[i] == 0.0f? 0.0f : (1.0f - y[i]) * logf(t2 / (1.0f - y[i]) + tiny));
+			s += -t;
 		}
 		p->_.x[0] = s / n0;
 	} else if (action == KAD_BACKWARD) {
