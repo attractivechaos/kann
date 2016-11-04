@@ -475,12 +475,12 @@ int kad_op_ce2(kad_node_t *p, int action)
 		for (i = 0, s = 0.0; i < n0; ++i) {
 			float t;
 			t = 1.0f + expf(-x[i]);
-			if (e[0]->p->to_back) e[0]->t[i] = 1.0f / t - y[i];
+			if (e[0]->p->to_back) e[0]->t[i] = (1.0f / t - y[i]) / n0;
 			t = x[i] < -30.0f? -x[i] : logf(t);
 			if (y[i] != 0.0f) s += y[i] * t;
 			if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
 		}
-		p->_.x[0] = s;
+		p->_.x[0] = s / n0;
 	} else if (action == KAD_BACKWARD) {
 		if (e[0]->p->to_back)
 			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
