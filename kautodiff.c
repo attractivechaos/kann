@@ -180,8 +180,7 @@ float kad_eval(int n, kad_node_t **a, int cal_grad)
 	if (cal_grad) {
 		assert(a[n-1]->n_d == 0);
 		for (i = 0; i < n; ++i) // set all grandients to zero
-			if (a[i]->to_back)
-				memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
+			if (a[i]->g) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
 		for (i = n - 1, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
 			if (a[i]->n_child)
 				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
@@ -501,7 +500,7 @@ int kad_op_norm2(kad_node_t *p, int action)
 		if (q->to_back) {
 			float s = 1.0f / n;
 			for (i = 0; i < n; ++i)
-				q->g[i] += s * p->g[i] * (q->_.x[i] + q->_.x[i]);
+				q->g[i] += s * p->g[0] * (q->_.x[i] + q->_.x[i]);
 		}
 	}
 	return 0;
