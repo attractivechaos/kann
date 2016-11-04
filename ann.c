@@ -151,7 +151,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		}
 		{
 			kad_for1(a->out_est);
-			print_mat(a->out_est);
+			//print_mat(a->out_est);
 			fprintf(stderr, "here: %g\n", a->v[a->n-1]->_.x[0]);
 		}
 	}

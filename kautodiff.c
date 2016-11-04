@@ -476,7 +476,7 @@ int kad_op_ce2(kad_node_t *p, int action)
 			float t;
 			t = 1.0f + expf(-x[i]);
 			if (e[0]->p->to_back) e[0]->t[i] = 1.0f / t - y[i];
-			t = logf(t);
+			t = x[i] < -30.0f? -x[i] : logf(t);
 			if (y[i] != 0.0f) s += y[i] * t;
 			if (1.0f - y[i] != 0.0f) s += (1.0f - y[i]) * (x[i] + t);
 		}

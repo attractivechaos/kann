@@ -13,11 +13,13 @@ int main_mlp_train(int argc, char *argv[])
 	kann_t *ann;
 
 	kann_mopt_init(&mo);
-	while ((c = getopt(argc, argv, "h:l:s:e:")) >= 0) {
+	while ((c = getopt(argc, argv, "h:l:s:e:n:B:")) >= 0) {
 		if (c == 'h') n_hidden_neurons = atoi(optarg);
 		else if (c == 'l') n_hidden_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'e') mo.lr = atof(optarg);
+		else if (c == 'n') mo.max_epoch = atoi(optarg);
+		else if (c == 'B') mo.mb_size = atoi(optarg);
 	}
 	if (argc - optind < 2) {
 		fprintf(stderr, "Usage: kann mlp-train [options] <in.knd> <out.knd>\n");
@@ -28,6 +30,8 @@ int main_mlp_train(int argc, char *argv[])
 		fprintf(stderr, "    -s INT      random seed [%d]\n", seed);
 		fprintf(stderr, "  Model training:\n");
 		fprintf(stderr, "    -e FLOAT    learning rate [%g]\n", mo.lr);
+		fprintf(stderr, "    -n INT      max number of epochs [%d]\n", mo.max_epoch);
+		fprintf(stderr, "    -B INT      mini-batch size [%d]\n", mo.mb_size);
 		return 1;
 	}
 
