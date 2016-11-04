@@ -26,11 +26,11 @@ kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neur
 	for (i = 1, j = 0; i < n_layers; ++i) {
 		kad_node_t *w, *b;
 		if (i > 1) prev = kad_relu(prev);
+		b = kad_var(&a->t[j], &a->g[j], 1, n_neurons[i]);
+		j += n_neurons[i];
 		w = kad_var(&a->t[j], &a->g[j], 2, n_neurons[i], n_neurons[i-1]);
 		kann_rand_weight(a->rng.data, n_neurons[i], n_neurons[i-1], &a->t[j]);
 		j += n_neurons[i] * n_neurons[i-1];
-		b = kad_var(&a->t[j], &a->g[j], 1, n_neurons[i]);
-		j += n_neurons[i];
 		prev = kad_add(kad_cmul(prev, w), b);
 	}
 	prev->label = KAD_LABEL_OUT_PRE;

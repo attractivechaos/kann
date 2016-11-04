@@ -517,7 +517,7 @@ int kad_op_sigm(kad_node_t *p, int action)
 		memcpy(p->d, q->d, p->n_d * sizeof(int));
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
-			p->_.x[i] = 1.0f / (1.0f + expf(q->_.x[i]));
+			p->_.x[i] = 1.0f / (1.0f + expf(-q->_.x[i]));
 	} else if (action == KAD_BACKWARD) {
 		if (q->to_back) {
 			float s = 1.0f / n;

@@ -117,7 +117,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	kann_shuffle(a->rng.data, n, x, y, 0);
 
 	// set validation set
-	n_validate = mo->fv > 0.0f && mo->fv < 1.0f? (int)(mo->fv * n + .499) : n;
+	n_validate = mo->fv > 0.0f && mo->fv < 1.0f? (int)(mo->fv * n + .499) : 0;
 	n_train = n - n_validate;
 
 	// prepare mini-batch buffer
