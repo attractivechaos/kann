@@ -137,7 +137,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	// main loop
 	for (i = 0; i < mo->max_epoch; ++i) {
 		int n_proc = 0;
-		double running_cost = 0.0;
+		double running_cost = 0.0, val_cost = 0.0;
 		kann_shuffle(a->rng.data, n_train, x, y, 0);
 		while (n_proc < n_train) {
 			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
@@ -150,11 +150,18 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			n_proc += mb;
 		}
-		{
-			kad_for1(a->out_est);
-			//print_mat(a->out_est);
-			fprintf(stderr, "here: %g\n", running_cost / n_train);
+		n_proc = 0;
+		while (n_proc < n_validate) {
+			int j, mb = n_validate - n_proc < mo->mb_size? n_validate - n_proc : mo->mb_size;
+			kann_set_batch_size(mb, a->n, a->v, a->out_est);
+			for (j = 0; j < mb; ++j) {
+				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
+				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
+			}
+			val_cost += kad_eval(a->n, a->v, 0) * mb;
+			n_proc += mb;
 		}
+		fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
 	}
 
 	// free
