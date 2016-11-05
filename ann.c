@@ -1,6 +1,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "kann_rand.h"
 #include "kann.h"
 
@@ -150,7 +151,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			running_cost += kad_eval(a->n, a->v, 1) * mb;
+			running_cost += kad_eval(a->n, a->v, 1, 0) * mb;
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			n_proc += mb;
 		}
@@ -162,7 +163,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			val_cost += kad_eval(a->n, a->v, 0) * mb;
+			val_cost += kad_eval(a->n, a->v, 0, 0) * mb;
 			n_proc += mb;
 		}
 		fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
@@ -176,12 +177,9 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 
 const float *kann_apply_fnn1(kann_t *a, const float *x)
 {
-	int i;
 	kann_set_batch_size(1, a);
 	a->in->_.cx = x;
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i] == a->out_pre) break;
-	kad_eval(i + 1, a->v, 0);
+	kad_eval(a->n, a->v, 0, a->out_pre);
 	kad_for1(a->out_est);
 	return a->out_est->_.cx;
 }
@@ -236,6 +234,7 @@ kann_t *kann_read(const char *fn)
 			j += kad_len(p);
 		}
 	}
+	assert(j == n_par);
 	return ann;
 }
 

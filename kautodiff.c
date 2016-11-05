@@ -169,22 +169,33 @@ void kad_free(int n, kad_node_t **a)
 	free(a);
 }
 
-float kad_eval(int n, kad_node_t **a, int cal_grad)
+float kad_eval(int n, kad_node_t **a, int cal_grad, kad_node_t *from)
 {
-	int i;
+	int i, j, m;
 	float f;
 	assert(n > 0);
+	if (from == 0) from = a[n-1];
+	for (i = n - 1; i >= 0; --i)
+		if (a[i] == from) break;
+	assert(i >= 0);
+	m = i + 1;
+	from->tmp = 1;
+	for (i = m - 1; i >= 0; --i)
+		if (a[i]->tmp)
+			for (j = 0; j < a[i]->n_child; ++j)
+				a[i]->child[j].p->tmp = 1;
 	for (i = 0; i < n; ++i) // forward pass
-		if (a[i]->n_child) kad_for1(a[i]);
+		if (a[i]->n_child && a[i]->tmp) kad_for1(a[i]);
 	f = a[n-1]->_.x[0];
 	if (cal_grad) {
 		assert(a[n-1]->n_d == 0);
 		for (i = 0; i < n; ++i) // set all grandients to zero
 			if (a[i]->g) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
 		for (i = n - 1, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
-			if (a[i]->n_child)
+			if (a[i]->n_child && a[i]->tmp)
 				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	}
+	for (i = 0; i < n; ++i) a[i]->tmp = 0;
 	return f;
 }
 

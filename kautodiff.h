@@ -62,7 +62,7 @@ kad_node_t *kad_tanh(kad_node_t *x);  // z(x) = (1-exp(-2x)) / (1+exp(-2x)) (ele
 kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier (aka ReLU))
 
 kad_node_t **kad_compile(kad_node_t *root, int *n_node);
-float kad_eval(int n, kad_node_t **a, int cal_grad);
+float kad_eval(int n, kad_node_t **a, int cal_grad, kad_node_t *from);
 void kad_free_node(kad_node_t *p);
 void kad_free(int n, kad_node_t **a);
 
