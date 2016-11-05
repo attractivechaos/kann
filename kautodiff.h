@@ -66,6 +66,8 @@ float kad_eval(int n, kad_node_t **a, int cal_grad);
 void kad_free_node(kad_node_t *p);
 void kad_free(int n, kad_node_t **a);
 
+void kad_write1(FILE *fp, const kad_node_t *p);
+kad_node_t *kad_read1(FILE *fp, kad_node_t **node);
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
 void kad_debug(FILE *fp, int n, kad_node_t **v);

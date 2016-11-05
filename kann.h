@@ -37,9 +37,9 @@ extern "C" {
 kann_t *kann_init(uint64_t seed);
 void kann_destroy(kann_t *a);
 void kann_sync(kann_t *a);
-int kann_n_in(kann_t *a);
-int kann_n_out(kann_t *a);
-int kann_n_par(kann_t *a);
+int kann_n_in(const kann_t *a);
+int kann_n_out(const kann_t *a);
+int kann_n_par(const kann_t *a);
 
 void kann_mopt_init(kann_mopt_t *mo);
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);

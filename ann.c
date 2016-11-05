@@ -4,6 +4,8 @@
 #include "kann_rand.h"
 #include "kann.h"
 
+#define KANN_MAGIC "KAN\1"
+
 kann_t *kann_init(uint64_t seed)
 {
 	kann_t *a;
@@ -36,17 +38,17 @@ void kann_sync(kann_t *a)
 	}
 }
 
-int kann_n_in(kann_t *a)
+int kann_n_in(const kann_t *a)
 {
 	return a->in == 0? -1 : a->in->n_d == 1? a->in->d[0] : kad_len(a->in) / a->in->d[0];
 }
 
-int kann_n_out(kann_t *a)
+int kann_n_out(const kann_t *a)
 {
 	return a->out_pre == 0? -1 : a->out_pre->n_d == 1? a->out_pre->d[0] : kad_len(a->out_pre) / a->out_pre->d[0];
 }
 
-int kann_n_par(kann_t *a)
+int kann_n_par(const kann_t *a)
 {
 	int i, n = 0;
 	for (i = 0; i < a->n; ++i)
@@ -151,6 +153,47 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(rmsp_r);
 	free(by); free(bx);
 	free(y); free(x);
+}
+
+/*************
+ * Model I/O *
+ *************/
+
+void kann_write(const char *fn, const kann_t *ann)
+{
+	FILE *fp;
+	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
+	fwrite(KANN_MAGIC, 1, 4, fp);
+	kad_write(fp, ann->n, ann->v);
+	kad_write1(fp, ann->out_est);
+	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
+	fclose(fp);
+}
+
+kann_t *kann_read(const char *fn)
+{
+	FILE *fp;
+	char magic[4];
+	kann_t *ann;
+	int n_par;
+
+	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
+	fread(magic, 1, 4, fp);
+	if (strncmp(magic, KANN_MAGIC, 4) != 0) {
+		fclose(fp);
+		return 0;
+	}
+	ann = (kann_t*)calloc(1, sizeof(kann_t));
+	ann->v = kad_read(fp, &ann->n);
+	kann_sync(ann);
+	n_par = kann_n_par(ann);
+	ann->out_est = kad_read1(fp, 0);
+	ann->out_est->child[0].p = ann->out_pre;
+	ann->t = (float*)malloc(n_par * sizeof(float));
+	ann->g = (float*)calloc(n_par, sizeof(float));
+	fread(ann->t, sizeof(float), n_par, fp);
+	fclose(fp);
+	return ann;
 }
 
 /**************
