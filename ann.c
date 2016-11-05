@@ -155,7 +155,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(y); free(x);
 }
 
-void kann_apply_fnn(kann_t *a, int n, float **x)
+const float *kann_apply_fnn(kann_t *a, int n, float **x)
 {
 	float *bx;
 	int i, n_in;
@@ -167,6 +167,7 @@ void kann_apply_fnn(kann_t *a, int n, float **x)
 	a->in->_.cx = bx;
 	kad_eval(a->n, a->v, 0);
 	kad_for1(a->out_est);
+	return a->out_est->_.cx;
 }
 
 /*************
