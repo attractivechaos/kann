@@ -5,6 +5,7 @@
 #include "kann.h"
 
 int main_mlp_train(int argc, char *argv[]);
+int main_mlp_apply(int argc, char *argv[]);
 
 void liftrlimit()
 {
@@ -47,11 +48,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: kann <command> <arguments>\n");
 		fprintf(stderr, "Commands:\n");
 		fprintf(stderr, "  mlp-train     train a multi-layer perceptron\n");
+		fprintf(stderr, "  mlp-apply     apply a multi-layer perceptron\n");
 		fprintf(stderr, "  version       show version number\n");
 		return 1;
 	}
 	t_start = realtime();
 	if (strcmp(argv[1], "mlp-train") == 0) ret = main_mlp_train(argc-1, argv+1);
+	else if (strcmp(argv[1], "mlp-apply") == 0) ret = main_mlp_apply(argc-1, argv+1);
 	else if (strcmp(argv[1], "version") == 0) {
 		puts(KANN_VERSION);
 		return 0;

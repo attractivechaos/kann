@@ -247,7 +247,15 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 	kad_node_t **node;
 	fread(&n_node, sizeof(int), 1, fp);
 	node = (kad_node_t**)malloc(n_node * sizeof(kad_node_t*));
-	for (i = 0; i < n_node; ++i) node[i] = kad_read1(fp, node);
+	for (i = 0; i < n_node; ++i) {
+		kad_node_t *p;
+		p = node[i] = kad_read1(fp, node);
+		if (p->n_child) {
+			kad_op_list[p->op](p, KAD_ALLOC);
+			kad_op_list[p->op](p, KAD_SYNC_DIM);
+		}
+	}
+	kad_debug(stderr, n_node, node);
 	*_n_node = n_node;
 	return node;
 }

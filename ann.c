@@ -26,7 +26,7 @@ void kann_destroy(kann_t *a)
 
 void kann_sync(kann_t *a)
 {
-	int i;
+	int i, j, n_par;
 	a->in = a->out_pre = a->out_truth = 0;
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *v = a->v[i];
@@ -34,6 +34,22 @@ void kann_sync(kann_t *a)
 			case KAD_LABEL_IN: a->in = v; break;
 			case KAD_LABEL_OUT_PRE: a->out_pre = v; break;
 			case KAD_LABEL_OUT_TRUTH: a->out_truth = v; break;
+		}
+	}
+	n_par = kann_n_par(a);
+	a->t = (float*)realloc(a->t, n_par * sizeof(float));
+	a->g = (float*)realloc(a->g, n_par * sizeof(float));
+	memset(a->g, 0, n_par * sizeof(float));
+	for (i = j = 0; i < a->n; ++i) {
+		kad_node_t *v = a->v[i];
+		if (v->n_child == 0 && v->to_back) {
+			int l;
+			l = kad_len(v);
+			memcpy(&a->t[j], v->_.x, l * sizeof(float));
+			free(v->_.x);
+			v->_.x = &a->t[j];
+			v->g = &a->g[j];
+			j += l;
 		}
 	}
 }
@@ -155,16 +171,10 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(y); free(x);
 }
 
-const float *kann_apply_fnn(kann_t *a, int n, float **x)
+const float *kann_apply_fnn1(kann_t *a, const float *x)
 {
-	float *bx;
-	int i, n_in;
-	n_in = kann_n_in(a);
-	kann_set_batch_size(n, a);
-	bx = (float*)malloc(n * n_in * sizeof(float));
-	for (i = 0; i < n; ++i)
-		memcpy(&bx[i*n_in], x[i], n_in * sizeof(float));
-	a->in->_.cx = bx;
+	kann_set_batch_size(1, a);
+	a->in->_.cx = x;
 	kad_eval(a->n, a->v, 0);
 	kad_for1(a->out_est);
 	return a->out_est->_.cx;
@@ -199,6 +209,8 @@ kann_t *kann_read(const char *fn)
 		return 0;
 	}
 	ann = (kann_t*)calloc(1, sizeof(kann_t));
+	ann->rng.data = kann_srand_r(11);
+	ann->rng.func = kann_drand;
 	ann->v = kad_read(fp, &ann->n);
 	kann_sync(ann);
 	n_par = kann_n_par(ann);

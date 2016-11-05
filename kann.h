@@ -25,7 +25,7 @@ typedef struct {
 	kad_rng_t rng; // for kautodiff, as it is independent of kann_rand
 	int n;
 	kad_node_t **v;
-	kad_node_t *out_pre, *out_truth, *in;
+	kad_node_t *out_pre, *out_truth, *in; // these point to kann_t::v; they are not allocated
 	kad_node_t *out_est;
 	float *t, *g;
 } kann_t;
@@ -41,9 +41,12 @@ int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 int kann_n_par(const kann_t *a);
 
+void kann_write(const char *fn, const kann_t *ann);
+kann_t *kann_read(const char *fn);
+
 void kann_mopt_init(kann_mopt_t *mo);
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);
-const float *kann_apply_fnn(kann_t *a, int n, float **x);
+const float *kann_apply_fnn1(kann_t *a, const float *x);
 
 kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
