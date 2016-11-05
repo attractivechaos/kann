@@ -68,16 +68,16 @@ void kann_mopt_init(kann_mopt_t *mo)
 	mo->decay = 0.9f;
 }
 
-static void kann_set_batch_size(int B, int n_node, kad_node_t **node, kad_node_t *extra)
+static void kann_set_batch_size(int B, kann_t *ann)
 {
 	int i;
-	for (i = 0; i < n_node; ++i) {
-		kad_node_t *p = node[i];
+	for (i = 0; i < ann->n; ++i) {
+		kad_node_t *p = ann->v[i];
 		if (p->n_child == 0 && (p->label == KAD_LABEL_IN || p->label == KAD_LABEL_OUT_PRE || p->label == KAD_LABEL_OUT_TRUTH))
 			p->d[0] = B;
 	}
-	for (i = 0; i <= n_node; ++i) {
-		kad_node_t *p = i < n_node? node[i] : extra;
+	for (i = 0; i <= ann->n; ++i) {
+		kad_node_t *p = i < ann->n? ann->v[i] : ann->out_est;
 		if (p == 0 || p->n_child == 0) continue;
 		kad_op_list[p->op](p, KAD_SYNC_DIM);
 		kad_op_list[p->op](p, KAD_ALLOC);
@@ -126,7 +126,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		kann_shuffle(a->rng.data, n_train, x, y, 0);
 		while (n_proc < n_train) {
 			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
-			kann_set_batch_size(mb, a->n, a->v, a->out_est);
+			kann_set_batch_size(mb, a);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
@@ -138,7 +138,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		n_proc = 0;
 		while (n_proc < n_validate) {
 			int j, mb = n_validate - n_proc < mo->mb_size? n_validate - n_proc : mo->mb_size;
-			kann_set_batch_size(mb, a->n, a->v, a->out_est);
+			kann_set_batch_size(mb, a);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
@@ -160,10 +160,10 @@ void kann_apply_fnn(kann_t *a, int n, float **x)
 	float *bx;
 	int i, n_in;
 	n_in = kann_n_in(a);
-	kann_set_batch_size(n, a->n, a->v, a->out_est);
+	kann_set_batch_size(n, a);
 	bx = (float*)malloc(n * n_in * sizeof(float));
 	for (i = 0; i < n; ++i)
-		memcpy(&bx[i*n_in], x[i], n_in  * sizeof(float));
+		memcpy(&bx[i*n_in], x[i], n_in * sizeof(float));
 	a->in->_.cx = bx;
 	kad_eval(a->n, a->v, 0);
 	kad_for1(a->out_est);
