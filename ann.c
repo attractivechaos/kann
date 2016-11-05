@@ -84,23 +84,6 @@ static void kann_set_batch_size(int B, int n_node, kad_node_t **node, kad_node_t
 	}
 }
 
-void print_mat(kad_node_t *p)
-{
-	int i, j;
-	if (p->n_d == 0) fprintf(stderr, "%g\n", p->_.x[0]);
-	else if (p->n_d == 1) {
-		for (i = 0; i < p->d[0]; ++i)
-			fprintf(stderr, " %5g", p->_.x[i]);
-		fputc('\n', stderr);
-	} else if (p->n_d == 2) {
-		for (i = 0; i < p->d[0]; ++i) {
-			for (j = 0; j < p->d[1]; ++j)
-				fprintf(stderr, " %5g", p->_.x[i*p->d[1]+j]);
-			fputc('\n', stderr);
-		}
-	}
-}
-
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
 {
 	extern void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
