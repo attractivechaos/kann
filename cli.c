@@ -78,7 +78,7 @@ int main_mlp_apply(int argc, char *argv[])
 		y = kann_apply_fnn1(ann, in->x[i]);
 		if (in->rname) printf("%s\t", in->rname[i]);
 		for (j = 0; j < n_out; ++j) {
-			if (j) putchar(',');
+			if (j) putchar('\t');
 			printf("%.3g", y[i]);
 		}
 		putchar('\n');

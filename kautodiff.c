@@ -215,13 +215,13 @@ kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 	fread(&p->n_child, sizeof(short), 1, fp);
 	if (p->n_child) {
 		int j, k;
-		p->child = (kad_edge_t*)calloc(1, sizeof(kad_edge_t));
+		p->child = (kad_edge_t*)calloc(p->n_child, sizeof(kad_edge_t));
 		fread(&p->op, sizeof(int), 1, fp);
 		for (j = 0; j < p->n_child; ++j) {
 			fread(&k, sizeof(int), 1, fp);
 			p->child[j].p = node? node[k] : 0;
 		}
-		kad_op_list[p->op](p, KAD_SYNC_DIM);
+		if (node) kad_op_list[p->op](p, KAD_SYNC_DIM);
 	} else {
 		fread(&p->n_d, sizeof(short), 1, fp);
 		if (p->n_d) fread(p->d, sizeof(int), p->n_d, fp);
@@ -255,7 +255,6 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 			kad_op_list[p->op](p, KAD_SYNC_DIM);
 		}
 	}
-	kad_debug(stderr, n_node, node);
 	*_n_node = n_node;
 	return node;
 }

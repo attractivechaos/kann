@@ -36,7 +36,7 @@ extern "C" {
 
 kann_t *kann_init(uint64_t seed);
 void kann_destroy(kann_t *a);
-void kann_sync(kann_t *a);
+void kann_sync(kann_t *a, int collate_var);
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 int kann_n_par(const kann_t *a);

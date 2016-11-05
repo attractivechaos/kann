@@ -24,9 +24,9 @@ void kann_destroy(kann_t *a)
 	free(a);
 }
 
-void kann_sync(kann_t *a)
+void kann_sync(kann_t *a, int collate_var)
 {
-	int i, j, n_par;
+	int i;
 	a->in = a->out_pre = a->out_truth = 0;
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *v = a->v[i];
@@ -36,20 +36,23 @@ void kann_sync(kann_t *a)
 			case KAD_LABEL_OUT_TRUTH: a->out_truth = v; break;
 		}
 	}
-	n_par = kann_n_par(a);
-	a->t = (float*)realloc(a->t, n_par * sizeof(float));
-	a->g = (float*)realloc(a->g, n_par * sizeof(float));
-	memset(a->g, 0, n_par * sizeof(float));
-	for (i = j = 0; i < a->n; ++i) {
-		kad_node_t *v = a->v[i];
-		if (v->n_child == 0 && v->to_back) {
-			int l;
-			l = kad_len(v);
-			memcpy(&a->t[j], v->_.x, l * sizeof(float));
-			free(v->_.x);
-			v->_.x = &a->t[j];
-			v->g = &a->g[j];
-			j += l;
+	if (collate_var) {
+		int j, n_par;
+		n_par = kann_n_par(a);
+		a->t = (float*)realloc(a->t, n_par * sizeof(float));
+		a->g = (float*)realloc(a->g, n_par * sizeof(float));
+		memset(a->g, 0, n_par * sizeof(float));
+		for (i = j = 0; i < a->n; ++i) {
+			kad_node_t *v = a->v[i];
+			if (v->n_child == 0 && v->to_back) {
+				int l;
+				l = kad_len(v);
+				memcpy(&a->t[j], v->_.x, l * sizeof(float));
+				free(v->_.x);
+				v->_.x = &a->t[j];
+				v->g = &a->g[j];
+				j += l;
+			}
 		}
 	}
 }
@@ -173,9 +176,12 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 
 const float *kann_apply_fnn1(kann_t *a, const float *x)
 {
+	int i;
 	kann_set_batch_size(1, a);
 	a->in->_.cx = x;
-	kad_eval(a->n, a->v, 0);
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i] == a->out_pre) break;
+	kad_eval(i + 1, a->v, 0);
 	kad_for1(a->out_est);
 	return a->out_est->_.cx;
 }
@@ -200,7 +206,7 @@ kann_t *kann_read(const char *fn)
 	FILE *fp;
 	char magic[4];
 	kann_t *ann;
-	int n_par;
+	int i, j, n_par;
 
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
 	fread(magic, 1, 4, fp);
@@ -212,14 +218,24 @@ kann_t *kann_read(const char *fn)
 	ann->rng.data = kann_srand_r(11);
 	ann->rng.func = kann_drand;
 	ann->v = kad_read(fp, &ann->n);
-	kann_sync(ann);
+	kann_sync(ann, 0);
 	n_par = kann_n_par(ann);
 	ann->out_est = kad_read1(fp, 0);
 	ann->out_est->child[0].p = ann->out_pre;
+	kad_op_list[ann->out_est->op](ann->out_est, KAD_SYNC_DIM);
 	ann->t = (float*)malloc(n_par * sizeof(float));
 	ann->g = (float*)calloc(n_par, sizeof(float));
 	fread(ann->t, sizeof(float), n_par, fp);
 	fclose(fp);
+
+	for (i = j = 0; i < ann->n; ++i) {
+		kad_node_t *p = ann->v[i];
+		if (p->n_child == 0 && p->to_back) {
+			p->_.x = &ann->t[j];
+			p->g = &ann->g[j];
+			j += kad_len(p);
+		}
+	}
 	return ann;
 }
 
