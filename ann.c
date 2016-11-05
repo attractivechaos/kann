@@ -155,6 +155,20 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(y); free(x);
 }
 
+void kann_apply_fnn(kann_t *a, int n, float **x)
+{
+	float *bx;
+	int i, n_in;
+	n_in = kann_n_in(a);
+	kann_set_batch_size(n, a->n, a->v, a->out_est);
+	bx = (float*)malloc(n * n_in * sizeof(float));
+	for (i = 0; i < n; ++i)
+		memcpy(&bx[i*n_in], x[i], n_in  * sizeof(float));
+	a->in->_.cx = bx;
+	kad_eval(a->n, a->v, 0);
+	kad_for1(a->out_est);
+}
+
 /*************
  * Model I/O *
  *************/
