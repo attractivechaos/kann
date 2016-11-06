@@ -20,52 +20,53 @@ void kann_destroy(kann_t *a)
 {
 	free(a->t); free(a->g);
 	if (a->v) kad_free(a->n, a->v);
-	kad_free_node(a->out_est);
 	free(a->rng.data);
 	free(a);
 }
 
-void kann_sync(kann_t *a, int collate_var)
+void kann_sync_index(kann_t *a)
 {
 	int i;
-	a->in = a->out_pre = a->out_truth = 0;
+	a->i_in = a->i_out = a->i_truth = a->i_cost = -1;
 	for (i = 0; i < a->n; ++i) {
-		kad_node_t *v = a->v[i];
-		switch (v->label) {
-			case KAD_LABEL_IN: a->in = v; break;
-			case KAD_LABEL_OUT_PRE: a->out_pre = v; break;
-			case KAD_LABEL_OUT_TRUTH: a->out_truth = v; break;
+		switch (a->v[i]->label) {
+			case KANN_LABEL_IN: a->i_in = i; break;
+			case KANN_LABEL_OUT: a->i_out = i; break;
+			case KANN_LABEL_TRUTH: a->i_truth = i; break;
+			case KANN_LABEL_COST: a->i_cost = i; break;
 		}
 	}
-	if (collate_var) {
-		int j, n_par;
-		n_par = kann_n_par(a);
-		a->t = (float*)realloc(a->t, n_par * sizeof(float));
-		a->g = (float*)realloc(a->g, n_par * sizeof(float));
-		memset(a->g, 0, n_par * sizeof(float));
-		for (i = j = 0; i < a->n; ++i) {
-			kad_node_t *v = a->v[i];
-			if (v->n_child == 0 && v->to_back) {
-				int l;
-				l = kad_len(v);
-				memcpy(&a->t[j], v->_.x, l * sizeof(float));
-				free(v->_.x);
-				v->_.x = &a->t[j];
-				v->g = &a->g[j];
-				j += l;
-			}
+}
+
+void kann_collate_var(kann_t *a)
+{
+	int i, j, n_par;
+	n_par = kann_n_par(a);
+	a->t = (float*)realloc(a->t, n_par * sizeof(float));
+	a->g = (float*)realloc(a->g, n_par * sizeof(float));
+	memset(a->g, 0, n_par * sizeof(float));
+	for (i = j = 0; i < a->n; ++i) {
+		kad_node_t *v = a->v[i];
+		if (v->n_child == 0 && v->to_back) {
+			int l;
+			l = kad_len(v);
+			memcpy(&a->t[j], v->_.x, l * sizeof(float));
+			free(v->_.x);
+			v->_.x = &a->t[j];
+			v->g = &a->g[j];
+			j += l;
 		}
 	}
 }
 
 int kann_n_in(const kann_t *a)
 {
-	return a->in == 0? -1 : a->in->n_d == 1? a->in->d[0] : kad_len(a->in) / a->in->d[0];
+	return a->i_in < 0? -1 : a->v[a->i_in]->n_d == 1? a->v[a->i_in]->d[0] : kad_len(a->v[a->i_in]) / a->v[a->i_in]->d[0];
 }
 
 int kann_n_out(const kann_t *a)
 {
-	return a->out_pre == 0? -1 : a->out_pre->n_d == 1? a->out_pre->d[0] : kad_len(a->out_pre) / a->out_pre->d[0];
+	return a->i_out < 0? -1 : a->v[a->i_out]->n_d == 1? a->v[a->i_out]->d[0] : kad_len(a->v[a->i_out]) / a->v[a->i_out]->d[0];
 }
 
 int kann_n_par(const kann_t *a)
@@ -88,16 +89,14 @@ void kann_mopt_init(kann_mopt_t *mo)
 	mo->decay = 0.9f;
 }
 
-static void kann_set_batch_size(int B, kann_t *ann)
+static void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
-	for (i = 0; i < ann->n; ++i) {
-		kad_node_t *p = ann->v[i];
-		if (p->n_child == 0 && (p->label == KAD_LABEL_IN || p->label == KAD_LABEL_OUT_PRE || p->label == KAD_LABEL_OUT_TRUTH))
-			p->d[0] = B;
-	}
-	for (i = 0; i <= ann->n; ++i) {
-		kad_node_t *p = i < ann->n? ann->v[i] : ann->out_est;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->label == KANN_LABEL_IN || a->v[i]->label == KANN_LABEL_TRUTH)
+			a->v[i]->d[0] = B;
+	for (i = 0; i < a->n; ++i) {
+		kad_node_t *p = a->v[i];
 		if (p == 0 || p->n_child == 0) continue;
 		kad_op_list[p->op](p, KAD_SYNC_DIM);
 		kad_op_list[p->op](p, KAD_ALLOC);
@@ -134,8 +133,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *p = a->v[i];
 		if (p->n_child) continue;
-		if (p->label == KAD_LABEL_IN) p->_.cx = bx;
-		else if (p->label == KAD_LABEL_OUT_TRUTH) p->_.cx = by;
+		if (p->label == KANN_LABEL_IN) p->_.cx = bx;
+		else if (p->label == KANN_LABEL_TRUTH) p->_.cx = by;
 	}
 	rmsp_r = (float*)calloc(n_par, sizeof(float));
 
@@ -146,24 +145,24 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		kann_shuffle(a->rng.data, n_train, x, y, 0);
 		while (n_proc < n_train) {
 			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
-			kann_set_batch_size(mb, a);
+			kann_set_batch_size(a, mb);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			running_cost += kad_eval(a->n, a->v, 1, 0) * mb;
+			running_cost += kad_eval(a->n, a->v, a->i_cost, 1) * mb;
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			n_proc += mb;
 		}
 		n_proc = 0;
 		while (n_proc < n_validate) {
 			int j, mb = n_validate - n_proc < mo->mb_size? n_validate - n_proc : mo->mb_size;
-			kann_set_batch_size(mb, a);
+			kann_set_batch_size(a, mb);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			val_cost += kad_eval(a->n, a->v, 0, 0) * mb;
+			val_cost += kad_eval(a->n, a->v, a->i_cost, 0) * mb;
 			n_proc += mb;
 		}
 		fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
@@ -177,11 +176,10 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 
 const float *kann_apply_fnn1(kann_t *a, const float *x)
 {
-	kann_set_batch_size(1, a);
-	a->in->_.cx = x;
-	kad_eval(a->n, a->v, 0, a->out_pre);
-	kad_for1(a->out_est);
-	return a->out_est->_.cx;
+	kann_set_batch_size(a, 1);
+	a->v[a->i_in]->_.cx = x;
+	kad_eval(a->n, a->v, a->i_out, 0);
+	return a->v[a->i_out]->_.cx;
 }
 
 /*************
@@ -194,7 +192,6 @@ void kann_write(const char *fn, const kann_t *ann)
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
 	fwrite(KANN_MAGIC, 1, 4, fp);
 	kad_write(fp, ann->n, ann->v);
-	kad_write1(fp, ann->out_est);
 	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
 	fclose(fp);
 }
@@ -216,11 +213,8 @@ kann_t *kann_read(const char *fn)
 	ann->rng.data = kann_srand_r(11);
 	ann->rng.func = kann_drand;
 	ann->v = kad_read(fp, &ann->n);
-	kann_sync(ann, 0);
+	kann_sync_index(ann);
 	n_par = kann_n_par(ann);
-	ann->out_est = kad_read1(fp, 0);
-	ann->out_est->child[0].p = ann->out_pre;
-	kad_op_list[ann->out_est->op](ann->out_est, KAD_SYNC_DIM);
 	ann->t = (float*)malloc(n_par * sizeof(float));
 	ann->g = (float*)calloc(n_par, sizeof(float));
 	fread(ann->t, sizeof(float), n_par, fp);

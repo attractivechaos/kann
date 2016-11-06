@@ -100,13 +100,21 @@ KAD_FUNC_OP1(kad_relu, 8)
 typedef struct kad_node_t *kad_node_p;
 
 // IMPORTANT: kad_node_t::tmp MUST BE set to zero
-kad_node_t **kad_compile(kad_node_t *root, int *n_node)
+kad_node_t **kad_compile(int *n_node, int n_roots, ...)
 {
 	int i, j;
 	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
+	kad_node_t **roots;
+	va_list ap;
+
+	roots = (kad_node_t**)alloca(n_roots * sizeof(kad_node_t*));
+	va_start(ap, n_roots);
+	for (i = 0; i < n_roots; ++i)
+		roots[i] = va_arg(ap, kad_node_p);
+	va_end(ap);
 
 	// generate kad_node_t::tmp
-	kv_push(kad_node_p, stack, root);
+	for (i = 0; i < n_roots; ++i) kv_push(kad_node_p, stack, roots[i]);
 	while (stack.n) {
 		kad_node_t *p = kv_pop(stack);
 		for (i = 0; i < p->n_child; ++i) {
@@ -115,8 +123,12 @@ kad_node_t **kad_compile(kad_node_t *root, int *n_node)
 			++q->tmp;
 		}
 	}
+
+	// check if roots are really roots
+	for (i = 0; i < n_roots; ++i) assert(roots[i]->tmp == 0);
+
 	// topological sorting (Kahn's algorithm)
-	kv_push(kad_node_p, stack, root);
+	for (i = 0; i < n_roots; ++i) kv_push(kad_node_p, stack, roots[i]);
 	while (stack.n) {
 		kad_node_t *p = kv_pop(stack);
 		kv_push(kad_node_p, a, p);
@@ -125,13 +137,16 @@ kad_node_t **kad_compile(kad_node_t *root, int *n_node)
 				kv_push(kad_node_p, stack, p->child[i].p);
 	}
 	free(stack.a);
+
 	// reverse a
 	for (i = 0; i < a.n>>1; ++i) {
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
+
 	// check cycles
 	for (i = 0; i < a.n; ++i) assert(a.a[i]->tmp == 0); // if the graph is constructed with kad_add() etc, there should be no cycles
+
 	// set kad_node_t::to_back and allocate
 	for (i = 0; i < a.n; ++i) {
 		kad_node_p p = a.a[i];
@@ -169,33 +184,35 @@ void kad_free(int n, kad_node_t **a)
 	free(a);
 }
 
-float kad_eval(int n, kad_node_t **a, int cal_grad, kad_node_t *from)
+float kad_eval(int n, kad_node_t **a, int from, int cal_grad)
 {
-	int i, j, m;
+	int i, j;
 	float f;
+
+	// find which nodes to compute
 	assert(n > 0);
-	if (from == 0) from = a[n-1];
-	for (i = n - 1; i >= 0; --i)
-		if (a[i] == from) break;
-	assert(i >= 0);
-	m = i + 1;
-	from->tmp = 1;
-	for (i = m - 1; i >= 0; --i)
+	if (from < 0 || from >= n) from = n - 1;
+	a[from]->tmp = 1;
+	for (i = from; i >= 0; --i)
 		if (a[i]->tmp)
 			for (j = 0; j < a[i]->n_child; ++j)
 				a[i]->child[j].p->tmp = 1;
-	for (i = 0; i < n; ++i) // forward pass
+
+	// forward pass
+	for (i = 0; i <= from; ++i)
 		if (a[i]->n_child && a[i]->tmp) kad_for1(a[i]);
 	f = a[n-1]->_.x[0];
+
+	// backward pass
 	if (cal_grad) {
 		assert(a[n-1]->n_d == 0);
-		for (i = 0; i < n; ++i) // set all grandients to zero
+		for (i = 0; i <= from; ++i) // set all grandients to zero
 			if (a[i]->g) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
-		for (i = n - 1, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
+		for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
 			if (a[i]->n_child && a[i]->tmp)
 				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	}
-	for (i = 0; i < n; ++i) a[i]->tmp = 0;
+	for (i = 0; i <= from; ++i) a[i]->tmp = 0;
 	return f;
 }
 

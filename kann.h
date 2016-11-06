@@ -3,10 +3,10 @@
 
 #define KANN_VERSION "0.0"
 
-#define KAD_LABEL_IN        1
-#define KAD_LABEL_OUT_PRE   2
-#define KAD_LABEL_OUT_TRUTH 3
-#define KAD_LABEL_OUT_EST   4
+#define KANN_LABEL_IN    1
+#define KANN_LABEL_OUT   2
+#define KANN_LABEL_TRUTH 3
+#define KANN_LABEL_COST  4
 
 #include <stdint.h>
 #include "kautodiff.h"
@@ -23,10 +23,8 @@ typedef struct {
 
 typedef struct {
 	kad_rng_t rng; // for kautodiff, as it is independent of kann_rand
-	int n;
+	int n, i_in, i_out, i_truth, i_cost;
 	kad_node_t **v;
-	kad_node_t *out_pre, *out_truth, *in; // these point to kann_t::v; they are not allocated
-	kad_node_t *out_est;
 	float *t, *g;
 } kann_t;
 
@@ -36,10 +34,12 @@ extern "C" {
 
 kann_t *kann_init(uint64_t seed);
 void kann_destroy(kann_t *a);
-void kann_sync(kann_t *a, int collate_var);
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 int kann_n_par(const kann_t *a);
+
+void kann_sync_index(kann_t *a);
+void kann_collate_var(kann_t *a);
 
 void kann_write(const char *fn, const kann_t *ann);
 kann_t *kann_read(const char *fn);
