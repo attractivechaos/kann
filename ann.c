@@ -165,7 +165,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 			val_cost += kad_eval(a->n, a->v, a->i_cost, 0) * mb;
 			n_proc += mb;
 		}
-		fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
+		if (n_validate == 0) fprintf(stderr, "running cost: %g\n", running_cost / n_train);
+		else fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
 	}
 
 	// free
