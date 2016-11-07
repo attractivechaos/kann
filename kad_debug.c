@@ -61,8 +61,8 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 	f_minus = kad_eval(n, a, from, 0);
 	kad_add_delta(n, a, 1.0f, delta);
 	s = kad_sdot(n_var, g0, delta);
-	if (fabs(f_plus - f_minus) >= rel * eps && fabs(s) >= rel * eps) {
-		rel_err = fabs(s - .5f * (f_plus - f_minus)) / fabs(s + .5f * (f_plus - f_minus));
+	if (.5 * fabs(f_plus - f_minus) >= rel * eps && fabs(s) >= rel * eps) {
+		rel_err = fabs(fabs(s) - fabs(.5f * (f_plus - f_minus))) / (fabs(s) + fabs(.5f * (f_plus - f_minus)));
 		p_m_err = fabs(f_plus + f_minus - 2.0f * f0) / fabs(f_plus - f_minus);
 		if (rel_err >= rel && rel_err > p_m_err)
 			fprintf(stderr, "%g,%g,%g\n", s/eps, rel_err, p_m_err);
