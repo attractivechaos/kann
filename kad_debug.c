@@ -44,7 +44,7 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 {
 	const float eps = 1e-5, rel = .01f;
 	int i, k, n_var;
-	float *g0, *delta, f0, f_minus, f_plus, s, rel_err, p_m_err;
+	float *g0, *delta, f0, f_minus, f_plus, s0, s1, rel_err, p_m_err;
 	n_var = kad_n_var(n, a);
 	g0 = (float*)calloc(n_var, sizeof(float));
 	f0 = kad_eval(n, a, from, 1);
@@ -60,12 +60,13 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 	kad_add_delta(n, a, -2.0f, delta);
 	f_minus = kad_eval(n, a, from, 0);
 	kad_add_delta(n, a, 1.0f, delta);
-	s = kad_sdot(n_var, g0, delta);
-	if (.5 * fabs(f_plus - f_minus) >= rel * eps && fabs(s) >= rel * eps) {
-		rel_err = fabs(fabs(s) - fabs(.5f * (f_plus - f_minus))) / (fabs(s) + fabs(.5f * (f_plus - f_minus)));
+	s0 = kad_sdot(n_var, g0, delta);
+	s1 = .5 * (f_plus - f_minus);
+	if (fabs(s0) >= rel * eps && fabs(s1) >= rel * eps) {
+		rel_err = fabs(fabs(s0) - fabs(s1)) / (fabs(s0) + fabs(s1));
 		p_m_err = fabs(f_plus + f_minus - 2.0f * f0) / fabs(f_plus - f_minus);
 		if (rel_err >= rel && rel_err > p_m_err)
-			fprintf(stderr, "%g,%g,%g\n", s/eps, rel_err, p_m_err);
+			fprintf(stderr, "%g,%g,%g\n", s0/eps, rel_err, p_m_err);
 	}
 	free(delta); free(g0);
 }
