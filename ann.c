@@ -69,15 +69,6 @@ int kann_n_out(const kann_t *a)
 	return a->i_out < 0? -1 : a->v[a->i_out]->n_d == 1? a->v[a->i_out]->d[0] : kad_len(a->v[a->i_out]) / a->v[a->i_out]->d[0];
 }
 
-int kann_n_par(const kann_t *a)
-{
-	int i, n = 0;
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->op == 0 && a->v[i]->to_back)
-			n += kad_len(a->v[i]);
-	return n;
-}
-
 void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
@@ -150,6 +141,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
+			kad_check_grad(a->n, a->v, a->i_cost);
 			running_cost += kad_eval(a->n, a->v, a->i_cost, 1) * mb;
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			n_proc += mb;

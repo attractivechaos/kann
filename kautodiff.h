@@ -43,6 +43,7 @@ typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[];
 
 #define kad_for1(p) (kad_op_list[(p)->op]((p), KAD_FORWARD))
+#define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
 
 #ifdef __cplusplus
 extern "C" {
@@ -70,7 +71,12 @@ void kad_write1(FILE *fp, const kad_node_t *p);
 kad_node_t *kad_read1(FILE *fp, kad_node_t **node);
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
+
+float kad_sdot(int n, const float *x, const float *y);
+void kad_saxpy(int n, float a, const float *x, float *y);
+
 void kad_debug(FILE *fp, int n, kad_node_t **v);
+void kad_check_grad(int n, kad_node_t **a, int from);
 
 #ifdef __cplusplus
 }
@@ -81,6 +87,15 @@ static inline int kad_len(const kad_node_t *p)
 	int n = 1, i;
 	for (i = 0; i < p->n_d; ++i) n *= p->d[i];
 	return n;
+}
+
+static inline int kad_n_var(int n, kad_node_t *const* v)
+{
+	int c = 0, i;
+	for (i = 0; i < n; ++i)
+		if (v[i]->n_child == 0 && v[i]->to_back)
+			c += kad_len(v[i]);
+	return c;
 }
 
 #endif

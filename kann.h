@@ -28,6 +28,8 @@ typedef struct {
 	float *t, *g;
 } kann_t;
 
+#define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,7 +38,6 @@ kann_t *kann_init(uint64_t seed);
 void kann_destroy(kann_t *a);
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
-int kann_n_par(const kann_t *a);
 
 void kann_sync_index(kann_t *a);
 void kann_collate_var(kann_t *a);
