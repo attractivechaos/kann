@@ -1,6 +1,8 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
+#define KAD_VERSION "2016-11-08"
+
 #include <stdio.h>
 
 #define KAD_ALLOC      1
