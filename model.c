@@ -21,10 +21,10 @@ kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neur
 		kad_node_t *w, *b;
 		if (i > 1) prev = kad_relu(prev);
 		w = kad_var(0, 0, 2, n_neurons[i], n_neurons[i-1]);
-		w->_.x = (float*)malloc(n_neurons[i] * n_neurons[i-1] * sizeof(float));
-		kann_rand_weight(a->rng.data, n_neurons[i], n_neurons[i-1], w->_.x);
+		w->x = (float*)malloc(n_neurons[i] * n_neurons[i-1] * sizeof(float));
+		kann_rand_weight(a->rng.data, n_neurons[i], n_neurons[i-1], w->x);
 		b = kad_var(0, 0, 1, n_neurons[i]);
-		b->_.x = (float*)calloc(n_neurons[i], sizeof(float));
+		b->x = (float*)calloc(n_neurons[i], sizeof(float));
 		prev = kad_add(kad_cmul(prev, w), b);
 	}
 	out = kad_sigm(prev);

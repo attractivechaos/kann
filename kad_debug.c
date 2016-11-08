@@ -35,7 +35,7 @@ static void kad_add_delta(int n, kad_node_t **a, float c, float *delta)
 	int i, k;
 	for (i = k = 0; i < n; ++i)
 		if (kad_is_var(a[i])) {
-			kad_saxpy(kad_len(a[i]), c, &delta[k], a[i]->_.x);
+			kad_saxpy(kad_len(a[i]), c, &delta[k], a[i]->x);
 			k += kad_len(a[i]);
 		}
 }

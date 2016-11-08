@@ -50,9 +50,9 @@ void kann_collate_var(kann_t *a)
 		if (v->n_child == 0 && v->to_back) {
 			int l;
 			l = kad_len(v);
-			memcpy(&a->t[j], v->_.x, l * sizeof(float));
-			free(v->_.x);
-			v->_.x = &a->t[j];
+			memcpy(&a->t[j], v->x, l * sizeof(float));
+			free(v->x);
+			v->x = &a->t[j];
 			v->g = &a->g[j];
 			j += l;
 		}
@@ -91,7 +91,7 @@ static void kann_set_batch_size(kann_t *a, int B)
 		if (p == 0 || p->n_child == 0) continue;
 		kad_op_list[p->op](p, KAD_SYNC_DIM);
 		kad_op_list[p->op](p, KAD_ALLOC);
-		p->_.x = (float*)realloc(p->_.x, kad_len(p) * sizeof(float));
+		p->x = (float*)realloc(p->x, kad_len(p) * sizeof(float));
 		p->g = (float*)realloc(p->g, kad_len(p) * sizeof(float));
 	}
 }
@@ -124,8 +124,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *p = a->v[i];
 		if (p->n_child) continue;
-		if (p->label == KANN_LABEL_IN) p->_.cx = bx;
-		else if (p->label == KANN_LABEL_TRUTH) p->_.cx = by;
+		if (p->label == KANN_LABEL_IN) p->x = bx;
+		else if (p->label == KANN_LABEL_TRUTH) p->x = by;
 	}
 	rmsp_r = (float*)calloc(n_par, sizeof(float));
 
@@ -166,12 +166,12 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(y); free(x);
 }
 
-const float *kann_apply_fnn1(kann_t *a, const float *x)
+const float *kann_apply_fnn1(kann_t *a, float *x)
 {
 	kann_set_batch_size(a, 1);
-	a->v[a->i_in]->_.cx = x;
+	a->v[a->i_in]->x = x;
 	kad_eval(a->n, a->v, a->i_out, 0);
-	return a->v[a->i_out]->_.cx;
+	return a->v[a->i_out]->x;
 }
 
 /*************
@@ -215,7 +215,7 @@ kann_t *kann_read(const char *fn)
 	for (i = j = 0; i < ann->n; ++i) {
 		kad_node_t *p = ann->v[i];
 		if (p->n_child == 0 && p->to_back) {
-			p->_.x = &ann->t[j];
+			p->x = &ann->t[j];
 			p->g = &ann->g[j];
 			j += kad_len(p);
 		}

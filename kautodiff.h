@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "2016-11-08"
+#define KAD_VERSION "r73"
 
 #include <stdio.h>
 
@@ -27,10 +27,7 @@ typedef struct kad_node_t {
 	short n_child;        // number of child nodes
 	short to_back;        // whether to do back propogation
 	int d[KAD_MAX_DIM];   // dimensions
-	union {               
-		const float *cx; 
-		float *x;         // allocated for internal nodes
-	} _;                  
+	float *x;             // allocated for internal nodes
 	float *g;             // gradient; allocated for internal nodes
 	kad_edge_t *child;    // child nodes
 	void *ptr;
@@ -51,8 +48,8 @@ extern kad_op_f kad_op_list[];
 extern "C" {
 #endif
 
-kad_node_t *kad_par(const float *x, int n_d, ...);
-kad_node_t *kad_var(const float *x, float *g, int n_d, ...);
+kad_node_t *kad_par(float *x, int n_d, ...);
+kad_node_t *kad_var(float *x, float *g, int n_d, ...);
 
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // z(x,y) = x + y (element-wise addition)
 kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // z(x,y) = x * y (element-wise product)
