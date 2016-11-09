@@ -1,24 +1,29 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r73"
+#define KAD_VERSION "r74"
 
 #include <stdio.h>
 
-#define KAD_ALLOC      1
-#define KAD_FORWARD    2
-#define KAD_BACKWARD   3
-#define KAD_SYNC_DIM   4
+#define KAD_MAX_DIM 4     // max dimension
 
-#define KAD_MAX_DIM    4
+/* An autodiff graph is a directed acyclic graph (DAG), where an external node
+ * represents a variable (differentiable) or a parameter (not differentiable),
+ * and an internal node represents an operator. Each node is associated with a
+ * value, which is a single-precision N-dimensional array. An operator is the
+ * parent of all its operands. A node without parents is a terminal node. The
+ * graph may have one or multiple terminal nodes.
+ */
 
 struct kad_node_t;
 
+// an edge between two nodes in the autodiff graph
 typedef struct {
 	struct kad_node_t *p; // child node
-	float *t;             // temporary data needed for backprop, if not NULL; allocated
+	float *t;             // temporary data needed for backprop; allocated if not NULL
 } kad_edge_t;
 
+// a node in the autodiff graph
 typedef struct kad_node_t {
 	short n_d;            // number of dimensions; no larger than KAD_MAX_DIM
 	short op;             // operator; kad_op_list[op] is the actual function
@@ -27,22 +32,27 @@ typedef struct kad_node_t {
 	short n_child;        // number of child nodes
 	short to_back;        // whether to do back propogation
 	int d[KAD_MAX_DIM];   // dimensions
-	float *x;             // allocated for internal nodes
+	float *x;             // value; allocated for internal nodes
 	float *g;             // gradient; allocated for internal nodes
 	kad_edge_t *child;    // child nodes
-	void *ptr;
+	void *ptr;            // auxiliary data
 } kad_node_t;
 
-typedef struct {
-	void *data;
-	double (*func)(void*);
-} kad_rng_t;
+#define KAD_ALLOC      1
+#define KAD_FORWARD    2
+#define KAD_BACKWARD   3
+#define KAD_SYNC_DIM   4
 
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[];
 
 #define kad_for1(p) (kad_op_list[(p)->op]((p), KAD_FORWARD))
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
+
+typedef struct {
+	void *data;
+	double (*func)(void*);
+} kad_rng_t;
 
 #ifdef __cplusplus
 extern "C" {

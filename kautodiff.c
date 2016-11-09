@@ -12,6 +12,7 @@
 static inline kad_node_t *kad_new_core(int n_d, int op, int n_child)
 {
 	kad_node_t *s;
+	if (n_d > KAD_MAX_DIM) return 0;
 	s = (kad_node_t*)calloc(1, sizeof(kad_node_t));
 	s->n_d = n_d, s->op = op, s->n_child = n_child;
 	if (s->n_child) s->child = (kad_edge_t*)calloc(s->n_child, sizeof(kad_edge_t));
@@ -23,6 +24,7 @@ kad_node_t *kad_par(float *x, int n_d, ...)
 	int i;
 	kad_node_t *p;
 	va_list ap;
+	if (n_d > KAD_MAX_DIM) return 0;
 	va_start(ap, n_d);
 	p = kad_new_core(n_d, 0, 0);
 	for (i = 0; i < n_d; ++i)
@@ -37,6 +39,7 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 	int i;
 	kad_node_t *p;
 	va_list ap;
+	if (n_d > KAD_MAX_DIM) return 0;
 	va_start(ap, n_d);
 	p = kad_new_core(n_d, 0, 0);
 	for (i = 0; i < n_d; ++i)
