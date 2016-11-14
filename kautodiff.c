@@ -291,10 +291,11 @@ void kad_write1(FILE *fp, const kad_node_t *p)
 {
 	fwrite(&p->n_child, sizeof(short), 1, fp);
 	if (p->n_child) {
-		int j;
+		int j, pre = p->pre? p->pre->tmp : -1;
 		fwrite(&p->op, sizeof(int), 1, fp);
 		for (j = 0; j < p->n_child; ++j)
 			fwrite(&p->child[j].p->tmp, sizeof(int), 1, fp);
+		fwrite(&pre, sizeof(int), 1, fp);
 	} else {
 		fwrite(&p->n_d, sizeof(short), 1, fp);
 		if (p->n_d) fwrite(p->d, sizeof(int), p->n_d, fp);
@@ -316,7 +317,8 @@ kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 			fread(&k, sizeof(int), 1, fp);
 			p->child[j].p = node? node[k] : 0;
 		}
-		if (node) kad_op_list[p->op](p, KAD_SYNC_DIM);
+		fread(&k, sizeof(int), 1, fp);
+		if (k >= 0) p->pre = node[k];
 	} else {
 		fread(&p->n_d, sizeof(short), 1, fp);
 		if (p->n_d) fread(p->d, sizeof(int), p->n_d, fp);

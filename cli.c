@@ -79,7 +79,7 @@ int main_mlp_apply(int argc, char *argv[])
 		if (in->rname) printf("%s\t", in->rname[i]);
 		for (j = 0; j < n_out; ++j) {
 			if (j) putchar('\t');
-			printf("%.3g", y[j]);
+			printf("%.3g", y[j] + 1.0f - 1.0f);
 		}
 		putchar('\n');
 	}
