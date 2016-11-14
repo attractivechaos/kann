@@ -83,10 +83,34 @@ KAD_FUNC_OP1(kad_norm2, 5)
 KAD_FUNC_OP1(kad_sigm, 6)
 KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
+KAD_FUNC_OP1(kad_copy, 9)
 
-/*****************************
- * Automatic differentiation *
- *****************************/
+/***********************
+ * Graph linearization *
+ ***********************/
+
+static void kad_mark_back(int n, kad_node_t **v)
+{
+	int i, j;
+	for (i = 0; i < n; ++i)
+		for (j = 0; j < v[i]->n_child; ++j)
+			if (v[i]->child[j].p->to_back)
+				v[i]->to_back = 1;
+}
+
+static void kad_allocate_internal(int n, kad_node_t **v)
+{
+	int i;
+	for (i = 0; i < n; ++i) {
+		kad_node_t *p = v[i];
+		if (p->n_child == 0) continue;
+		p->x = (float*)realloc(p->x, kad_len(p) * sizeof(float));
+		if (p->to_back) {
+			p->g = (float*)realloc(p->g, kad_len(p) * sizeof(float));
+			kad_op_list[p->op](p, KAD_ALLOC);
+		}
+	}
+}
 
 #define kvec_t(type) struct { size_t n, m; type *a; }
 
@@ -102,19 +126,11 @@ KAD_FUNC_OP1(kad_relu, 8)
 
 typedef struct kad_node_t *kad_node_p;
 
-// IMPORTANT: kad_node_t::tmp MUST BE set to zero
-kad_node_t **kad_compile(int *n_node, int n_roots, ...)
+// IMPORTANT: kad_node_t::tmp MUST BE set to zero before calling this function
+kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 {
-	int i, j;
+	int i;
 	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
-	kad_node_t **roots;
-	va_list ap;
-
-	roots = (kad_node_t**)alloca(n_roots * sizeof(kad_node_t*));
-	va_start(ap, n_roots);
-	for (i = 0; i < n_roots; ++i)
-		roots[i] = va_arg(ap, kad_node_p);
-	va_end(ap);
 
 	// generate kad_node_t::tmp
 	for (i = 0; i < n_roots; ++i) kv_push(kad_node_p, stack, roots[i]);
@@ -126,9 +142,8 @@ kad_node_t **kad_compile(int *n_node, int n_roots, ...)
 			++q->tmp;
 		}
 	}
-
-	// check if roots are really roots
-	for (i = 0; i < n_roots; ++i) assert(roots[i]->tmp == 0);
+	for (i = 0; i < n_roots; ++i) // check if roots are really roots
+		assert(roots[i]->tmp == 0);
 
 	// topological sorting (Kahn's algorithm)
 	for (i = 0; i < n_roots; ++i) kv_push(kad_node_p, stack, roots[i]);
@@ -140,32 +155,37 @@ kad_node_t **kad_compile(int *n_node, int n_roots, ...)
 				kv_push(kad_node_p, stack, p->child[i].p);
 	}
 	free(stack.a);
+	for (i = 0; i < a.n; ++i) // check cycles; no cycles if constructed with kad_add() etc
+		assert(a.a[i]->tmp == 0);
 
-	// reverse a
-	for (i = 0; i < a.n>>1; ++i) {
+	// post-processing: reverse, mark to_back and allocate memory for internal nodes
+	for (i = 0; i < a.n>>1; ++i) { // reverse a.a[]
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
+	kad_mark_back(a.n, a.a);
+	kad_allocate_internal(a.n, a.a);
 
-	// check cycles
-	for (i = 0; i < a.n; ++i) assert(a.a[i]->tmp == 0); // if the graph is constructed with kad_add() etc, there should be no cycles
-
-	// set kad_node_t::to_back and allocate
-	for (i = 0; i < a.n; ++i) {
-		kad_node_p p = a.a[i];
-		if (p->n_child == 0) continue;
-		p->x = (float*)realloc(p->x, kad_len(p) * sizeof(float));
-		for (j = 0; j < p->n_child; ++j)
-			if (p->child[j].p->to_back) break;
-		if (j < p->n_child) {
-			p->to_back = 1;
-			p->g = (float*)realloc(p->g, kad_len(p) * sizeof(float));
-			kad_op_list[p->op](p, KAD_ALLOC);
-		}
-	}
 	*n_node = a.n;
 	return a.a;
 }
+
+kad_node_t **kad_compile(int *n_node, int n_roots, ...)
+{
+	int i;
+	kad_node_t **roots;
+	va_list ap;
+
+	roots = (kad_node_t**)alloca(n_roots * sizeof(kad_node_t*));
+	va_start(ap, n_roots);
+	for (i = 0; i < n_roots; ++i) roots[i] = va_arg(ap, kad_node_p);
+	va_end(ap);
+	return kad_compile_array(n_node, n_roots, roots);
+}
+
+/**********************************
+ * Operations on linearized graph *
+ **********************************/
 
 void kad_free_node(kad_node_t *p)
 {
@@ -185,6 +205,44 @@ void kad_free(int n, kad_node_t **a)
 	int i;
 	for (i = 0; i < n; ++i) kad_free_node(a[i]);
 	free(a);
+}
+
+kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
+{
+	int nn = n * len, i, j, k;
+	kad_node_t **w;
+
+	w = (kad_node_t**)calloc(nn, sizeof(kad_node_t*));
+	for (i = 0; i < n; ++i) v[i]->tmp = i;
+	for (j = 0; j < len; ++j) {
+		int shift = j * n;
+		for (i = 0; i < n; ++i) {
+			kad_node_t *wi, *vi = v[i];
+			wi = w[shift + i] = (kad_node_t*)malloc(sizeof(kad_node_t));
+			memcpy(wi, vi, sizeof(kad_node_t));
+			wi->ptr = 0, wi->pre = 0, wi->x = wi->g = 0;
+			if (wi->n_child) {
+				wi->child = (kad_edge_t*)calloc(wi->n_child, sizeof(kad_edge_t));
+				for (k = 0; k < vi->n_child; ++k)
+					wi->child[k].p = w[shift + vi->child[k].p->tmp];
+			} else wi->child = 0;
+			if (j > 0 && vi->pre) {
+				kad_node_t *pre;
+				assert(vi->pre->tmp < i);
+				pre = w[shift + vi->pre->tmp];
+				assert(pre->n_child == 0);
+				pre->op = 10;
+				pre->n_child = 1;
+				pre->child = (kad_edge_t*)calloc(1, sizeof(kad_edge_t));
+				pre->child[0].p = w[shift - n + i];
+				pre->to_back = 1;
+			}
+		}
+	}
+	for (i = 0; i < n; ++i) v[i]->tmp = 0;
+	kad_allocate_internal(nn, w);
+	*new_n = nn;
+	return w;
 }
 
 float kad_eval(int n, kad_node_t **a, int from, int cal_grad)
@@ -585,6 +643,23 @@ int kad_op_relu(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_copy(kad_node_t *p, int action)
+{
+	int n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		p->n_d = q->n_d;
+		memcpy(p->d, q->d, p->n_d * sizeof(int));
+	} else if (action == KAD_FORWARD) {
+		memcpy(p->x, q->x, n * sizeof(float));
+	} else if (action == KAD_BACKWARD) {
+		if (q->to_back)
+			memcpy(q->g, p->g, n * sizeof(float));
+	}
+	return 0;
+}
+
 kad_op_f kad_op_list[] = {
 	0,
 	kad_op_add,
@@ -595,5 +670,6 @@ kad_op_f kad_op_list[] = {
 	kad_op_sigm,
 	kad_op_tanh,
 	kad_op_relu,
+	kad_op_copy,
 	0
 };

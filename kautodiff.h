@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r74"
+#define KAD_VERSION "r75"
 
 #include <stdio.h>
 
@@ -16,15 +16,16 @@
  */
 
 struct kad_node_t;
+typedef struct kad_node_t kad_node_t;
 
 // an edge between two nodes in the autodiff graph
 typedef struct {
-	struct kad_node_t *p; // child node
+	kad_node_t *p;        // child node
 	float *t;             // temporary data needed for backprop; allocated if not NULL
 } kad_edge_t;
 
 // a node in the autodiff graph
-typedef struct kad_node_t {
+struct kad_node_t {
 	short n_d;            // number of dimensions; no larger than KAD_MAX_DIM
 	short op;             // operator; kad_op_list[op] is the actual function
 	int label;            // label for external uses
@@ -35,8 +36,9 @@ typedef struct kad_node_t {
 	float *x;             // value; allocated for internal nodes
 	float *g;             // gradient; allocated for internal nodes
 	kad_edge_t *child;    // child nodes
+	kad_node_t *pre;      // usually NULL; only used when unrolling an RNN
 	void *ptr;            // auxiliary data
-} kad_node_t;
+};
 
 #define KAD_ALLOC      1
 #define KAD_FORWARD    2
@@ -72,18 +74,22 @@ kad_node_t *kad_tanh(kad_node_t *x);  // z(x) = (1-exp(-2x)) / (1+exp(-2x)) (ele
 kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier (aka ReLU))
 
 kad_node_t **kad_compile(int *n_node, int n_roots, ...);
+kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
 float kad_eval(int n, kad_node_t **a, int from, int cal_grad);
 void kad_free_node(kad_node_t *p);
 void kad_free(int n, kad_node_t **a);
 
+// autodiff graph I/O
 void kad_write1(FILE *fp, const kad_node_t *p);
 kad_node_t *kad_read1(FILE *fp, kad_node_t **node);
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
 
+// vector operations
 float kad_sdot(int n, const float *x, const float *y);
 void kad_saxpy(int n, float a, const float *x, float *y);
 
+// defined in kad_debug.c
 void kad_debug(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
 
