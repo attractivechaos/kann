@@ -245,36 +245,42 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 	return w;
 }
 
-float kad_eval(int n, kad_node_t **a, int from, int cal_grad)
+static void kad_mark_compute(int n, kad_node_t **a, int from)
 {
 	int i, j;
-	float f;
+	if (from >= 0 && from < n) {
+		for (i = 0; i < n; ++i) a[i]->tmp = 0;
+		a[from]->tmp = 1;
+		for (i = from; i >= 0; --i)
+			if (a[i]->tmp)
+				for (j = 0; j < a[i]->n_child; ++j)
+					a[i]->child[j].p->tmp = 1;
+	} else for (i = 0; i < n; ++i) a[i]->tmp = 1;
+}
 
-	// find which nodes to compute
-	assert(n > 0);
+const float *kad_eval(int n, kad_node_t **a, int from)
+{
+	int i;
+	kad_mark_compute(n, a, from);
+	for (i = 0; i < n; ++i)
+		if (a[i]->n_child && a[i]->tmp)
+			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
+	for (i = 0; i < n; ++i) a[i]->tmp = 0;
+	return from >= 0 && from < n? a[from]->x : 0;
+}
+
+void kad_grad(int n, kad_node_t **a, int from)
+{
+	int i;
 	if (from < 0 || from >= n) from = n - 1;
-	a[from]->tmp = 1;
-	for (i = from; i >= 0; --i)
-		if (a[i]->tmp)
-			for (j = 0; j < a[i]->n_child; ++j)
-				a[i]->child[j].p->tmp = 1;
-
-	// forward pass
-	for (i = 0; i <= from; ++i)
-		if (a[i]->n_child && a[i]->tmp) kad_for1(a[i]);
-	f = a[n-1]->x[0];
-
-	// backward pass
-	if (cal_grad) {
-		assert(a[n-1]->n_d == 0);
-		for (i = 0; i <= from; ++i) // set all grandients to zero
-			if (a[i]->g) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
-		for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
-			if (a[i]->n_child && a[i]->tmp)
-				kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
-	}
+	assert(a[from]->n_d == 0);
+	kad_mark_compute(n, a, from);
+	for (i = 0; i <= from; ++i) // set all grandients to zero
+		if (a[i]->g && a[i]->tmp) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
+	for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
+		if (a[i]->n_child && a[i]->tmp)
+			kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	for (i = 0; i <= from; ++i) a[i]->tmp = 0;
-	return f;
 }
 
 /***********************

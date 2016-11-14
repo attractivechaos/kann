@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r75"
+#define KAD_VERSION "r76"
 
 #include <stdio.h>
 
@@ -48,7 +48,6 @@ struct kad_node_t {
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[];
 
-#define kad_for1(p) (kad_op_list[(p)->op]((p), KAD_FORWARD))
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
 
 typedef struct {
@@ -75,7 +74,8 @@ kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier
 
 kad_node_t **kad_compile(int *n_node, int n_roots, ...);
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
-float kad_eval(int n, kad_node_t **a, int from, int cal_grad);
+const float *kad_eval(int n, kad_node_t **a, int from);
+void kad_grad(int n, kad_node_t **a, int from);
 void kad_free_node(kad_node_t *p);
 void kad_free(int n, kad_node_t **a);
 

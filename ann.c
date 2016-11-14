@@ -7,6 +7,8 @@
 
 #define KANN_MAGIC "KAN\1"
 
+int kann_verbose = 3;
+
 kann_t *kann_init(uint64_t seed)
 {
 	kann_t *a;
@@ -141,7 +143,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			running_cost += kad_eval(a->n, a->v, a->i_cost, 1) * mb;
+			running_cost += *kad_eval(a->n, a->v, a->i_cost) * mb;
+			kad_grad(a->n, a->v, a->i_cost);
 			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
 			n_proc += mb;
 		}
@@ -153,11 +156,13 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			val_cost += kad_eval(a->n, a->v, a->i_cost, 0) * mb;
+			val_cost += *kad_eval(a->n, a->v, a->i_cost) * mb;
 			n_proc += mb;
 		}
-		if (n_validate == 0) fprintf(stderr, "running cost: %g\n", running_cost / n_train);
-		else fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
+		if (kann_verbose >= 3) {
+			if (n_validate == 0) fprintf(stderr, "running cost: %g\n", running_cost / n_train);
+			else fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
+		}
 	}
 
 	// free
@@ -170,7 +175,7 @@ const float *kann_apply_fnn1(kann_t *a, float *x)
 {
 	kann_set_batch_size(a, 1);
 	a->v[a->i_in]->x = x;
-	kad_eval(a->n, a->v, a->i_out, 0);
+	kad_eval(a->n, a->v, a->i_out);
 	return a->v[a->i_out]->x;
 }
 

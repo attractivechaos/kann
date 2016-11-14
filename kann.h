@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r75"
+#define KANN_VERSION "r76"
 
 #define KANN_LABEL_IN    1
 #define KANN_LABEL_OUT   2
@@ -29,6 +29,8 @@ typedef struct {
 } kann_t;
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
+
+extern int kann_verbose;
 
 #ifdef __cplusplus
 extern "C" {

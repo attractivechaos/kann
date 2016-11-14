@@ -47,7 +47,8 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 	float *g0, *delta, f0, f_minus, f_plus, s0, s1, rel_err, p_m_err;
 	n_var = kad_n_var(n, a);
 	g0 = (float*)calloc(n_var, sizeof(float));
-	f0 = kad_eval(n, a, from, 1);
+	f0 = *kad_eval(n, a, from);
+	kad_grad(n, a, from);
 	for (i = k = 0; i < n; ++i)
 		if (kad_is_var(a[i])) {
 			memcpy(&g0[k], a[i]->g, kad_len(a[i]) * sizeof(float));
@@ -56,9 +57,9 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 	delta = (float*)calloc(n_var, sizeof(float));
 	for (k = 0; k < n_var; ++k) delta[k] = drand48() * eps;
 	kad_add_delta(n, a, 1.0f, delta);
-	f_plus = kad_eval(n, a, from, 0);
+	f_plus = *kad_eval(n, a, from);
 	kad_add_delta(n, a, -2.0f, delta);
-	f_minus = kad_eval(n, a, from, 0);
+	f_minus = *kad_eval(n, a, from);
 	kad_add_delta(n, a, 1.0f, delta);
 	s0 = kad_sdot(n_var, g0, delta);
 	s1 = .5 * (f_plus - f_minus);
