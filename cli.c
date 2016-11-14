@@ -46,7 +46,7 @@ int main_mlp_train(int argc, char *argv[])
 	if (in_fn) {
 		ann = kann_read(in_fn);
 		assert(kann_n_in(ann) == in->n_col && kann_n_out(ann) == out->n_col);
-	} else ann = kann_mlp_gen(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
+	} else ann = kann_gen_mlp(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
 	kann_train_fnn(&mo, ann, in->n_row, in->x, out->x);
 	if (out_fn) kann_write(out_fn, ann);
 

@@ -3,7 +3,7 @@
 #include "kann_rand.h"
 #include "kann.h"
 
-kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+kann_t *kann_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
 {
 	int i, n_layers, *n_neurons;
 	kad_node_t *in, *out, *truth, *prev, *cost;
@@ -37,4 +37,19 @@ kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neur
 	kann_collate_var(a);
 	kann_sync_index(a);
 	return a;
+}
+
+kann_t *kann_gen_rnn_vannila(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+{
+	return 0;
+}
+
+kann_t *kann_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+{
+	return 0;
+}
+
+kann_t *kann_gen_lstm(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+{
+	return 0;
 }

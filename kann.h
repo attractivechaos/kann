@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r76"
+#define KANN_VERSION "r78"
 
 #define KANN_LABEL_IN    1
 #define KANN_LABEL_OUT   2
@@ -51,7 +51,7 @@ void kann_mopt_init(kann_mopt_t *mo);
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);
 const float *kann_apply_fnn1(kann_t *a, float *x);
 
-kann_t *kann_mlp_gen(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
+kann_t *kann_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
 #ifdef __cplusplus
 }
