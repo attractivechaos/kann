@@ -98,6 +98,18 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
+kann_t *kann_rnn_unroll(kann_t *a, int len, int is_pool)
+{
+	int n;
+	kad_node_t **v;
+	kann_t *b;
+	assert(!is_pool);
+	b = (kann_t*)calloc(1, sizeof(kann_t));
+	memcpy(b, a, sizeof(kann_t));
+	v = kad_unroll(a->n, a->v, len, &n);
+	return b;
+}
+
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
 {
 	extern void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);

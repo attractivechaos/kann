@@ -669,7 +669,35 @@ int kad_op_copy(kad_node_t *p, int action)
 		memcpy(p->x, q->x, n * sizeof(float));
 	} else if (action == KAD_BACKWARD) {
 		if (q->to_back)
-			memcpy(q->g, p->g, n * sizeof(float));
+			kad_saxpy(n, 1.0f, p->g, q->g);
+	}
+	return 0;
+}
+
+int kad_op_avg(kad_node_t *p, int action)
+{
+	int i, n;
+	float tmp;
+	kad_node_t *q;
+
+	assert(p->n_child > 0);
+	tmp = 1.0f / p->n_child;
+	q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		for (i = 1; i < p->n_child; ++i)
+			if (kad_len(p->child[i].p) != n) return -1;
+		p->n_d = q->n_d;
+		memcpy(p->d, q->d, p->n_d * sizeof(int));
+	} else if (action == KAD_FORWARD) {
+		memcpy(p->x, q->x, n * sizeof(float));
+		for (i = 1; i < p->n_child; ++i)
+			kad_saxpy(n, 1.0f, p->child[i].p->x, p->x);
+		for (i = 0; i < n; ++i) p->x[i] *= tmp;
+	} else if (action == KAD_BACKWARD) {
+		for (i = 0; i < p->n_child; ++i)
+			if (p->child[i].p->to_back)
+				kad_saxpy(n, tmp, p->g, p->child[i].p->g);
 	}
 	return 0;
 }
@@ -685,5 +713,6 @@ kad_op_f kad_op_list[] = {
 	kad_op_tanh,
 	kad_op_relu,
 	kad_op_copy,
+	kad_op_avg,
 	0
 };
