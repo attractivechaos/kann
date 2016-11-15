@@ -231,7 +231,7 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 				assert(vi->pre->tmp < i);
 				pre = w[shift + vi->pre->tmp];
 				assert(pre->n_child == 0);
-				pre->op = 10;
+				pre->op = 9;
 				pre->n_child = 1;
 				pre->child = (kad_edge_t*)calloc(1, sizeof(kad_edge_t));
 				pre->child[0].p = w[shift - n + i];

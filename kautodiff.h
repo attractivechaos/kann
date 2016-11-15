@@ -72,6 +72,7 @@ kad_node_t *kad_sigm(kad_node_t *x);  // z(x) = 1/(1+exp(-x)) (element-wise sigm
 kad_node_t *kad_tanh(kad_node_t *x);  // z(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier (aka ReLU))
 
+kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 kad_node_t **kad_compile(int *n_node, int n_roots, ...);
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
 const float *kad_eval(int n, kad_node_t **a, int from);

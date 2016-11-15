@@ -5,26 +5,28 @@
 
 void kad_debug(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { "", "add", "mul", "cmul", "ce2", "norm2", "sigm", "tanh", "relu" };
+	static const char *op[] = { "", "add", "mul", "cmul", "ce2", "norm2", "sigm", "tanh", "relu", "copy" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
 		kad_node_t *p = v[i];
-		fprintf(stderr, "%d\t", i);
+		fprintf(stderr, "%d\t%d\t", i, p->label);
+		if (p->pre) fprintf(fp, "%d\t", p->pre->tmp);
+		else fprintf(fp, ".\t");
+		fputs("[", fp);
+		for (j = 0; j < p->n_d; ++j) {
+			if (j) fputc(',', fp);
+			fprintf(fp, "%d", p->d[j]);
+		}
+		fprintf(fp, "]\t");
 		if (p->n_child) {
 			fprintf(fp, "%s(", op[p->op]);
 			for (j = 0; j < p->n_child; ++j) {
 				if (j) fputc(',', fp);
 				fprintf(fp, "$%d", p->child[j].p->tmp);
 			}
-			fputc(')', fp);
-		} else fprintf(fp, "%c|%d", p->to_back? 'v' : 'p', p->label);
-		fputs("\t[", fp);
-		for (j = 0; j < p->n_d; ++j) {
-			if (j) fputc(',', fp);
-			fprintf(fp, "%d", p->d[j]);
-		}
-		fputc(']', fp);
+			fprintf(fp, ")");
+		} else fprintf(fp, "%s", p->to_back? "var" : "par");
 		fputc('\n', fp);
 	}
 	for (i = 0; i < n; ++i) v[i]->tmp = 0;
