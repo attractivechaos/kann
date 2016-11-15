@@ -64,8 +64,8 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	n_neurons = (int*)alloca(n_layers * sizeof(int));
 	n_neurons[0] = n_in, n_neurons[n_layers-1] = n_out;
 	for (i = 1; i < n_layers - 1; ++i) n_neurons[i] = n_hidden_neurons;
-	h_in = (kad_node_t**)alloca(n_layers * sizeof(int));
-	h_out = (kad_node_t**)alloca(n_layers * sizeof(int));
+	h_in = (kad_node_t**)alloca(n_layers * sizeof(kad_node_t*));
+	h_out = (kad_node_t**)alloca(n_layers * sizeof(kad_node_t*));
 
 	h_out[0] = kad_par(0, 2, 1, n_in);
 	for (i = 1; i < n_layers - 1; ++i)
@@ -85,14 +85,14 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	h_out[n_layers - 1]->label = KANN_LABEL_OUT;
 	a->v = kad_compile(&a->n, 1, h_out[n_layers - 1]);
 	kann_collate_var(a);
-	kad_debug(stderr, a->n, a->v);
 
-	/*
+#if 0
+//	kad_debug(stderr, a->n, a->v);
 	int n_u;
 	kad_node_t **u;
-	u = kad_unroll(a->n, a->v, 2, &n_u);
+	u = kad_unroll(a->n, a->v, 3, &n_u);
 	kad_debug(stderr, n_u, u);
-	*/
+#endif
 	return a;
 }
 
