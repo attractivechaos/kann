@@ -29,6 +29,8 @@ typedef struct {
 	float *t, *g;
 } kann_t;
 
+typedef kad_node_t (*kann_activate_f)(kad_node_t*);
+
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
 
 extern int kann_verbose;
@@ -56,6 +58,7 @@ const float *kann_apply_fnn1(kann_t *a, float *x);
 kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
 kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
+kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
 #ifdef __cplusplus
 }

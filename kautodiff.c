@@ -84,6 +84,7 @@ KAD_FUNC_OP1(kad_sigm, 6)
 KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
 KAD_FUNC_OP1(kad_copy, 9)
+KAD_FUNC_OP1(kad_1minus, 11)
 
 kad_node_t *kad_avg(int n, kad_node_t **x)
 {
@@ -676,6 +677,22 @@ int kad_op_relu(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_1minus(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		for (i = 0; i < n; ++i) p->x[i] = 1.0f - q->x[i];
+	} else if (action == KAD_BACKWARD) {
+		if (q->to_back)
+			kad_saxpy(n, -1.0f, p->g, q->g);
+	}
+	return 0;
+}
+
 int kad_op_copy(kad_node_t *p, int action)
 {
 	int n;
@@ -732,5 +749,6 @@ kad_op_f kad_op_list[] = {
 	kad_op_relu,
 	kad_op_copy,
 	kad_op_avg,
+	kad_op_1minus,
 	0
 };

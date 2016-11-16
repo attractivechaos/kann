@@ -73,6 +73,7 @@ kad_node_t *kad_norm2(kad_node_t *x); // z(x) = \sum_i x_i^2 (L2 norm)
 kad_node_t *kad_sigm(kad_node_t *x);  // z(x) = 1/(1+exp(-x)) (element-wise sigmoid)
 kad_node_t *kad_tanh(kad_node_t *x);  // z(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier (aka ReLU))
+kad_node_t *kad_1minus(kad_node_t *x);// z(x) = 1-x
 
 kad_node_t *kad_avg(int n, kad_node_t **x); // mean pooling
 

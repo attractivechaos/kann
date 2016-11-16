@@ -126,7 +126,8 @@ int main_rnn_train(int argc, char *argv[])
 	in = kann_data_read(argv[optind]);
 	out = kann_data_read(argv[optind+1]);
 	assert(in->n_row == out->n_row);
-	ann = kann_rnn_gen_vanilla(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
+//	ann = kann_rnn_gen_vanilla(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
+	ann = kann_rnn_gen_gru(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
 	/*
 	if (in_fn) {
 		ann = kann_read(in_fn);
