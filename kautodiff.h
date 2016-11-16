@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define KAD_MAX_DIM 4     // max dimension
 
@@ -122,6 +123,19 @@ static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src)
 {
 	dst->n_d = src->n_d;
 	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
+}
+
+static inline kad_node_t *kad_dup1(const kad_node_t *p)
+{
+	kad_node_t *q;
+	q = (kad_node_t*)malloc(sizeof(kad_node_t));
+	memcpy(q, p, sizeof(kad_node_t));
+	q->ptr = 0, q->pre = 0, q->tmp = 0;
+	if (q->n_child) {
+		q->x = q->g = 0;
+		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
+	}
+	return q;
 }
 
 #endif

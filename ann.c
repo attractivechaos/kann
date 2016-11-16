@@ -32,10 +32,10 @@ void kann_sync_index(kann_t *a)
 	a->i_in = a->i_out = a->i_truth = a->i_cost = -1;
 	for (i = 0; i < a->n; ++i) {
 		switch (a->v[i]->label) {
-			case KANN_LABEL_IN: a->i_in = i; break;
-			case KANN_LABEL_OUT: a->i_out = i; break;
-			case KANN_LABEL_TRUTH: a->i_truth = i; break;
-			case KANN_LABEL_COST: a->i_cost = i; break;
+			case KANN_L_IN: a->i_in = i; break;
+			case KANN_L_OUT: a->i_out = i; break;
+			case KANN_L_TRUTH: a->i_truth = i; break;
+			case KANN_L_COST: a->i_cost = i; break;
 		}
 	}
 }
@@ -86,7 +86,7 @@ static void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == KANN_LABEL_IN || a->v[i]->label == KANN_LABEL_TRUTH)
+		if (a->v[i]->label == KANN_L_IN || a->v[i]->label == KANN_L_TRUTH)
 			a->v[i]->d[0] = B;
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *p = a->v[i];
@@ -98,30 +98,29 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
-kann_t *kann_rnn_unroll(kann_t *a, int len, int pre_pool)
+kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 {
-	int n, i, k;
-	kad_node_t **v;
 	kann_t *b;
 	b = (kann_t*)calloc(1, sizeof(kann_t));
 	b->rng = a->rng, b->t = a->t, b->g = a->g;
-	if (pre_pool) {
+	if (pool_hidden) {
+		abort();
 	} else {
-		int n_root = 0;
+		int i, n_root = 0, k;
 		kad_node_t **t, **root;
-		v = kad_unroll(a->n, a->v, len, &n);
+		b->v = kad_unroll(a->n, a->v, len, &b->n);
 		t = (kad_node_t**)calloc(len, sizeof(kad_node_t*));
 		root = (kad_node_t**)calloc(len + 1, sizeof(kad_node_t*));
-		for (i = k = 0; i < n; ++i) {
-			if (v[i]->label == KANN_LABEL_PRE_OUT) {
-				kad_node_t *p;
-				p = kad_par(0, 0);
-				kad_sync_dim1(p, v[i]);
-				p->label = KANN_LABEL_TRUTH;
-				t[k] = kad_ce2(v[i], p);
-			} else if (v[i]->label == KANN_LABEL_OUT)
-				root[n_root++] = v[i];
+		for (i = k = 0; i < b->n; ++i) {
+			if (b->v[i]->label == KANN_L_OUT) root[n_root++] = b->v[i];
+			else if (b->v[i]->label == KANN_L_COST) t[k++] = b->v[i], b->v[i]->label = 0;
 		}
+		assert(k == len && n_root == len);
+		root[n_root++] = kad_avg(k, t);
+		root[n_root-1]->label = KANN_L_COST;
+		free(b->v);
+		b->v = kad_compile_array(&b->n, n_root, root);
+		free(root); free(t);
 	}
 	return b;
 }
@@ -154,8 +153,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *p = a->v[i];
 		if (p->n_child) continue;
-		if (p->label == KANN_LABEL_IN) p->x = bx;
-		else if (p->label == KANN_LABEL_TRUTH) p->x = by;
+		if (p->label == KANN_L_IN) p->x = bx;
+		else if (p->label == KANN_L_TRUTH) p->x = by;
 	}
 	rmsp_r = (float*)calloc(n_par, sizeof(float));
 

@@ -233,16 +233,11 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 		int shift = j * n;
 		for (i = 0; i < n; ++i) {
 			kad_node_t *wi, *vi = v[i];
-			wi = w[shift + i] = j > 0 && kad_is_var(vi)? 0 : (kad_node_t*)malloc(sizeof(kad_node_t));
+			wi = w[shift + i] = j > 0 && kad_is_var(vi)? 0 : kad_dup1(vi);
 			if (wi == 0) continue;
-			memcpy(wi, vi, sizeof(kad_node_t));
-			wi->ptr = 0, wi->pre = 0, wi->tmp = 0;
-			if (wi->n_child) {
-				wi->x = wi->g = 0;
-				wi->child = (kad_edge_t*)calloc(wi->n_child, sizeof(kad_edge_t));
+			if (wi->n_child)
 				for (k = 0; k < vi->n_child; ++k)
 					wi->child[k].p = j > 0 && kad_is_var(vi->child[k].p)? w[i]->child[k].p : w[shift + vi->child[k].p->tmp];
-			}
 			if (j > 0 && vi->pre) {
 				kad_node_t *pre;
 				assert(vi->pre->tmp < i);

@@ -3,12 +3,11 @@
 
 #define KANN_VERSION "r78"
 
-#define KANN_LABEL_IN           1
-#define KANN_LABEL_OUT          2
-#define KANN_LABEL_TRUTH        3
-#define KANN_LABEL_COST         4
-#define KANN_LABEL_PRE_OUT      5
-#define KANN_LABEL_LAST_HIDDEN  6
+#define KANN_L_IN     1
+#define KANN_L_OUT    2
+#define KANN_L_TRUTH  3
+#define KANN_L_COST   4
+#define KANN_L_LAST   5
 
 #include <stdint.h>
 #include "kautodiff.h"
@@ -45,6 +44,7 @@ int kann_n_out(const kann_t *a);
 
 void kann_sync_index(kann_t *a);
 void kann_collate_var(kann_t *a);
+kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
 
 void kann_write(const char *fn, const kann_t *ann);
 kann_t *kann_read(const char *fn);
