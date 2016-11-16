@@ -3,11 +3,12 @@
 
 #define KANN_VERSION "r78"
 
-#define KANN_LABEL_IN    1
-#define KANN_LABEL_OUT   2
-#define KANN_LABEL_TRUTH 3
-#define KANN_LABEL_COST  4
-#define KANN_LABEL_LAST  5
+#define KANN_LABEL_IN           1
+#define KANN_LABEL_OUT          2
+#define KANN_LABEL_TRUTH        3
+#define KANN_LABEL_COST         4
+#define KANN_LABEL_PRE_OUT      5
+#define KANN_LABEL_LAST_HIDDEN  6
 
 #include <stdint.h>
 #include "kautodiff.h"

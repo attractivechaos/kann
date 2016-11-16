@@ -107,15 +107,20 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pre_pool)
 	b->rng = a->rng, b->t = a->t, b->g = a->g;
 	if (pre_pool) {
 	} else {
-		kad_node_t **t;
+		int n_root = 0;
+		kad_node_t **t, **root;
 		v = kad_unroll(a->n, a->v, len, &n);
 		t = (kad_node_t**)calloc(len, sizeof(kad_node_t*));
+		root = (kad_node_t**)calloc(len + 1, sizeof(kad_node_t*));
 		for (i = k = 0; i < n; ++i) {
-			if (v[i]->label == KANN_LABEL_OUT) {
-				t[k] = kad_par(0, 0);
-				kad_sync_dim1(t[k], v[i]);
-				++k;
-			}
+			if (v[i]->label == KANN_LABEL_PRE_OUT) {
+				kad_node_t *p;
+				p = kad_par(0, 0);
+				kad_sync_dim1(p, v[i]);
+				p->label = KANN_LABEL_TRUTH;
+				t[k] = kad_ce2(v[i], p);
+			} else if (v[i]->label == KANN_LABEL_OUT)
+				root[n_root++] = v[i];
 		}
 	}
 	return b;

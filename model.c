@@ -43,6 +43,7 @@ kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	}
 	out = kad_sigm(prev);
 	cost = kad_ce2(prev, truth);
+	prev->label = KANN_LABEL_PRE_OUT;
 	in->label = KANN_LABEL_IN;
 	truth->label = KANN_LABEL_TRUTH;
 	out->label = KANN_LABEL_OUT;
@@ -81,7 +82,6 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 		} else h_out[i] = kad_sigm(kad_add(kad_cmul(h_out[i-1], w), b));
 	}
 	h_out[0]->label = KANN_LABEL_IN;
-	h_out[n_layers - 2]->label = KANN_LABEL_LAST;
 	h_out[n_layers - 1]->label = KANN_LABEL_OUT;
 	a->v = kad_compile(&a->n, 1, h_out[n_layers - 1]);
 	kann_collate_var(a);
