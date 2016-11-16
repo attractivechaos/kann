@@ -85,6 +85,20 @@ KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
 KAD_FUNC_OP1(kad_copy, 9)
 
+kad_node_t *kad_avg(int n, kad_node_t **x)
+{
+	int i;
+	kad_node_t *s;
+	s = kad_new_core(0, 10, n);
+	for (i = 0; i < n; ++i)
+		s->child[i].p = x[i];
+	if (kad_op_list[10](s, KAD_SYNC_DIM) < 0) {
+		free(s->child); free(s);
+		return 0;
+	}
+	return s;
+}
+
 /***********************
  * Graph linearization *
  ***********************/
