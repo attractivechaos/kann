@@ -95,13 +95,6 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	a->v = kad_compile(&a->n, 2, h_out[n_layers - 1], cost);
 	kann_collate_var(a);
 
-#if 0
-//	kad_debug(stderr, a->n, a->v);
-	kann_t *b = kann_rnn_unroll(a, 2, 0);
-	kad_debug(stderr, b->n, b->v);
-	b->t = b->g = 0, b->rng.data = 0;
-	kann_destroy(b);
-#endif
 	return a;
 }
 
@@ -127,9 +120,8 @@ kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 		h_in[i]->x = (float*)calloc(n_hidden_neurons, sizeof(float));
 	}
 	for (i = 1; i < n_layers; ++i) {
-		kad_node_t *w, *b;
-		if (i < n_layers - 1) {
-			kad_node_t *r, *z, *u, *s;
+		if (i < n_layers - 1) { // hidden layer
+			kad_node_t *r, *z, *w, *u, *b, *s;
 			// z = sigm(x_t * W_z + h_{t-1} * U_z + b_z)
 			w = kann_new_weight(n_neurons[i], n_neurons[i-1], a->rng.data);
 			u = kann_new_weight(n_neurons[i], n_neurons[i], a->rng.data);
@@ -148,7 +140,7 @@ kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 			// h_t = z # h_{t-1} + (1 - z) # s
 			h_out[i] = kad_add(kad_mul(kad_1minus(z), s), kad_mul(z, h_in[i]));
 			h_out[i]->pre = h_in[i];
-		} else {
+		} else { // output layer
 			kad_node_t *w, *b, *t;
 			w = kann_new_weight(n_neurons[i], n_neurons[i-1], a->rng.data);
 			b = kann_new_bias(n_neurons[i], a->rng.data);
