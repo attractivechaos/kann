@@ -4,6 +4,7 @@
 #define KAD_VERSION "r83"
 
 #include <stdio.h>
+#include <string.h>
 
 #define KAD_MAX_DIM 4     // max dimension
 
@@ -88,13 +89,14 @@ kad_node_t *kad_read1(FILE *fp, kad_node_t **node);
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
 
-// vector operations
-float kad_sdot(int n, const float *x, const float *y);
-void kad_saxpy(int n, float a, const float *x, float *y);
-
-// defined in kad_debug.c
+// defined in kad_debug.c for debugging only
 void kad_debug(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
+
+// functions needed by kann; not of much use to general users
+void kad_mark_compute_core(int n, kad_node_t **a);
+float kad_sdot(int n, const float *x, const float *y);
+void kad_saxpy(int n, float a, const float *x, float *y);
 
 #ifdef __cplusplus
 }
@@ -114,6 +116,12 @@ static inline int kad_n_var(int n, kad_node_t *const* v)
 		if (v[i]->n_child == 0 && v[i]->to_back)
 			c += kad_len(v[i]);
 	return c;
+}
+
+static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src)
+{
+	dst->n_d = src->n_d;
+	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
 }
 
 #endif

@@ -265,16 +265,22 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 	return w;
 }
 
-static void kad_mark_compute(int n, kad_node_t **a, int from)
+void kad_mark_compute_core(int n, kad_node_t **a)
 {
 	int i, j;
+	for (i = n - 1; i >= 0; --i)
+		if (a[i]->tmp)
+			for (j = 0; j < a[i]->n_child; ++j)
+				a[i]->child[j].p->tmp = 1;
+}
+
+static void kad_mark_compute(int n, kad_node_t **a, int from)
+{
+	int i;
 	if (from >= 0 && from < n) {
 		for (i = 0; i < n; ++i) a[i]->tmp = 0;
 		a[from]->tmp = 1;
-		for (i = from; i >= 0; --i)
-			if (a[i]->tmp)
-				for (j = 0; j < a[i]->n_child; ++j)
-					a[i]->child[j].p->tmp = 1;
+		kad_mark_compute_core(n, a);
 	} else for (i = 0; i < n; ++i) a[i]->tmp = 1;
 }
 
@@ -477,8 +483,7 @@ int kad_op_add(kad_node_t *p, int action)
 	q[1] = p->child[1].p, n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
 		if (n0 % n1 != 0) return -1;
-		p->n_d = q[0]->n_d;
-		if (p->n_d) memcpy(p->d, q[0]->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->x, q[0]->x, n0 * sizeof(float));
 		for (i = 0; i < n0; i += n1)
@@ -501,8 +506,7 @@ int kad_op_mul(kad_node_t *p, int action)
 	q[1] = p->child[1].p, n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
 		if (n0 % n1 != 0) return -1;
-		p->n_d = q[0]->n_d;
-		if (p->n_d) memcpy(p->d, q[0]->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
 		memset(p->x, 0, n0 * sizeof(float));
 		for (i = 0; i < n0; i += n1) // TODO: optimize when n1==1
@@ -614,8 +618,7 @@ int kad_op_sigm(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0].p;
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_d = q->n_d;
-		memcpy(p->d, q->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->x[i] = 1.0f / (1.0f + expf(-q->x[i]));
@@ -635,8 +638,7 @@ int kad_op_tanh(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0].p;
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_d = q->n_d;
-		memcpy(p->d, q->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) {
 			float y;
@@ -657,8 +659,7 @@ int kad_op_relu(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0].p;
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_d = q->n_d;
-		memcpy(p->d, q->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->x[i] = q->x[i] > 0.0f? q->x[i] : 0.0f;
@@ -677,8 +678,7 @@ int kad_op_copy(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0].p;
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_d = q->n_d;
-		memcpy(p->d, q->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->x, q->x, n * sizeof(float));
 	} else if (action == KAD_BACKWARD) {

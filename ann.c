@@ -98,15 +98,26 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
-kann_t *kann_rnn_unroll(kann_t *a, int len, int is_pool)
+kann_t *kann_rnn_unroll(kann_t *a, int len, int pre_pool)
 {
-	int n;
+	int n, i, k;
 	kad_node_t **v;
 	kann_t *b;
-	assert(!is_pool);
 	b = (kann_t*)calloc(1, sizeof(kann_t));
-	memcpy(b, a, sizeof(kann_t));
-	v = kad_unroll(a->n, a->v, len, &n);
+	b->rng = a->rng, b->t = a->t, b->g = a->g;
+	if (pre_pool) {
+	} else {
+		kad_node_t **t;
+		v = kad_unroll(a->n, a->v, len, &n);
+		t = (kad_node_t**)calloc(len, sizeof(kad_node_t*));
+		for (i = k = 0; i < n; ++i) {
+			if (v[i]->label == KANN_LABEL_OUT) {
+				t[k] = kad_par(0, 0);
+				kad_sync_dim1(t[k], v[i]);
+				++k;
+			}
+		}
+	}
 	return b;
 }
 
