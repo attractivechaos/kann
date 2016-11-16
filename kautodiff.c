@@ -224,35 +224,44 @@ void kad_free(int n, kad_node_t **a)
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 {
 	int i, j, k;
+	char *pred;
 	kad_node_t **w;
 
 	assert(len > 0);
 	w = (kad_node_t**)calloc(n * len, sizeof(kad_node_t*));
-	for (i = 0; i < n; ++i) v[i]->tmp = i;
+	pred = (char*)calloc(n, sizeof(char));
+	for (i = 0; i < n; ++i) {
+		v[i]->tmp = i;
+		if (v[i]->pre) pred[v[i]->pre->tmp] = 1; // mark the predecessor of a recurrent node
+	}
 	for (j = 0; j < len; ++j) {
 		int shift = j * n;
 		for (i = 0; i < n; ++i) {
 			kad_node_t *wi, *vi = v[i];
-			wi = w[shift + i] = j > 0 && kad_is_var(vi)? 0 : kad_dup1(vi);
-			if (wi == 0) continue;
-			if (wi->n_child)
-				for (k = 0; k < vi->n_child; ++k)
-					wi->child[k].p = j > 0 && kad_is_var(vi->child[k].p)? w[i]->child[k].p : w[shift + vi->child[k].p->tmp];
-			if (j > 0 && vi->pre) {
-				kad_node_t *pre;
-				assert(vi->pre->tmp < i);
-				pre = w[shift + vi->pre->tmp];
-				assert(pre->n_child == 0);
-				pre->op = 9;
-				pre->n_child = 1;
-				pre->child = (kad_edge_t*)calloc(1, sizeof(kad_edge_t));
-				pre->child[0].p = w[shift - n + i];
-				pre->to_back = 1;
+			wi = w[shift + i] = j > 0 && kad_is_var(vi) && !pred[i]? 0 : kad_dup1(vi);
+			if (wi && wi->n_child) {
+				for (k = 0; k < vi->n_child; ++k) { // set children
+					kad_node_t *p = vi->child[k].p;
+					wi->child[k].p = j > 0 && kad_is_var(p) && !pred[p->tmp]? w[i]->child[k].p : w[shift + p->tmp];
+				}
+				if (j > 0 && vi->pre) { // link to the previous output
+					kad_node_t *pre;
+					assert(vi->pre->tmp < i);
+					pre = w[shift + vi->pre->tmp];
+					assert(pre->n_child == 0);
+					pre->op = 9; // this is kad_op_copy()
+					pre->n_child = 1;
+					pre->child = (kad_edge_t*)calloc(1, sizeof(kad_edge_t));
+					pre->child[0].p = w[shift - n + i];
+					pre->to_back = 1;
+					pre->x = pre->g = 0;
+				}
 			}
 		}
 	}
+	free(pred);
 	for (i = 0; i < n; ++i) v[i]->tmp = 0;
-	for (i = k = 0; i < n * len; ++i)
+	for (i = k = 0; i < n * len; ++i) // squeeze out NULL nodes
 		if (w[i]) w[k++] = w[i];
 	w = (kad_node_t**)realloc(w, k * sizeof(kad_node_t*));
 	kad_allocate_internal(k, w);

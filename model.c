@@ -70,14 +70,16 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	truth = kad_par(0, 2, 1, n_out);
 	truth->label = KANN_L_TRUTH;
 	h_out[0] = kad_par(0, 2, 1, n_in);
-	for (i = 1; i < n_layers - 1; ++i)
-		h_in[i] = kad_par(0, 2, 1, n_hidden_neurons);
+	for (i = 1; i < n_layers - 1; ++i) {
+		h_in[i] = kad_var(0, 0, 2, 1, n_hidden_neurons);
+		h_in[i]->x = (float*)calloc(n_hidden_neurons, sizeof(float));
+	}
 	for (i = 1; i < n_layers; ++i) {
 		kad_node_t *w, *u, *b;
 		w = kann_new_weight(n_neurons[i], n_neurons[i-1], a->rng.data);
 		b = kann_new_bias(n_neurons[i], a->rng.data);
-		u = kann_new_weight(n_neurons[i], n_neurons[i], a->rng.data);
 		if (i < n_layers - 1) {
+			u = kann_new_weight(n_neurons[i], n_neurons[i], a->rng.data);
 			h_out[i] = kad_relu(kad_add(kad_add(kad_cmul(h_out[i-1], w), kad_cmul(h_in[i], u)), b));
 			h_out[i]->pre = h_in[i];
 		} else {
@@ -93,16 +95,12 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	a->v = kad_compile(&a->n, 2, h_out[n_layers - 1], cost);
 	kann_collate_var(a);
 
-#if 1
+#if 0
 //	kad_debug(stderr, a->n, a->v);
 	kann_t *b = kann_rnn_unroll(a, 2, 0);
 	kad_debug(stderr, b->n, b->v);
-	/*
-	int n_u;
-	kad_node_t **u;
-	u = kad_unroll(a->n, a->v, 3, &n_u);
-	kad_debug(stderr, n_u, u);
-	*/
+	b->t = b->g = 0, b->rng.data = 0;
+	kann_destroy(b);
 #endif
 	return a;
 }

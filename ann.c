@@ -49,7 +49,7 @@ void kann_collate_var(kann_t *a)
 	memset(a->g, 0, n_par * sizeof(float));
 	for (i = j = 0; i < a->n; ++i) {
 		kad_node_t *v = a->v[i];
-		if (v->n_child == 0 && v->to_back) {
+		if (kad_is_var(v)) {
 			int l;
 			l = kad_len(v);
 			memcpy(&a->t[j], v->x, l * sizeof(float));
