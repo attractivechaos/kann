@@ -130,7 +130,7 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 	return b;
 }
 
-float kann_fnn_train_batch(kann_t *a, int bs, float **x, float **y)
+float kann_fnn_train_batch(kann_t *a, int bs, float **x, float **y, int min_method, float *aux)
 {
 	float cost;
 	kann_set_batch_size(a, bs);
@@ -198,12 +198,11 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		n_proc = 0;
 		while (n_proc < n_validate) {
 			int j, mb = n_validate - n_proc < mo->mb_size? n_validate - n_proc : mo->mb_size;
-			kann_set_batch_size(a, mb);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			val_cost += *kad_eval(a->n, a->v, a->i_cost) * mb;
+			val_cost += kann_fnn_validate_batch(a, mb, &bx, &by) * mb;
 			n_proc += mb;
 		}
 		if (kann_verbose >= 3) {
