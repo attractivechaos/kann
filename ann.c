@@ -98,6 +98,14 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
+static void kann_bind_by_label(kann_t *a, int label, float **x)
+{
+	int i, k;
+	for (i = k = 0; i < a->n; ++i)
+		if (a->v[i]->n_child == 0 && !a->v[i]->to_back && a->v[i]->label == label)
+			a->v[i]->x = x[k++];
+}
+
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 {
 	kann_t *b;
@@ -150,12 +158,8 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	n_par = kann_n_par(a);
 	bx = (float*)malloc(mo->mb_size * n_in * sizeof(float));
 	by = (float*)malloc(mo->mb_size * n_out * sizeof(float));
-	for (i = 0; i < a->n; ++i) {
-		kad_node_t *p = a->v[i];
-		if (p->n_child) continue;
-		if (p->label == KANN_L_IN) p->x = bx;
-		else if (p->label == KANN_L_TRUTH) p->x = by;
-	}
+	kann_bind_by_label(a, KANN_L_IN, &bx);
+	kann_bind_by_label(a, KANN_L_TRUTH, &by);
 	rmsp_r = (float*)calloc(n_par, sizeof(float));
 
 	// main loop
@@ -201,7 +205,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 const float *kann_apply_fnn1(kann_t *a, float *x)
 {
 	kann_set_batch_size(a, 1);
-	a->v[a->i_in]->x = x;
+	kann_bind_by_label(a, KANN_L_IN, &x);
 	kad_eval(a->n, a->v, a->i_out);
 	return a->v[a->i_out]->x;
 }
