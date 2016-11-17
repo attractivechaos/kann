@@ -81,6 +81,7 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 kad_node_t **kad_compile(int *n_node, int n_roots, ...);
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
 const float *kad_eval(int n, kad_node_t **a, int from);
+void kad_eval_by_label(int n, kad_node_t **a, int label);
 void kad_grad(int n, kad_node_t **a, int from);
 void kad_free_node(kad_node_t *p);
 void kad_free(int n, kad_node_t **a);
@@ -96,7 +97,6 @@ void kad_debug(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
 
 // functions needed by kann; not of much use to general users
-void kad_mark_compute_core(int n, kad_node_t **a);
 float kad_sdot(int n, const float *x, const float *y);
 void kad_saxpy(int n, float a, const float *x, float *y);
 

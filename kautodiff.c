@@ -300,6 +300,18 @@ const float *kad_eval(int n, kad_node_t **a, int from)
 	return from >= 0 && from < n? a[from]->x : 0;
 }
 
+void kad_eval_by_label(int n, kad_node_t **a, int label)
+{
+	int i;
+	for (i = 0; i < n; ++i)
+		a[i]->tmp = a[i]->label == label? 1 : 0;
+	kad_mark_compute_core(n, a);
+	for (i = 0; i < n; ++i)
+		if (a[i]->n_child && a[i]->tmp)
+			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
+	for (i = 0; i < n; ++i) a[i]->tmp = 0;
+}
+
 void kad_grad(int n, kad_node_t **a, int from)
 {
 	int i;

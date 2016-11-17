@@ -29,15 +29,9 @@ void kann_destroy(kann_t *a)
 void kann_sync_index(kann_t *a)
 {
 	int i;
-	a->i_in = a->i_out = a->i_truth = a->i_cost = -1;
-	for (i = 0; i < a->n; ++i) {
-		switch (a->v[i]->label) {
-			case KANN_L_IN: a->i_in = i; break;
-			case KANN_L_OUT: a->i_out = i; break;
-			case KANN_L_TRUTH: a->i_truth = i; break;
-			case KANN_L_COST: a->i_cost = i; break;
-		}
-	}
+	for (i = 0, a->i_cost = -1; i < a->n; ++i)
+		if (a->v[i]->label == KANN_L_COST)
+			a->i_cost = i;
 }
 
 void kann_collate_var(kann_t *a)
@@ -61,15 +55,17 @@ void kann_collate_var(kann_t *a)
 	}
 }
 
-int kann_n_in(const kann_t *a)
+static inline int kann_n_by_label(const kann_t *a, int label)
 {
-	return a->i_in < 0? -1 : a->v[a->i_in]->n_d == 1? a->v[a->i_in]->d[0] : kad_len(a->v[a->i_in]) / a->v[a->i_in]->d[0];
+	int i, n = 0;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->label == label)
+			n += a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : 1; // the first dimension is batch size
+	return n;
 }
 
-int kann_n_out(const kann_t *a)
-{
-	return a->i_out < 0? -1 : a->v[a->i_out]->n_d == 1? a->v[a->i_out]->d[0] : kad_len(a->v[a->i_out]) / a->v[a->i_out]->d[0];
-}
+int kann_n_in(const kann_t *a) { return kann_n_by_label(a, KANN_L_IN); }
+int kann_n_out(const kann_t *a) { return kann_n_by_label(a, KANN_L_OUT); }
 
 void kann_mopt_init(kann_mopt_t *mo)
 {
@@ -98,12 +94,13 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
-static void kann_bind_by_label(kann_t *a, int label, float **x)
+static int kann_bind_by_label(kann_t *a, int label, float **x)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
 		if (a->v[i]->n_child == 0 && !a->v[i]->to_back && a->v[i]->label == label)
 			a->v[i]->x = x[k++];
+	return k;
 }
 
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
@@ -131,6 +128,25 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 		free(root); free(t);
 	}
 	return b;
+}
+
+float kann_fnn_train_batch(kann_t *a, int bs, float **x, float **y)
+{
+	float cost;
+	kann_set_batch_size(a, bs);
+	kann_bind_by_label(a, KANN_L_IN, x);
+	kann_bind_by_label(a, KANN_L_TRUTH, y);
+	cost = *kad_eval(a->n, a->v, a->i_cost);
+	kad_grad(a->n, a->v, a->i_cost);
+	return cost;
+}
+
+float kann_fnn_validate_batch(kann_t *a, int bs, float **x, float **y)
+{
+	kann_set_batch_size(a, bs);
+	kann_bind_by_label(a, KANN_L_IN, x);
+	kann_bind_by_label(a, KANN_L_TRUTH, y);
+	return *kad_eval(a->n, a->v, a->i_cost);
 }
 
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
@@ -202,12 +218,16 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(y); free(x);
 }
 
-const float *kann_apply_fnn1(kann_t *a, float *x)
+const float *kann_apply_fnn1(kann_t *a, float *x) // FIXME: for now it doesn't work RNN
 {
+	int i;
 	kann_set_batch_size(a, 1);
 	kann_bind_by_label(a, KANN_L_IN, &x);
-	kad_eval(a->n, a->v, a->i_out);
-	return a->v[a->i_out]->x;
+	kad_eval_by_label(a->n, a->v, KANN_L_OUT);
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->label == KANN_L_OUT)
+			return a->v[i]->x;
+	return 0;
 }
 
 /*************

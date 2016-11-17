@@ -24,7 +24,7 @@ typedef struct {
 
 typedef struct {
 	kad_rng_t rng; // for kautodiff, as it is independent of kann_rand
-	int n, i_in, i_out, i_truth, i_cost;
+	int n, i_cost;
 	kad_node_t **v;
 	float *t, *g;
 } kann_t;
