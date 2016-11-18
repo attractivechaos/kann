@@ -131,12 +131,14 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 	return b;
 }
 
-float kann_fnn_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y)
+float kann_fnn_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y) // train or validate a minibatch
 {
-	int i, i_cost = -1;
+	int i, i_cost = -1, n_cost = 0;
 	float cost;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == KANN_L_COST) i_cost = i;
+		if (a->v[i]->label == KANN_L_COST)
+			i_cost = i, ++n_cost;
+	assert(n_cost == 1);
 	kann_set_batch_size(a, bs);
 	kann_bind_by_label(a, KANN_L_IN, x);
 	kann_bind_by_label(a, KANN_L_TRUTH, y);
@@ -148,7 +150,7 @@ float kann_fnn_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y)
 	return cost;
 }
 
-void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
+void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y)
 {
 	float **x, **y, *bx, *by;
 	int i, n_train, n_validate, n_in, n_out, n_par;
