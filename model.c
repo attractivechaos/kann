@@ -49,7 +49,6 @@ kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	cost->label = KANN_L_COST;
 	a->v = kad_compile(&a->n, 2, out, cost);
 	kann_collate_var(a);
-	kann_sync_index(a);
 	return a;
 }
 

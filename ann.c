@@ -35,14 +35,6 @@ kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
 	return m;
 }
 
-void kann_sync_index(kann_t *a)
-{
-	int i;
-	for (i = 0, a->i_cost = -1; i < a->n; ++i)
-		if (a->v[i]->label == KANN_L_COST)
-			a->i_cost = i;
-}
-
 void kann_collate_var(kann_t *a)
 {
 	int i, j, n_par;
@@ -141,13 +133,16 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 
 float kann_fnn_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y)
 {
+	int i, i_cost = -1;
 	float cost;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->label == KANN_L_COST) i_cost = i;
 	kann_set_batch_size(a, bs);
 	kann_bind_by_label(a, KANN_L_IN, x);
 	kann_bind_by_label(a, KANN_L_TRUTH, y);
-	cost = *kad_eval(a->n, a->v, a->i_cost);
+	cost = *kad_eval(a->n, a->v, i_cost);
 	if (m) {
-		kad_grad(a->n, a->v, a->i_cost);
+		kad_grad(a->n, a->v, i_cost);
 		kann_min_mini_update(m, a->g, a->t);
 	}
 	return cost;
@@ -259,7 +254,6 @@ kann_t *kann_read(const char *fn)
 	ann->rng.data = kann_srand_r(11);
 	ann->rng.func = kann_drand;
 	ann->v = kad_read(fp, &ann->n);
-	kann_sync_index(ann);
 	n_par = kann_n_par(ann);
 	ann->t = (float*)malloc(n_par * sizeof(float));
 	ann->g = (float*)calloc(n_par, sizeof(float));

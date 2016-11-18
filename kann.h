@@ -24,7 +24,7 @@ typedef struct {
 
 typedef struct {
 	kad_rng_t rng; // for kautodiff, as it is independent of kann_rand
-	int n, i_cost;
+	int n;
 	kad_node_t **v;
 	float *t, *g;
 } kann_t;
@@ -44,7 +44,6 @@ void kann_destroy(kann_t *a);
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 
-void kann_sync_index(kann_t *a);
 void kann_collate_var(kann_t *a);
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
 
