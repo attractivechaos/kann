@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "kann_rand.h"
+#include "kann_min.h"
 #include "kann.h"
 
 #define KANN_MAGIC "KAN\1"
@@ -24,6 +25,14 @@ void kann_destroy(kann_t *a)
 	if (a->v) kad_free(a->n, a->v);
 	free(a->rng.data);
 	free(a);
+}
+
+kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
+{
+	kann_min_t *m;
+	m = kann_min_init(KANN_MM_RMSPROP, KANN_MB_CONST, n);
+	m->lr = o->lr, m->decay = o->decay;
+	return m;
 }
 
 void kann_sync_index(kann_t *a)
@@ -130,30 +139,25 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 	return b;
 }
 
-float kann_fnn_train_batch(kann_t *a, int bs, float **x, float **y, int min_method, float *aux)
+float kann_fnn_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y)
 {
 	float cost;
 	kann_set_batch_size(a, bs);
 	kann_bind_by_label(a, KANN_L_IN, x);
 	kann_bind_by_label(a, KANN_L_TRUTH, y);
 	cost = *kad_eval(a->n, a->v, a->i_cost);
-	kad_grad(a->n, a->v, a->i_cost);
+	if (m) {
+		kad_grad(a->n, a->v, a->i_cost);
+		kann_min_mini_update(m, a->g, a->t);
+	}
 	return cost;
-}
-
-float kann_fnn_validate_batch(kann_t *a, int bs, float **x, float **y)
-{
-	kann_set_batch_size(a, bs);
-	kann_bind_by_label(a, KANN_L_IN, x);
-	kann_bind_by_label(a, KANN_L_TRUTH, y);
-	return *kad_eval(a->n, a->v, a->i_cost);
 }
 
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y) // TODO: hard coded to RMSprop for now
 {
-	extern void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
-	float **x, **y, *bx, *by, *rmsp_r;
+	float **x, **y, *bx, *by;
 	int i, n_train, n_validate, n_in, n_out, n_par;
+	kann_min_t *min;
 
 	// copy and shuffle
 	x = (float**)malloc(n * sizeof(float*));
@@ -174,9 +178,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	n_par = kann_n_par(a);
 	bx = (float*)malloc(mo->mb_size * n_in * sizeof(float));
 	by = (float*)malloc(mo->mb_size * n_out * sizeof(float));
-	kann_bind_by_label(a, KANN_L_IN, &bx);
-	kann_bind_by_label(a, KANN_L_TRUTH, &by);
-	rmsp_r = (float*)calloc(n_par, sizeof(float));
+	min = kann_minimizer(mo, n_par);
 
 	// main loop
 	for (i = 0; i < mo->max_epoch; ++i) {
@@ -185,14 +187,11 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 		kann_shuffle(a->rng.data, n_train, x, y, 0);
 		while (n_proc < n_train) {
 			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
-			kann_set_batch_size(a, mb);
 			for (j = 0; j < mb; ++j) {
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			running_cost += *kad_eval(a->n, a->v, a->i_cost) * mb;
-			kad_grad(a->n, a->v, a->i_cost);
-			kann_RMSprop(n_par, mo->lr, 0, mo->decay, a->g, a->t, rmsp_r);
+			running_cost += kann_fnn_mini(a, min, mb, &bx, &by) * mb;
 			n_proc += mb;
 		}
 		n_proc = 0;
@@ -202,7 +201,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
 				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
 			}
-			val_cost += kann_fnn_validate_batch(a, mb, &bx, &by) * mb;
+			val_cost += kann_fnn_mini(a, 0, mb, &bx, &by) * mb;
 			n_proc += mb;
 		}
 		if (kann_verbose >= 3) {
@@ -212,7 +211,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	}
 
 	// free
-	free(rmsp_r);
+	kann_min_destroy(min);
 	free(by); free(bx);
 	free(y); free(x);
 }
@@ -278,45 +277,3 @@ kann_t *kann_read(const char *fn)
 	assert(j == n_par);
 	return ann;
 }
-
-/**************
- * Optimizers *
- **************/
-
-#ifdef __SSE__
-#include <xmmintrin.h>
-
-void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r)
-{
-	int i, n4 = n>>2<<2;
-	__m128 vh, vg, vr, vt, vd, vd1, tmp, vtiny;
-	vh = _mm_set1_ps(h0);
-	vd = _mm_set1_ps(decay);
-	vd1 = _mm_set1_ps(1.0f - decay);
-	vtiny = _mm_set1_ps(1e-6f);
-	for (i = 0; i < n4; i += 4) {
-		vt = _mm_loadu_ps(&t[i]);
-		vr = _mm_loadu_ps(&r[i]);
-		vg = _mm_loadu_ps(&g[i]);
-		if (h) vh = _mm_loadu_ps(&h[i]);
-		vr = _mm_add_ps(_mm_mul_ps(vd1, _mm_mul_ps(vg, vg)), _mm_mul_ps(vd, vr));
-		_mm_storeu_ps(&r[i], vr);
-		tmp = _mm_sub_ps(vt, _mm_mul_ps(_mm_mul_ps(vh, _mm_rsqrt_ps(_mm_add_ps(vtiny, vr))), vg));
-		_mm_storeu_ps(&t[i], tmp);
-	}
-	for (; i < n; ++i) {
-		r[i] = (1. - decay) * g[i] * g[i] + decay * r[i];
-		t[i] -= (h? h[i] : h0) / sqrt(1e-6 + r[i]) * g[i];
-	}
-}
-#else
-void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r)
-{
-	int i;
-	for (i = 0; i < n; ++i) {
-		float lr = h? h[i] : h0;
-		r[i] = (1. - decay) * g[i] * g[i] + decay * r[i];
-		t[i] -= lr / sqrt(1e-6 + r[i]) * g[i];
-	}
-}
-#endif
