@@ -10,20 +10,15 @@
 
 int kann_verbose = 3;
 
-kann_t *kann_init(uint64_t seed)
+kann_t *kann_init(void)
 {
-	kann_t *a;
-	a = (kann_t*)calloc(1, sizeof(kann_t));
-	a->rng.data = kann_srand_r(seed);
-	a->rng.func = kann_drand;
-	return a;
+	return (kann_t*)calloc(1, sizeof(kann_t));
 }
 
 void kann_destroy(kann_t *a)
 {
 	free(a->t); free(a->g);
 	if (a->v) kad_free(a->n, a->v);
-	free(a->rng.data);
 	free(a);
 }
 
@@ -117,7 +112,7 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 {
 	kann_t *b;
 	b = (kann_t*)calloc(1, sizeof(kann_t));
-	b->rng = a->rng, b->t = a->t, b->g = a->g;
+	b->t = a->t, b->g = a->g;
 	if (pool_hidden) {
 		abort();
 	} else {
@@ -209,7 +204,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y)
 {
 	void *data;
-	data = kann_rdr_xy_new(n, mo->fv, kann_n_in(a), x, kann_n_out(a), y, a->rng.data);
+	data = kann_rdr_xy_new(n, mo->fv, kann_n_in(a), x, kann_n_out(a), y);
 	kann_train(mo, a, kann_rdr_xy_read, data);
 	kann_rdr_xy_destroy(data);
 }
@@ -318,8 +313,6 @@ kann_t *kann_read(const char *fn)
 		return 0;
 	}
 	ann = (kann_t*)calloc(1, sizeof(kann_t));
-	ann->rng.data = kann_srand_r(11);
-	ann->rng.func = kann_drand;
 	ann->v = kad_read(fp, &ann->n);
 	n_par = kann_n_par(ann);
 	ann->t = (float*)malloc(n_par * sizeof(float));

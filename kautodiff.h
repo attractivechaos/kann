@@ -52,11 +52,6 @@ extern kad_op_f kad_op_list[];
 
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
 
-typedef struct {
-	void *data;
-	double (*func)(void*);
-} kad_rng_t;
-
 #ifdef __cplusplus
 extern "C" {
 #endif

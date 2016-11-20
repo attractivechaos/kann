@@ -29,7 +29,6 @@ typedef struct {
 } kann_mopt_t;
 
 typedef struct {
-	kad_rng_t rng; // for kautodiff, as it is independent of kann_rand
 	int n;
 	kad_node_t **v;
 	float *t, *g;
@@ -46,7 +45,7 @@ extern int kann_verbose;
 extern "C" {
 #endif
 
-kann_t *kann_init(uint64_t seed);
+kann_t *kann_init(void);
 void kann_destroy(kann_t *a);
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
@@ -68,7 +67,7 @@ kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
-void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y, void *kr);
+void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
 void kann_rdr_xy_destroy(void *data);
 int kann_rdr_xy_read(void *data, int action, int len, int max_bs, float **x, float **y);
 
