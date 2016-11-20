@@ -160,7 +160,7 @@ kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	kann_t *b = kann_rnn_unroll(a, 3, 0);
 	kad_debug(stderr, b->n, b->v);
 	b->t = b->g = 0;
-	kann_destroy(b);
+	kann_delete(b);
 #endif
 
 	return a;

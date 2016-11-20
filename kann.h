@@ -35,7 +35,7 @@ typedef struct {
 } kann_t;
 
 typedef kad_node_t (*kann_activate_f)(kad_node_t*);
-typedef int (*kann_reader_f)(void *data, int action, int len, int max_bs, float **x, float **y);
+typedef int (*kann_reader_f)(void *data, int action, int *len, int max_bs, float **x, float **y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
 
@@ -46,7 +46,7 @@ extern "C" {
 #endif
 
 kann_t *kann_init(void);
-void kann_destroy(kann_t *a);
+void kann_delete(kann_t *a);
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 
@@ -67,8 +67,8 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
 void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
-void kann_rdr_xy_destroy(void *data);
-int kann_rdr_xy_read(void *data, int action, int len, int max_bs, float **x, float **y);
+void kann_rdr_xy_delete(void *data);
+int kann_rdr_xy_read(void *data, int action, int *len, int max_bs, float **x, float **y);
 
 #ifdef __cplusplus
 }

@@ -78,8 +78,8 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
 const float *kad_eval(int n, kad_node_t **a, int from);
 void kad_eval_by_label(int n, kad_node_t **a, int label);
 void kad_grad(int n, kad_node_t **a, int from);
-void kad_free_node(kad_node_t *p);
-void kad_free(int n, kad_node_t **a);
+void kad_delete_node(kad_node_t *p);
+void kad_delete(int n, kad_node_t **a);
 
 // autodiff graph I/O
 void kad_write1(FILE *fp, const kad_node_t *p);

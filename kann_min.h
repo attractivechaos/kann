@@ -20,8 +20,8 @@ typedef struct {
 extern "C" {
 #endif
 
-kann_min_t *kann_min_init(int mini_algo, int batch_algo, int n);
-void kann_min_destroy(kann_min_t *m);
+kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n);
+void kann_min_delete(kann_min_t *m);
 void kann_min_mini_update(kann_min_t *m, const float *g, float *t);
 void kann_min_batch_finish(kann_min_t *m, const float *t);
 

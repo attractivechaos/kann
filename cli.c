@@ -52,7 +52,7 @@ int main_mlp_train(int argc, char *argv[])
 	kann_fnn_train(&mo, ann, in->n_row, in->x, out->x);
 	if (out_fn) kann_write(out_fn, ann);
 
-	kann_destroy(ann);
+	kann_delete(ann);
 	kann_data_free(out);
 	kann_data_free(in);
 	return 0;
@@ -85,7 +85,7 @@ int main_mlp_apply(int argc, char *argv[])
 		}
 		putchar('\n');
 	}
-	kann_destroy(ann);
+	kann_delete(ann);
 	kann_data_free(in);
 	return 0;
 }
@@ -139,7 +139,7 @@ int main_rnn_train(int argc, char *argv[])
 	if (out_fn) kann_write(out_fn, ann);
 	*/
 
-	kann_destroy(ann);
+	kann_delete(ann);
 	kann_data_free(out);
 	kann_data_free(in);
 	return 0;

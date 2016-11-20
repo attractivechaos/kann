@@ -202,7 +202,7 @@ kad_node_t **kad_compile(int *n_node, int n_roots, ...)
  * Operations on linearized graph *
  **********************************/
 
-void kad_free_node(kad_node_t *p)
+void kad_delete_node(kad_node_t *p)
 {
 	int j;
 	for (j = 0; j < p->n_child; ++j)
@@ -215,10 +215,10 @@ void kad_free_node(kad_node_t *p)
 	free(p);
 }
 
-void kad_free(int n, kad_node_t **a)
+void kad_delete(int n, kad_node_t **a)
 {
 	int i;
-	for (i = 0; i < n; ++i) kad_free_node(a[i]);
+	for (i = 0; i < n; ++i) kad_delete_node(a[i]);
 	free(a);
 }
 

@@ -39,7 +39,7 @@ void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, 
 }
 #endif
 
-kann_min_t *kann_min_init(int mini_algo, int batch_algo, int n)
+kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n)
 {
 	kann_min_t *m;
 	if (mini_algo <= 0) mini_algo = KANN_MM_RMSPROP;
@@ -53,7 +53,7 @@ kann_min_t *kann_min_init(int mini_algo, int batch_algo, int n)
 	return m;
 }
 
-void kann_min_destroy(kann_min_t *m)
+void kann_min_delete(kann_min_t *m)
 {
 	free(m->maux); free(m->baux); free(m);
 }
