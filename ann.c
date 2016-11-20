@@ -209,71 +209,7 @@ void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **
 	kann_rdr_xy_destroy(data);
 }
 
-/*
-void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y)
-{
-	float **x, **y, *bx, *by;
-	int i, n_train, n_validate, n_in, n_out, n_par;
-	kann_min_t *min;
-
-	// copy and shuffle
-	x = (float**)malloc(n * sizeof(float*));
-	y = _y? (float**)malloc(n * sizeof(float*)) : 0;
-	for (i = 0; i < n; ++i) {
-		x[i] = _x[i];
-		if (y) y[i] = _y[i];
-	}
-	kann_shuffle(a->rng.data, n, x, y, 0);
-
-	// set validation set
-	n_validate = mo->fv > 0.0f && mo->fv < 1.0f? (int)(mo->fv * n + .499) : 0;
-	n_train = n - n_validate;
-
-	// prepare mini-batch buffer
-	n_in = kann_n_in(a);
-	n_out = kann_n_out(a);
-	n_par = kann_n_par(a);
-	bx = (float*)malloc(mo->mb_size * n_in * sizeof(float));
-	by = (float*)malloc(mo->mb_size * n_out * sizeof(float));
-	min = kann_minimizer(mo, n_par);
-
-	// main loop
-	for (i = 0; i < mo->max_epoch; ++i) {
-		int n_proc = 0;
-		double running_cost = 0.0, val_cost = 0.0;
-		kann_shuffle(a->rng.data, n_train, x, y, 0);
-		while (n_proc < n_train) {
-			int j, mb = n_train - n_proc < mo->mb_size? n_train - n_proc : mo->mb_size;
-			for (j = 0; j < mb; ++j) {
-				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
-				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
-			}
-			running_cost += kann_fnn_mini(a, min, mb, &bx, &by) * mb;
-			n_proc += mb;
-		}
-		n_proc = 0;
-		while (n_proc < n_validate) {
-			int j, mb = n_validate - n_proc < mo->mb_size? n_validate - n_proc : mo->mb_size;
-			for (j = 0; j < mb; ++j) {
-				memcpy(&bx[j*n_in],  x[n_proc+j], n_in  * sizeof(float));
-				memcpy(&by[j*n_out], y[n_proc+j], n_out * sizeof(float));
-			}
-			val_cost += kann_fnn_mini(a, 0, mb, &bx, &by) * mb;
-			n_proc += mb;
-		}
-		if (kann_verbose >= 3) {
-			if (n_validate == 0) fprintf(stderr, "running cost: %g\n", running_cost / n_train);
-			else fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost / n_train, val_cost / n_validate);
-		}
-	}
-
-	// free
-	kann_min_destroy(min);
-	free(by); free(bx);
-	free(y); free(x);
-}
-*/
-const float *kann_apply_fnn1(kann_t *a, float *x) // FIXME: for now it doesn't work RNN
+const float *kann_fnn_apply1(kann_t *a, float *x) // FIXME: for now it doesn't work RNN
 {
 	int i;
 	kann_set_batch_size(a, 1);

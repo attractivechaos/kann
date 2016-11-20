@@ -59,8 +59,7 @@ kann_t *kann_read(const char *fn);
 void kann_mopt_init(kann_mopt_t *mo);
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
 void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
-//void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);
-const float *kann_apply_fnn1(kann_t *a, float *x);
+const float *kann_fnn_apply1(kann_t *a, float *x);
 
 kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
