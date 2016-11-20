@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
 INCLUDES=	-I.
-OBJS=		kautodiff.o kad_debug.o kann_rand.o kann_min.o kann_data.o ann.o model.o
+OBJS=		kautodiff.o kad_debug.o kann_rand.o kann_min.o kann_data.o ann.o model.o reader.o
 PROG=		kann
 LIBS=		-lm -lz
 
@@ -41,3 +41,4 @@ kann_rand.o: kann_rand.h
 kautodiff.o: kautodiff.h
 main.o: kann.h kautodiff.h
 model.o: kann_rand.h kann.h kautodiff.h
+reader.o: kann_rand.h kann.h kautodiff.h

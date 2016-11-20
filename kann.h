@@ -9,13 +9,19 @@
 #define KANN_L_COST   4
 #define KANN_L_LAST   5
 
+#define KANN_RA_RESET_TRAIN     1
+#define KANN_RA_RESET_VALIDATE  2
+#define KANN_RA_READ_TRAIN      3
+#define KANN_RA_READ_VALIDATE   4
+
 #include <stdint.h>
 #include "kautodiff.h"
 
 typedef struct {
-	float lr; // learning rate
-	float fv; // fraction of validation data
-	int mb_size; // size of a mini batch
+	float lr;    // learning rate
+	float fv;    // fraction of validation data
+	int max_mbs; // max mini-batch size
+	int max_rnn_len;
 	int epoch_lazy;
 	int max_epoch;
 
@@ -30,6 +36,7 @@ typedef struct {
 } kann_t;
 
 typedef kad_node_t (*kann_activate_f)(kad_node_t*);
+typedef int (*kann_reader_f)(void *data, int action, int len, int max_bs, float **x, float **y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
 
@@ -51,13 +58,19 @@ void kann_write(const char *fn, const kann_t *ann);
 kann_t *kann_read(const char *fn);
 
 void kann_mopt_init(kann_mopt_t *mo);
-void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);
+void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
+void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
+//void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y);
 const float *kann_apply_fnn1(kann_t *a, float *x);
 
 kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 
 kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
 kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
+
+void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y, void *kr);
+void kann_rdr_xy_destroy(void *data);
+int kann_rdr_xy_read(void *data, int action, int len, int max_bs, float **x, float **y);
 
 #ifdef __cplusplus
 }

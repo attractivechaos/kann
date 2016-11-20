@@ -68,15 +68,24 @@ static inline int kann_n_by_label(const kann_t *a, int label)
 int kann_n_in(const kann_t *a) { return kann_n_by_label(a, KANN_L_IN); }
 int kann_n_out(const kann_t *a) { return kann_n_by_label(a, KANN_L_OUT); }
 
+int kann_is_rnn(const kann_t *a)
+{
+	int i;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->pre) return 1;
+	return 0;
+}
+
 void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
 	mo->lr = 0.01f;
 	mo->fv = 0.1f;
-	mo->mb_size = 64;
+	mo->max_mbs = 64;
 	mo->epoch_lazy = 10;
 	mo->max_epoch = 100;
 	mo->decay = 0.9f;
+	mo->max_rnn_len = 1;
 }
 
 static void kann_set_batch_size(kann_t *a, int B)
@@ -150,6 +159,62 @@ float kann_fnn_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y) // t
 	return cost;
 }
 
+void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
+{
+	float **x, **y;
+	int i, j, n_in, n_out, n_par;
+	kann_min_t *min;
+
+	n_in = kann_n_in(a);
+	n_out = kann_n_out(a);
+	n_par = kann_n_par(a);
+
+	x = (float**)malloc(mo->max_rnn_len * sizeof(float*));
+	y = (float**)malloc(mo->max_rnn_len * sizeof(float*));
+	for (i = 0; i < mo->max_rnn_len; ++i) {
+		x[i] = (float*)calloc(mo->max_mbs * n_in,  sizeof(float));
+		y[i] = (float*)calloc(mo->max_mbs * n_out, sizeof(float));
+	}
+
+	min = kann_minimizer(mo, n_par);
+	for (j = 0; j < mo->max_epoch; ++j) {
+		float running_cost = 0.0f, validate_cost = 0.0f;
+		int mbs, tot;
+		rdr(data, KANN_RA_RESET_TRAIN, 0, 0, 0, 0);
+		rdr(data, KANN_RA_RESET_VALIDATE, 0, 0, 0, 0);
+		tot = 0;
+		while ((mbs = rdr(data, KANN_RA_READ_TRAIN, mo->max_rnn_len, mo->max_mbs, x, y)) > 0) {
+			running_cost += kann_fnn_mini(a, min, mbs, x, y) * mbs;
+			tot += mbs;
+		}
+		running_cost /= tot;
+		tot = 0;
+		while ((mbs = rdr(data, KANN_RA_READ_VALIDATE, mo->max_rnn_len, mo->max_mbs, x, y)) > 0) {
+			validate_cost += kann_fnn_mini(a, 0, mbs, x, y) * mbs;
+			tot += mbs;
+		}
+		if (tot > 0) validate_cost /= tot;
+		kann_min_batch_finish(min, a->t);
+		if (kann_verbose >= 3)
+			fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost, validate_cost);
+	}
+	kann_min_destroy(min);
+
+	for (i = 0; i < mo->max_rnn_len; ++i) {
+		free(y[i]); free(x[i]);
+	}
+	free(y); free(x);
+}
+
+void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y)
+{
+	void *data;
+	data = kann_rdr_xy_new(n, mo->fv, kann_n_in(a), x, kann_n_out(a), y, a->rng.data);
+	kann_train(mo, a, kann_rdr_xy_read, data);
+	kann_rdr_xy_destroy(data);
+}
+
+/*
 void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float **_y)
 {
 	float **x, **y, *bx, *by;
@@ -212,7 +277,7 @@ void kann_train_fnn(const kann_mopt_t *mo, kann_t *a, int n, float **_x, float *
 	free(by); free(bx);
 	free(y); free(x);
 }
-
+*/
 const float *kann_apply_fnn1(kann_t *a, float *x) // FIXME: for now it doesn't work RNN
 {
 	int i;
