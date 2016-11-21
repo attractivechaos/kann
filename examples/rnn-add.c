@@ -14,9 +14,9 @@ static void gen_addition(int k, float **x, float **y, uint64_t *_a, uint64_t *_b
 	a = kann_rand() & mask;
 	b = kann_rand() & mask;
 //	c = ((a ^ b<<5) - 50) & mask;
-	c = (a + b) & mask;
+//	c = (a + b) & mask;
 //	c = (a * 13612 + b) & mask;
-//	c = (a * 50 + b) & mask;
+	c = (a * 53 + b * 17) & mask;
 	for (j = 0; j < bit_len; ++j) {
 		memset(&x[j][offx], 0, 4 * sizeof(float));
 		if (y) memset(&y[j][offy], 0, 2 * sizeof(float));
@@ -51,16 +51,16 @@ int main(int argc, char *argv[])
 	kann_t *ann;
 	kann_mopt_t mo;
 	float **x, *y;
-	int i, t, use_gru = 0, n_h_layers = 1, n_h_neurons = 20;
+	int i, t, use_gru = 1, n_h_layers = 1, n_h_neurons = 50;
 	uint64_t a, b, c, d;
 
 	kann_mopt_init(&mo);
-	mo.max_epoch = 20;
-	while ((t = getopt(argc, argv, "m:b:gl:r:hn:")) >= 0) {
+	mo.max_epoch = 50;
+	while ((t = getopt(argc, argv, "m:b:l:r:hn:v")) >= 0) {
 		if (t == 'm') mo.max_epoch = atoi(optarg);
 		else if (t == 'b') bit_len = atoi(optarg);
 		else if (t == 'r') mo.lr = atof(optarg);
-		else if (t == 'g') use_gru = 1;
+		else if (t == 'v') use_gru = 0;
 		else if (t == 'l') n_h_layers = atoi(optarg);
 		else if (t == 'n') n_h_neurons = atoi(optarg);
 		else if (t == 'h') {
@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 			fprintf(fp, "  -m INT     max epoch [%d]\n", mo.max_epoch);
 			fprintf(fp, "  -r FLOAT   learning rate [%g]\n", mo.lr);
 			fprintf(fp, "  -b INT     number of bits [%d]\n", bit_len);
-			fprintf(fp, "  -g         use GRU (vanilla RNN by default)\n");
+			fprintf(fp, "  -v         use vanilla RNN (GRU by default)\n");
 			return 1;
 		}
 	}
