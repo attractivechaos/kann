@@ -51,13 +51,13 @@ int main(int argc, char *argv[])
 	kann_t *ann;
 	kann_mopt_t mo;
 	float **x, *y;
-	int i, t, use_gru = 1, n_h_layers = 1, n_h_neurons = 50;
-	uint64_t a, b, c, d;
+	int i, k, t, use_gru = 1, n_h_layers = 1, n_h_neurons = 50, n_print = 10;
+	uint64_t a, b, c, d, seed = 11;
 	char *fn_out = 0, *fn_in = 0;
 
 	kann_mopt_init(&mo);
 	mo.max_epoch = 50;
-	while ((t = getopt(argc, argv, "m:b:l:r:hn:vo:i:")) >= 0) {
+	while ((t = getopt(argc, argv, "m:b:l:r:hn:vo:i:s:t:")) >= 0) {
 		if (t == 'm') mo.max_epoch = atoi(optarg);
 		else if (t == 'b') bit_len = atoi(optarg);
 		else if (t == 'r') mo.lr = atof(optarg);
@@ -66,6 +66,8 @@ int main(int argc, char *argv[])
 		else if (t == 'n') n_h_neurons = atoi(optarg);
 		else if (t == 'o') fn_out = optarg;
 		else if (t == 'i') fn_in = optarg;
+		else if (t == 't') n_print = atoi(optarg);
+		else if (t == 's') seed = atol(optarg);
 		else if (t == 'h') {
 			FILE *fp = stdout;
 			fprintf(fp, "Usage: rnn-add [options]\nOptions:\n");
@@ -81,6 +83,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	kann_srand(seed);
 	mo.max_rnn_len = bit_len;
 	if (fn_in) ann = kann_read(fn_in);
 	else ann = use_gru? kann_rnn_gen_gru(4, 2, n_h_layers, n_h_neurons) : kann_rnn_gen_vanilla(4, 2, n_h_layers, n_h_neurons);
@@ -90,20 +93,22 @@ int main(int argc, char *argv[])
 	x = (float**)calloc(bit_len, sizeof(float*));
 	for (i = 0; i < bit_len; ++i)
 		x[i] = (float*)calloc(4, sizeof(float));
-	gen_addition(0, x, 0, &a, &b, &c);
-	y = kann_rnn_apply_seq1(ann, bit_len, x);
-	for (i = 0, d = 0; i < bit_len; ++i) {
-		int k = y[i*2] > y[i*2+1]? 0 : 1;
-		d |= (uint64_t)k << i;
-		putchar('0' + k);
+	for (k = 0; k < n_print; ++k) {
+		gen_addition(0, x, 0, &a, &b, &c);
+		y = kann_rnn_apply_seq1(ann, bit_len, x);
+		for (i = 0, d = 0; i < bit_len; ++i) {
+			int k = y[i*2] > y[i*2+1]? 0 : 1;
+			d |= (uint64_t)k << i;
+			putchar('0' + k);
+		}
+		putchar('\n');
+		for (i = 0; i < bit_len; ++i) {
+			int k = c>>i&1;
+			putchar('0' + k);
+		}
+		putchar('\n');
+		printf("f(%ld,%ld) = %ld ?=? %ld\n", (long)a, (long)b, (long)c, (long)d);
 	}
-	putchar('\n');
-	for (i = 0; i < bit_len; ++i) {
-		int k = c>>i&1;
-		putchar('0' + k);
-	}
-	putchar('\n');
-	printf("f(%ld,%ld) = %ld ?=? %ld\n", (long)a, (long)b, (long)c, (long)d);
 
 	kann_delete(ann);
 	return 0;
