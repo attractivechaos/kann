@@ -9,10 +9,9 @@
 #define KANN_L_COST   4
 #define KANN_L_LAST   5
 
-#define KANN_RA_RESET_TRAIN     1
-#define KANN_RA_RESET_VALIDATE  2
-#define KANN_RA_READ_TRAIN      3
-#define KANN_RA_READ_VALIDATE   4
+#define KANN_RA_RESET           1
+#define KANN_RA_READ_TRAIN      2
+#define KANN_RA_READ_VALIDATE   3
 
 #include <stdint.h>
 #include "kautodiff.h"

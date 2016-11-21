@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 void kann_srand(uint64_t seed);
+uint64_t kann_rand(void);
 double kann_drand(void);
 double kann_normal(void);
 void kann_shuffle(int n, float **x, float **y, char **rname);

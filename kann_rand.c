@@ -34,6 +34,11 @@ void kann_srand(uint64_t seed0)
 	__sync_lock_release(&r->lock);
 }
 
+static inline uint64_t kann_rand_unsafe(kann_rand_t *r)
+{
+	return xorshift128plus(r->s);
+}
+
 static inline double kann_drand_unsafe(kann_rand_t *r)
 {
 	return (xorshift128plus(r->s)>>11) * (1.0/9007199254740992.0);
@@ -56,6 +61,16 @@ static double kann_normal_unsafe(kann_rand_t *r)
 		r->n_iset = 0;
 		return r->n_gset;
 	}
+}
+
+uint64_t kann_rand(void)
+{
+	uint64_t x;
+	kann_rand_t *r = &kann_rng;
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	x = kann_rand_unsafe(r);
+	__sync_lock_release(&r->lock);
+	return x;
 }
 
 double kann_drand(void)

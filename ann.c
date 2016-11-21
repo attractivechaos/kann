@@ -197,8 +197,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 	min = kann_minimizer(mo, n_par);
 	for (j = 0; j < mo->max_epoch; ++j) {
 		float running_cost = 0.0f, validate_cost = 0.0f;
-		rdr(data, KANN_RA_RESET_TRAIN, 0, 0, 0, 0);
-		rdr(data, KANN_RA_RESET_VALIDATE, 0, 0, 0, 0);
+		rdr(data, KANN_RA_RESET, 0, 0, 0, 0);
 		running_cost =  kann_process_batch(a, min, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
 		validate_cost = kann_process_batch(a,   0, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
 		kann_min_batch_finish(min, a->t);

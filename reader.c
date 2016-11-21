@@ -39,11 +39,9 @@ int kann_rdr_xy_read(void *data, int action, int *len, int max_bs, float **x, fl
 	int i, bs = 0;
 
 	if (len) *len = 1;
-	if (action == KANN_RA_RESET_TRAIN) {
-		d->n_proc_t = 0;
+	if (action == KANN_RA_RESET) {
+		d->n_proc_t = d->n_proc_v = 0;
 		kann_shuffle(d->n_t, d->x, d->y, 0);
-	} else if (action == KANN_RA_RESET_VALIDATE) {
-		d->n_proc_v = 0;
 	} else if (action == KANN_RA_READ_TRAIN) {
 		bs = d->n_proc_t + max_bs < d->n_t? max_bs : d->n_t - d->n_proc_t;
 		if (bs > 0) {
