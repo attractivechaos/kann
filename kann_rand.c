@@ -3,7 +3,7 @@
 #include <string.h>
 #include "kann_rand.h"
 
-const uint64_t kann_seed1 = 1181783497276652981ULL;
+#define KANN_SEED1 1181783497276652981ULL
 
 typedef struct {
 	uint64_t s[2];
@@ -12,7 +12,7 @@ typedef struct {
 	volatile int lock;
 } kann_rand_t;
 
-static kann_rand_t kann_rng = { {11ULL, kann_seed1}, 0.0, 0, 0 };
+static kann_rand_t kann_rng = { {11ULL, KANN_SEED1}, 0.0, 0, 0 };
 
 static inline uint64_t xorshift128plus(uint64_t s[2])
 {
@@ -30,7 +30,7 @@ void kann_srand(uint64_t seed0)
 	kann_rand_t *r = &kann_rng;
 	while (__sync_lock_test_and_set(&r->lock, 1));
 	memset(r, 0, sizeof(kann_rand_t));
-	r->s[0] = seed0, r->s[1] = kann_seed1;
+	r->s[0] = seed0, r->s[1] = KANN_SEED1;
 	__sync_lock_release(&r->lock);
 }
 
