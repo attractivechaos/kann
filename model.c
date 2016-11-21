@@ -155,13 +155,5 @@ kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	a->v = kad_compile(&a->n, 2, h_out[n_layers - 1], cost);
 	kann_collate_var(a);
 
-#if 1
-//	kad_debug(stderr, a->n, a->v);
-	kann_t *b = kann_rnn_unroll(a, 3, 0);
-	kad_debug(stderr, b->n, b->v);
-	b->t = b->g = 0;
-	kann_delete(b);
-#endif
-
 	return a;
 }
