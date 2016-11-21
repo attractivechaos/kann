@@ -158,7 +158,7 @@ static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, v
 {
 	int mbs, tot = 0, len, action;
 	float cost = 0.0f;
-	len = kann_is_rnn(a)? 1 : max_rnn_len;
+	len = kann_is_rnn(a)? max_rnn_len : 1;
 	action = min? KANN_RA_READ_TRAIN : KANN_RA_READ_VALIDATE;
 	while ((mbs = rdr(data, action, &len, max_mbs, x, y)) > 0) {
 		kann_t *fnn;

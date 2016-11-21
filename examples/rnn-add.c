@@ -30,7 +30,6 @@ int add_reader(void *data, int action, int *len, int max_bs, float **x, float **
 		n_proc_t = n_proc_v = 0;
 	} else if (action == KANN_RA_READ_TRAIN || action == KANN_RA_READ_VALIDATE) {
 		int k;
-		*len = bit_len;
 		if (action == KANN_RA_READ_TRAIN    && n_proc_t + max_bs > n_train)    return 0;
 		if (action == KANN_RA_READ_VALIDATE && n_proc_v + max_bs > n_validate) return 0;
 		for (k = 0; k < max_bs; ++k)
