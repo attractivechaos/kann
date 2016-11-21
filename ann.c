@@ -236,6 +236,28 @@ const float *kann_fnn_apply1(kann_t *a, float *x) // FIXME: for now it doesn't w
 	return 0;
 }
 
+float *kann_rnn_apply_seq1(kann_t *a, int len, float **x)
+{
+	kann_t *fnn;
+	float *y;
+	int i, k, n_out;
+
+	n_out = kann_n_out(a);
+	y = (float*)calloc(len * n_out, sizeof(float));
+	fnn = kann_rnn_unroll(a, len, 0);
+	kann_set_batch_size(fnn, 1);
+	kann_bind_by_label(fnn, KANN_L_IN, x);
+	kad_eval_by_label(fnn->n, fnn->v, KANN_L_OUT);
+	for (i = k = 0; i < fnn->n; ++i)
+		if (fnn->v[i]->label == KANN_L_OUT) {
+			memcpy(&y[k], fnn->v[i]->x, n_out * sizeof(float));
+			k += n_out;
+		}
+	fnn->t = fnn->g = 0;
+	kann_delete(fnn);
+	return y;
+}
+
 /*************
  * Model I/O *
  *************/

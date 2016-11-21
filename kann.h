@@ -59,6 +59,7 @@ void kann_mopt_init(kann_mopt_t *mo);
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
 void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 const float *kann_fnn_apply1(kann_t *a, float *x);
+float *kann_rnn_apply_seq1(kann_t *a, int len, float **x);
 
 kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
 
