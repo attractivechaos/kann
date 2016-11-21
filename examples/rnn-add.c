@@ -24,13 +24,12 @@ int add_reader(void *data, int action, int *len, int max_bs, float **x, float **
 			c[i] = a[i] + b[i];
 		}
 		for (j = 0; j < bit_len; ++j) {
-			uint64_t z = 1ULL << j;
 			memset(x[j], 0, max_bs * 4 * sizeof(float));
 			memset(y[j], 0, max_bs * 2 * sizeof(float));
 			for (i = 0; i < max_bs; ++i) {
-				x[j][a[i]&z] = 1.0f;
-				x[j][(b[i]&z)+2] = 1.0f;
-				y[j][c[i]&z] = 1.0f;
+				x[j][a[i]>>j&1] = 1.0f;
+				x[j][(b[i]>>j&1)+2] = 1.0f;
+				y[j][c[i]>>j&1] = 1.0f;
 			}
 		}
 		if (action == KANN_RA_READ_TRAIN) n_proc_t += max_bs;
@@ -46,7 +45,8 @@ int main(int argc, char *argv[])
 	kann_mopt_t mo;
 
 	kann_mopt_init(&mo);
-	ann = kann_rnn_gen_vanilla(bit_len * 4, bit_len * 2, 1, 20);
+	mo.max_rnn_len = bit_len;
+	ann = kann_rnn_gen_vanilla(4, 2, 1, 20);
 	kann_train(&mo, ann, add_reader, 0);
 	kann_delete(ann);
 	return 0;
