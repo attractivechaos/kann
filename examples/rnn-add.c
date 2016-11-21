@@ -53,19 +53,24 @@ int main(int argc, char *argv[])
 	float **x, *y;
 	int i, t, use_gru = 1, n_h_layers = 1, n_h_neurons = 50;
 	uint64_t a, b, c, d;
+	char *fn_out = 0, *fn_in = 0;
 
 	kann_mopt_init(&mo);
 	mo.max_epoch = 50;
-	while ((t = getopt(argc, argv, "m:b:l:r:hn:v")) >= 0) {
+	while ((t = getopt(argc, argv, "m:b:l:r:hn:vo:i:")) >= 0) {
 		if (t == 'm') mo.max_epoch = atoi(optarg);
 		else if (t == 'b') bit_len = atoi(optarg);
 		else if (t == 'r') mo.lr = atof(optarg);
 		else if (t == 'v') use_gru = 0;
 		else if (t == 'l') n_h_layers = atoi(optarg);
 		else if (t == 'n') n_h_neurons = atoi(optarg);
+		else if (t == 'o') fn_out = optarg;
+		else if (t == 'i') fn_in = optarg;
 		else if (t == 'h') {
 			FILE *fp = stdout;
 			fprintf(fp, "Usage: rnn-add [options]\nOptions:\n");
+			fprintf(fp, "  -i FILE    load a trained model []\n");
+			fprintf(fp, "  -o FILE    save the trained model []\n");
 			fprintf(fp, "  -l INT     number of hidden layers [%d]\n", n_h_layers);
 			fprintf(fp, "  -n INT     number of neurons at each hidden layer [%d]\n", n_h_neurons);
 			fprintf(fp, "  -m INT     max epoch [%d]\n", mo.max_epoch);
@@ -77,8 +82,10 @@ int main(int argc, char *argv[])
 	}
 
 	mo.max_rnn_len = bit_len;
-	ann = use_gru? kann_rnn_gen_gru(4, 2, n_h_layers, n_h_neurons) : kann_rnn_gen_vanilla(4, 2, n_h_layers, n_h_neurons);
+	if (fn_in) ann = kann_read(fn_in);
+	else ann = use_gru? kann_rnn_gen_gru(4, 2, n_h_layers, n_h_neurons) : kann_rnn_gen_vanilla(4, 2, n_h_layers, n_h_neurons);
 	kann_train(&mo, ann, add_reader, 0);
+	if (fn_out) kann_write(fn_out, ann);
 
 	x = (float**)calloc(bit_len, sizeof(float*));
 	for (i = 0; i < bit_len; ++i)
