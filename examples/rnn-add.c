@@ -15,6 +15,8 @@ static void gen_addition(int k, float **x, float **y, uint64_t *_a, uint64_t *_b
 	b = kann_rand() & mask;
 //	c = ((a ^ b<<5) - 50) & mask;
 	c = (a + b) & mask;
+//	c = (a * 13612 + b) & mask;
+//	c = (a * 50 + b) & mask;
 	for (j = 0; j < bit_len; ++j) {
 		memset(&x[j][offx], 0, 4 * sizeof(float));
 		if (y) memset(&y[j][offy], 0, 2 * sizeof(float));

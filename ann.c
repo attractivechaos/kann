@@ -202,7 +202,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 		validate_cost = kann_process_batch(a,   0, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
 		kann_min_batch_finish(min, a->t);
 		if (kann_verbose >= 3)
-			fprintf(stderr, "running cost: %g; validation cost: %g\n", running_cost, validate_cost);
+			fprintf(stderr, "epoch: %d; running cost: %g; validation cost: %g\n", j+1, running_cost, validate_cost);
 	}
 	kann_min_delete(min);
 

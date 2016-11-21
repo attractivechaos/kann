@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r83"
+#define KAD_VERSION "r109"
 
 #include <stdio.h>
 #include <string.h>
