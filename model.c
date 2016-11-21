@@ -55,7 +55,7 @@ kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
 {
 	int i, n_layers, *n_neurons;
-	kad_node_t **h_in, **h_out, *t, *truth, *cost;
+	kad_node_t **h_in, **h_out, *t, *truth, *cost = 0;
 	kann_t *a;
 
 	a = kann_init();
@@ -100,7 +100,7 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
 {
 	int i, n_layers, *n_neurons;
-	kad_node_t **h_in, **h_out, *truth, *cost;
+	kad_node_t **h_in, **h_out, *truth, *cost = 0;
 	kann_t *a;
 
 	a = kann_init();
