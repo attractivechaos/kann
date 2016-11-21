@@ -20,7 +20,7 @@ kad_node_t *kann_new_bias(int n)
 	return b;
 }
 
-kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
 {
 	int i, n_layers, *n_neurons;
 	kad_node_t *in, *out, *truth, *prev, *cost;
@@ -52,7 +52,7 @@ kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	return a;
 }
 
-kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
 {
 	int i, n_layers, *n_neurons;
 	kad_node_t **h_in, **h_out, *t, *truth, *cost;
@@ -97,7 +97,7 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	return a;
 }
 
-kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed)
+kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
 {
 	int i, n_layers, *n_neurons;
 	kad_node_t **h_in, **h_out, *truth, *cost;

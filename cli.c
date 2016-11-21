@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "kann.h"
+#include "kann_rand.h"
 #include "kann_data.h"
 
 int main_mlp_train(int argc, char *argv[])
@@ -40,6 +41,7 @@ int main_mlp_train(int argc, char *argv[])
 		return 1;
 	}
 
+	kann_srand(seed);
 	in = kann_data_read(argv[optind]);
 	out = kann_data_read(argv[optind+1]);
 	assert(in->n_row == out->n_row);
@@ -47,7 +49,7 @@ int main_mlp_train(int argc, char *argv[])
 	if (in_fn) {
 		ann = kann_read(in_fn);
 		assert(kann_n_in(ann) == in->n_col && kann_n_out(ann) == out->n_col);
-	} else ann = kann_fnn_gen_mlp(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
+	} else ann = kann_fnn_gen_mlp(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons);
 
 	kann_fnn_train(&mo, ann, in->n_row, in->x, out->x);
 	if (out_fn) kann_write(out_fn, ann);
@@ -128,8 +130,8 @@ int main_rnn_train(int argc, char *argv[])
 	in = kann_data_read(argv[optind]);
 	out = kann_data_read(argv[optind+1]);
 	assert(in->n_row == out->n_row);
-//	ann = kann_rnn_gen_vanilla(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
-	ann = kann_rnn_gen_gru(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons, seed);
+//	ann = kann_rnn_gen_vanilla(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons);
+	ann = kann_rnn_gen_gru(in->n_col, out->n_col, n_hidden_layers, n_hidden_neurons);
 	/*
 	if (in_fn) {
 		ann = kann_read(in_fn);

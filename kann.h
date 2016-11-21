@@ -60,10 +60,10 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 const float *kann_fnn_apply1(kann_t *a, float *x);
 
-kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
+kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
 
-kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
-kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons, uint64_t seed);
+kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
+kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
 
 void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
 void kann_rdr_xy_delete(void *data);
