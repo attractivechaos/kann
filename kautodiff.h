@@ -1,13 +1,14 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r115"
+#define KAD_VERSION "r116"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #define KAD_MAX_DIM 4     // max dimension
+#define KAD_MAX_OP  64    // max number of operators
 
 /* An autodiff graph is a directed acyclic graph (DAG), where an external node
  * represents a variable (differentiable) or a parameter (not differentiable),
@@ -23,7 +24,7 @@ typedef struct kad_node_t kad_node_t;
 // an edge between two nodes in the autodiff graph
 typedef struct {
 	kad_node_t *p;        // child node
-	float *t;             // temporary data needed for backprop; allocated if not NULL
+	float *t;             // temporary data needed for backprop; allocated on heap if not NULL
 } kad_edge_t;
 
 // a node in the autodiff graph
@@ -56,82 +57,67 @@ extern kad_op_f kad_op_list[];
 extern "C" {
 #endif
 
+// define a variable (differentiable) or a parameter (not differentiable)
 kad_node_t *kad_par(float *x, int n_d, ...);
 kad_node_t *kad_var(float *x, float *g, int n_d, ...);
 
-kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // z(x,y) = x + y (element-wise addition)
-kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // z(x,y) = x * y (element-wise product)
-kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // z(x,y) = x * y^T (matrix product, with y transposed)
-kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // z(x,y) = \sum_i -y_i*log(f(x_i)) - (1-y_i)*log(1-f(x_i)); f() is sigmoid (binary cross-entropy for sigmoid; only x differentiable)
+// operators taking two operands
+kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // f(x,y) = x + y       (element-wise addition)
+kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y       (element-wise product)
+kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // f(x,y) = x * y^T     (column-wise matrix product; i.e. y is transposed)
+kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // f(x,y) = \sum_i -y_i*log(s(x_i)) - (1-y_i)*log(1-s(x_i))  (s() is sigmoid; binary cross-entropy for sigmoid; only x differentiable)
 
-kad_node_t *kad_norm2(kad_node_t *x); // z(x) = \sum_i x_i^2 (L2 norm)
-kad_node_t *kad_sigm(kad_node_t *x);  // z(x) = 1/(1+exp(-x)) (element-wise sigmoid)
-kad_node_t *kad_tanh(kad_node_t *x);  // z(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
-kad_node_t *kad_relu(kad_node_t *x);  // z(x) = max{0,x} (element-wise rectifier (aka ReLU))
-kad_node_t *kad_1minus(kad_node_t *x);// z(x) = 1-x
+// operators taking one operand
+kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)
+kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (element-wise sigmoid)
+kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
+kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
+kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
 
-kad_node_t *kad_avg(int n, kad_node_t **x); // mean pooling
+// operators taking an indefinite number of operands (mostly for pooling)
+kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (mean pooling)
 
+// compile graph and graph deallocation
 kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 kad_node_t **kad_compile(int *n_node, int n_roots, ...);
+void kad_delete(int n, kad_node_t **a);
+
+// operations on compiled graph
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
 const float *kad_eval(int n, kad_node_t **a, int from);
 void kad_eval_by_label(int n, kad_node_t **a, int label);
 void kad_grad(int n, kad_node_t **a, int from);
-void kad_delete_node(kad_node_t *p);
-void kad_delete(int n, kad_node_t **a);
 
 // autodiff graph I/O
-void kad_write1(FILE *fp, const kad_node_t *p);
-kad_node_t *kad_read1(FILE *fp, kad_node_t **node);
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
+
+// generic vector operations
+float kad_sdot(int n, const float *x, const float *y);
+void kad_saxpy(int n, float a, const float *x, float *y);
 
 // defined in kad_debug.c for debugging only
 void kad_debug(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
 
-// functions needed by kann; not of much use to general users
-float kad_sdot(int n, const float *x, const float *y);
-void kad_saxpy(int n, float a, const float *x, float *y);
-
 #ifdef __cplusplus
 }
 #endif
 
-static inline int kad_len(const kad_node_t *p)
+static inline int kad_len(const kad_node_t *p) // calculate the size of p->x
 {
 	int n = 1, i;
 	for (i = 0; i < p->n_d; ++i) n *= p->d[i];
 	return n;
 }
 
-static inline int kad_n_var(int n, kad_node_t *const* v)
+static inline int kad_n_var(int n, kad_node_t *const* v) // total number of variables in the graph
 {
 	int c = 0, i;
 	for (i = 0; i < n; ++i)
 		if (v[i]->n_child == 0 && v[i]->to_back)
 			c += kad_len(v[i]);
 	return c;
-}
-
-static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src)
-{
-	dst->n_d = src->n_d;
-	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
-}
-
-static inline kad_node_t *kad_dup1(const kad_node_t *p)
-{
-	kad_node_t *q;
-	q = (kad_node_t*)malloc(sizeof(kad_node_t));
-	memcpy(q, p, sizeof(kad_node_t));
-	q->ptr = 0, q->pre = 0, q->tmp = 0;
-	if (q->n_child) {
-		q->x = q->g = 0;
-		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
-	}
-	return q;
 }
 
 #endif

@@ -198,28 +198,38 @@ kad_node_t **kad_compile(int *n_node, int n_roots, ...)
 	return kad_compile_array(n_node, n_roots, roots);
 }
 
+void kad_delete(int n, kad_node_t **a)
+{
+	int i, j;
+	for (i = 0; i < n; ++i) {
+		kad_node_t *p = a[i];
+		for (j = 0; j < p->n_child; ++j)
+			free(p->child[j].t);
+		if (p->n_child) {
+			free(p->x);
+			free(p->g);
+		}
+		free(p->child);
+		free(p);
+	}
+	free(a);
+}
+
 /**********************************
  * Operations on linearized graph *
  **********************************/
 
-void kad_delete_node(kad_node_t *p)
+static inline kad_node_t *kad_dup1(const kad_node_t *p)
 {
-	int j;
-	for (j = 0; j < p->n_child; ++j)
-		free(p->child[j].t);
-	if (p->n_child) {
-		free(p->x);
-		free(p->g);
+	kad_node_t *q;
+	q = (kad_node_t*)malloc(sizeof(kad_node_t));
+	memcpy(q, p, sizeof(kad_node_t));
+	q->ptr = 0, q->pre = 0, q->tmp = 0;
+	if (q->n_child) {
+		q->x = q->g = 0;
+		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
 	}
-	free(p->child);
-	free(p);
-}
-
-void kad_delete(int n, kad_node_t **a)
-{
-	int i;
-	for (i = 0; i < n; ++i) kad_delete_node(a[i]);
-	free(a);
+	return q;
 }
 
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
@@ -270,7 +280,7 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 	return w;
 }
 
-void kad_mark_compute_core(int n, kad_node_t **a)
+static void kad_mark_compute_core(int n, kad_node_t **a)
 {
 	int i, j;
 	for (i = n - 1; i >= 0; --i)
@@ -330,7 +340,7 @@ void kad_grad(int n, kad_node_t **a, int from)
  * Load and save graph *
  ***********************/
 
-void kad_write1(FILE *fp, const kad_node_t *p)
+static void kad_write1(FILE *fp, const kad_node_t *p)
 {
 	fwrite(&p->n_child, sizeof(short), 1, fp);
 	if (p->n_child) {
@@ -347,7 +357,7 @@ void kad_write1(FILE *fp, const kad_node_t *p)
 	}
 }
 
-kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
+static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 {
 	kad_node_t *p;
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
@@ -490,6 +500,12 @@ void kad_mat_cmul(int n_col, int n_a_row, const float *a, int n_b_row, const flo
 /*************
  * Operators *
  *************/
+
+static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
+{
+	dst->n_d = src->n_d;
+	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
+}
 
 int kad_op_add(kad_node_t *p, int action)
 {
@@ -736,8 +752,7 @@ int kad_op_avg(kad_node_t *p, int action)
 	if (action == KAD_SYNC_DIM) {
 		for (i = 1; i < p->n_child; ++i)
 			if (kad_len(p->child[i].p) != n) return -1;
-		p->n_d = q->n_d;
-		memcpy(p->d, q->d, p->n_d * sizeof(int));
+		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->x, q->x, n * sizeof(float));
 		for (i = 1; i < p->n_child; ++i)
@@ -751,7 +766,7 @@ int kad_op_avg(kad_node_t *p, int action)
 	return 0;
 }
 
-kad_op_f kad_op_list[] = {
+kad_op_f kad_op_list[KAD_MAX_OP] = {
 	0,
 	kad_op_add,
 	kad_op_mul,
@@ -764,5 +779,4 @@ kad_op_f kad_op_list[] = {
 	kad_op_copy,
 	kad_op_avg,
 	kad_op_1minus,
-	0
 };
