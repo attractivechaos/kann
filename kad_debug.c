@@ -44,7 +44,7 @@ static void kad_add_delta(int n, kad_node_t **a, float c, float *delta)
 
 void kad_check_grad(int n, kad_node_t **a, int from)
 {
-	const float eps = 1e-5, rel = .01f;
+	const float eps = 1e-5, rel = 1e-7 / eps;
 	int i, k, n_var;
 	float *g0, *delta, f0, f_minus, f_plus, s0, s1, rel_err, p_m_err;
 	n_var = kad_n_var(n, a);
@@ -65,11 +65,13 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 	kad_add_delta(n, a, 1.0f, delta);
 	s0 = kad_sdot(n_var, g0, delta);
 	s1 = .5 * (f_plus - f_minus);
-	if (fabs(s0) >= rel * eps && fabs(s1) >= rel * eps) {
+	fprintf(stderr, "Gradient check -- %g <=> %g @ %g -- ", s0/eps, s1/eps, f0);
+	if (fabs(s1) >= rel * eps) {
 		rel_err = fabs(fabs(s0) - fabs(s1)) / (fabs(s0) + fabs(s1));
 		p_m_err = fabs(f_plus + f_minus - 2.0f * f0) / fabs(f_plus - f_minus);
-		if (rel_err >= rel && rel_err > p_m_err)
-			fprintf(stderr, "%g,%g,%g\n", s0/eps, rel_err, p_m_err);
-	}
+		fprintf(stderr, "rel_err:%g p_m_err:%g -- ", rel_err, p_m_err);
+		if (rel_err >= rel && rel_err > p_m_err) fprintf(stderr, "failed\n");
+		else fprintf(stderr, "passed\n");
+	} else fprintf(stderr, "skipped\n");
 	free(delta); free(g0);
 }
