@@ -526,13 +526,14 @@ int kad_op_mul(kad_node_t *p, int action)
 		kad_sync_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
 		memset(p->x, 0, n0 * sizeof(float));
-		for (i = 0; i < n0; i += n1) // TODO: optimize when n1==1
-			kad_vec_mul_sum(n1, p->x + i, q[0]->x + i, q[1]->x);
+		if (q[0]->x != 0 && q[1]->x != 0)
+			for (i = 0; i < n0; i += n1) // TODO: optimize when n1==1
+				kad_vec_mul_sum(n1, p->x + i, q[0]->x + i, q[1]->x);
 	} else if (action == KAD_BACKWARD) {
-		if (q[0]->to_back)
+		if (q[0]->to_back && q[1]->x)
 			for (i = 0; i < n0; i += n1)
 				kad_vec_mul_sum(n1, q[0]->g + i, p->g + i, q[1]->x);
-		if (q[1]->to_back)
+		if (q[1]->to_back && q[0]->x)
 			for (i = 0; i < n0; i += n1)
 				kad_vec_mul_sum(n1, q[1]->g, p->g + i, q[0]->x + i);
 	}
@@ -562,13 +563,14 @@ int kad_op_cmul(kad_node_t *p, int action)
 			p->n_d = 2, p->d[0] = q[0]->d[0], p->d[1] = q[1]->d[0];
 		} else return -1;
 	} else if (action == KAD_FORWARD) {
-		kad_mat_cmul(n_col, n_a_row, q[0]->x, n_b_row, q[1]->x, p->x);
+		if (q[0]->x == 0 || q[1]->x == 0) memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
+		else kad_mat_cmul(n_col, n_a_row, q[0]->x, n_b_row, q[1]->x, p->x);
 	} else if (action == KAD_BACKWARD) {
-		if (q[0]->to_back) // TODO: is this correct?
+		if (q[0]->to_back && q[1]->x) // TODO: is this correct?
 			for (j = 0; j < n_b_row; ++j)
 				for (i = 0; i < n_a_row; ++i)
 					kad_saxpy(n_col, p->g[i * n_b_row + j], q[1]->x + j * n_col, q[0]->g + i * n_col);
-		if (q[1]->to_back)
+		if (q[1]->to_back && q[0]->x)
 			for (i = 0; i < n_a_row; ++i)
 				for (j = 0; j < n_b_row; ++j)
 					kad_saxpy(n_col, p->g[i * n_b_row + j], q[0]->x + i * n_col, q[1]->g + j * n_col);
