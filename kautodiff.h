@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r116"
+#define KAD_VERSION "r117"
 
 #include <stdio.h>
 #include <string.h>
@@ -84,7 +84,7 @@ void kad_delete(int n, kad_node_t **a);
 
 // operations on compiled graph
 kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
-const float *kad_eval(int n, kad_node_t **a, int from);
+const float *kad_eval_from(int n, kad_node_t **a, int from);
 void kad_eval_by_label(int n, kad_node_t **a, int label);
 void kad_grad(int n, kad_node_t **a, int from);
 

@@ -215,9 +215,9 @@ void kad_delete(int n, kad_node_t **a)
 	free(a);
 }
 
-/**********************************
- * Operations on linearized graph *
- **********************************/
+/*****************
+ * Unroll an RNN *
+ *****************/
 
 static inline kad_node_t *kad_dup1(const kad_node_t *p)
 {
@@ -280,7 +280,11 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 	return w;
 }
 
-static void kad_mark_compute_core(int n, kad_node_t **a)
+/**********************************
+ * Computate values and gradients *
+ **********************************/
+
+static void kad_mark_compute(int n, kad_node_t **a)
 {
 	int i, j;
 	for (i = n - 1; i >= 0; --i)
@@ -289,37 +293,30 @@ static void kad_mark_compute_core(int n, kad_node_t **a)
 				a[i]->child[j].p->tmp = 1;
 }
 
-static void kad_mark_compute(int n, kad_node_t **a, int from)
+static void kad_eval_core(int n, kad_node_t **a)
 {
 	int i;
-	if (from >= 0 && from < n) {
-		for (i = 0; i < n; ++i) a[i]->tmp = 0;
-		a[from]->tmp = 1;
-		kad_mark_compute_core(n, a);
-	} else for (i = 0; i < n; ++i) a[i]->tmp = 1;
-}
-
-const float *kad_eval(int n, kad_node_t **a, int from)
-{
-	int i;
-	kad_mark_compute(n, a, from);
+	kad_mark_compute(n, a);
 	for (i = 0; i < n; ++i)
 		if (a[i]->n_child && a[i]->tmp)
 			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
 	for (i = 0; i < n; ++i) a[i]->tmp = 0;
-	return from >= 0 && from < n? a[from]->x : 0;
+}
+
+const float *kad_eval_from(int n, kad_node_t **a, int from)
+{
+	int i;
+	if (from < 0 || from >= n) from = n - 1;
+	for (i = 0; i < n; ++i) a[i]->tmp = (i == from);
+	kad_eval_core(n, a);
+	return a[from]->x;
 }
 
 void kad_eval_by_label(int n, kad_node_t **a, int label)
 {
 	int i;
-	for (i = 0; i < n; ++i)
-		a[i]->tmp = a[i]->label == label? 1 : 0;
-	kad_mark_compute_core(n, a);
-	for (i = 0; i < n; ++i)
-		if (a[i]->n_child && a[i]->tmp)
-			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
-	for (i = 0; i < n; ++i) a[i]->tmp = 0;
+	for (i = 0; i < n; ++i) a[i]->tmp = (a[i]->label == label);
+	kad_eval_core(n, a);
 }
 
 void kad_grad(int n, kad_node_t **a, int from)
@@ -327,7 +324,8 @@ void kad_grad(int n, kad_node_t **a, int from)
 	int i;
 	if (from < 0 || from >= n) from = n - 1;
 	assert(a[from]->n_d == 0);
-	kad_mark_compute(n, a, from);
+	for (i = 0; i < n; ++i) a[i]->tmp = (i == from);
+	kad_mark_compute(n, a);
 	for (i = 0; i <= from; ++i) // set all grandients to zero
 		if (a[i]->g && a[i]->tmp) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
 	for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
