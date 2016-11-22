@@ -26,7 +26,7 @@ kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	kad_node_t *in, *out, *truth, *prev, *cost;
 	kann_t *a;
 
-	a = kann_init();
+	a = kann_new();
 	n_layers = n_hidden_layers + 2;
 	n_neurons = (int*)alloca(n_layers * sizeof(int));
 	n_neurons[0] = n_in, n_neurons[n_layers-1] = n_out;
@@ -58,7 +58,7 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	kad_node_t **h_in, **h_out, *t, *truth, *cost = 0;
 	kann_t *a;
 
-	a = kann_init();
+	a = kann_new();
 	n_layers = n_hidden_layers + 2;
 	n_neurons = (int*)alloca(n_layers * sizeof(int));
 	n_neurons[0] = n_in, n_neurons[n_layers-1] = n_out;
@@ -93,7 +93,6 @@ kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hid
 	h_out[n_layers - 2]->label = KANN_L_LAST;
 	a->v = kad_compile(&a->n, 2, h_out[n_layers - 1], cost);
 	kann_collate_var(a);
-
 	return a;
 }
 
@@ -103,7 +102,7 @@ kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	kad_node_t **h_in, **h_out, *truth, *cost = 0;
 	kann_t *a;
 
-	a = kann_init();
+	a = kann_new();
 	n_layers = n_hidden_layers + 2;
 	n_neurons = (int*)alloca(n_layers * sizeof(int));
 	n_neurons[0] = n_in, n_neurons[n_layers-1] = n_out;
@@ -154,6 +153,5 @@ kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_
 	h_out[n_layers - 2]->label = KANN_L_LAST;
 	a->v = kad_compile(&a->n, 2, h_out[n_layers - 1], cost);
 	kann_collate_var(a);
-
 	return a;
 }

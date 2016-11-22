@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r117"
+#define KANN_VERSION "r119"
 
 #define KANN_L_IN     1
 #define KANN_L_OUT    2
@@ -44,28 +44,35 @@ extern int kann_verbose;
 extern "C" {
 #endif
 
-kann_t *kann_init(void);
+// basic model allocation/deallocation
+kann_t *kann_new(void);
+void kann_collate_var(kann_t *a);
 void kann_delete(kann_t *a);
+
+// number of input and output variables
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 
-void kann_collate_var(kann_t *a);
+// unroll an RNN to an FNN
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
 
+// network I/O
 void kann_write(const char *fn, const kann_t *ann);
 kann_t *kann_read(const char *fn);
 
+// training and applying models
 void kann_mopt_init(kann_mopt_t *mo);
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
 void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 const float *kann_fnn_apply1(kann_t *a, float *x);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float **x);
 
+// known models, defined in model.c
 kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
-
 kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
 kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
 
+// generic data reader for FNN
 void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
 void kann_rdr_xy_delete(void *data);
 int kann_rdr_xy_read(void *data, int action, int *len, int max_bs, float **x, float **y);

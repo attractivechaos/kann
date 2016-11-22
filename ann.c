@@ -10,7 +10,7 @@
 
 int kann_verbose = 3;
 
-kann_t *kann_init(void)
+kann_t *kann_new(void)
 {
 	return (kann_t*)calloc(1, sizeof(kann_t));
 }
