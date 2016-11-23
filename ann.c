@@ -265,9 +265,9 @@ float *kann_rnn_apply_seq1(kann_t *a, int len, float *x)
 	y = (float*)calloc(len * n_out, sizeof(float));
 	fnn = kann_rnn_unroll(a, len, 0);
 	kann_set_batch_size(fnn, 1);
-	for (i = k = 0; i < a->n; ++i)
-		if (a->v[i]->n_child == 0 && !a->v[i]->to_back && a->v[i]->label == KANN_L_IN)
-			a->v[i]->x = &x[k], k += n_in;
+	for (i = k = 0; i < fnn->n; ++i)
+		if (fnn->v[i]->label == KANN_L_IN)
+			fnn->v[i]->x = &x[k], k += n_in;
 	kad_eval_by_label(fnn->n, fnn->v, KANN_L_OUT);
 	for (i = k = 0; i < fnn->n; ++i)
 		if (fnn->v[i]->label == KANN_L_OUT) {
