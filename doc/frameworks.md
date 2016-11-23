@@ -43,3 +43,11 @@
   - Homepage: https://singa.incubator.apache.org/en/index.html
   - Source code: https://github.com/apache/incubator-singa
   - OpenHub: https://www.openhub.net/p/incubator_singa
+* OpenNN
+  - Homepage: http://www.opennn.net
+  - Source code: https://github.com/Artelnics/OpenNN
+  - OpenHub: https://www.openhub.net/p/OpenNN
+* Chainer
+  - Homepage: http://chainer.org/
+  - Source code: https://github.com/pfnet/chainer
+  - OpenHub: https://www.openhub.net/p/pfnet_chainer
