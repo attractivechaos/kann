@@ -31,7 +31,7 @@ static void num2vec(int bit_len, float *x, float *y, uint64_t a, uint64_t b, uin
 	}
 }
 
-int add_reader(void *data, int action, int len, float *x, float *y)
+int bit_reader(void *data, int action, int len, float *x, float *y)
 {
 	int i, j;
 	if (action == KANN_RDR_BATCH_RESET) {
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
 		else if (t == 's') seed = atol(optarg);
 		else if (t == 'h') {
 			FILE *fp = stdout;
-			fprintf(fp, "Usage: rnn-add [options]\nOptions:\n");
+			fprintf(fp, "Usage: rnn-bit [options]\nOptions:\n");
 			fprintf(fp, "  -i FILE    load a trained model []\n");
 			fprintf(fp, "  -o FILE    save the trained model []\n");
 			fprintf(fp, "  -s INT     random seed [%ld]\n", (long)seed);
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 	if (fn_in) ann = kann_read(fn_in);
 	else ann = use_gru? kann_rnn_gen_gru(4, 2, n_h_layers, n_h_neurons) : kann_rnn_gen_vanilla(4, 2, n_h_layers, n_h_neurons);
 	mo.max_rnn_len = bit_len;
-	kann_train(&mo, ann, add_reader, 0);
+	kann_train(&mo, ann, bit_reader, 0);
 	if (fn_out) kann_write(fn_out, ann);
 
 	x = (float*)calloc(bit_len * 4, sizeof(float));
