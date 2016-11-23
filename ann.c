@@ -155,22 +155,39 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	return cost;
 }
 
-static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, void *data, int max_rnn_len, int max_mbs, kann_t *fnn_max, float **x, float **y)
+static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, void *data, int max_len, int max_mbs, kann_t *fnn_max, float **x, float **y)
 {
-	int mbs, tot = 0, len, action;
-	float cost = 0.0f;
-	len = kann_is_rnn(a)? max_rnn_len : 1;
-	action = min? KANN_RA_READ_TRAIN : KANN_RA_READ_VALIDATE;
-	while ((mbs = rdr(data, action, &len, max_mbs, x, y)) > 0) {
+	int n_in, n_out, tot = 0, action;
+	float cost = 0.0f, *x1, *y1;
+
+	n_in = kann_n_in(a);
+	n_out = kann_n_out(a);
+	if (!kann_is_rnn(a)) max_len = 1;
+	x1 = (float*)calloc(max_len * n_in,  sizeof(float));
+	y1 = (float*)calloc(max_len * n_out, sizeof(float));
+	action = min? KANN_RDR_READ_TRAIN : KANN_RDR_READ_VALIDATE;
+	for (;;) {
+		int i, k, l, len = -1;
 		kann_t *fnn;
-		fnn = len == max_rnn_len && fnn_max? fnn_max : kann_rnn_unroll(a, len, 0);
-		cost += kann_fnn_process_mini(fnn, min, mbs, x, y) * mbs;
-		tot += mbs;
+		rdr(data, KANN_RDR_MINI_RESET, max_len, 0, 0);
+		for (k = 0; k < max_mbs; ++k) {
+			if ((l = rdr(data, action, max_len, x1, y1)) <= 0 || (k > 0 && l != len)) break;
+			len = l;
+			for (i = 0; i < len; ++i) {
+				memcpy(&x[i][k*n_in],  &x1[i*n_in],  n_in  * sizeof(float));
+				memcpy(&y[i][k*n_out], &y1[i*n_out], n_out * sizeof(float));
+			}
+		}
+		if (k == 0) break;
+		fnn = len == max_len && fnn_max? fnn_max : kann_rnn_unroll(a, len, 0);
+		cost += kann_fnn_process_mini(fnn, min, k, x, y) * k;
+		tot += k;
 		if (fnn && fnn != fnn_max) {
 			fnn->t = fnn->g = 0;
 			kann_delete(fnn);
 		}
 	}
+	free(y1); free(x1);
 	cost /= tot;
 	return cost;
 }
@@ -198,7 +215,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 	min = kann_minimizer(mo, n_par);
 	for (j = 0; j < mo->max_epoch; ++j) {
 		float running_cost = 0.0f, validate_cost = 0.0f;
-		rdr(data, KANN_RA_RESET, 0, 0, 0, 0);
+		rdr(data, KANN_RDR_BATCH_RESET, 0, 0, 0);
 		running_cost =  kann_process_batch(a, min, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
 		validate_cost = kann_process_batch(a,   0, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
 		kann_min_batch_finish(min, a->t);
@@ -237,17 +254,20 @@ const float *kann_fnn_apply1(kann_t *a, float *x) // FIXME: for now it doesn't w
 	return 0;
 }
 
-float *kann_rnn_apply_seq1(kann_t *a, int len, float **x)
+float *kann_rnn_apply_seq1(kann_t *a, int len, float *x)
 {
 	kann_t *fnn;
 	float *y;
-	int i, k, n_out;
+	int i, k, n_in, n_out;
 
+	n_in = kann_n_in(a);
 	n_out = kann_n_out(a);
 	y = (float*)calloc(len * n_out, sizeof(float));
 	fnn = kann_rnn_unroll(a, len, 0);
 	kann_set_batch_size(fnn, 1);
-	kann_bind_by_label(fnn, KANN_L_IN, x);
+	for (i = k = 0; i < a->n; ++i)
+		if (a->v[i]->n_child == 0 && !a->v[i]->to_back && a->v[i]->label == KANN_L_IN)
+			a->v[i]->x = &x[k], k += n_in;
 	kad_eval_by_label(fnn->n, fnn->v, KANN_L_OUT);
 	for (i = k = 0; i < fnn->n; ++i)
 		if (fnn->v[i]->label == KANN_L_OUT) {
