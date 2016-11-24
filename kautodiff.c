@@ -76,6 +76,7 @@ KAD_FUNC_OP2(kad_add, 1)
 KAD_FUNC_OP2(kad_mul, 2)
 KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_ce2, 4)
+KAD_FUNC_OP2(kad_cesm, 12)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
@@ -626,6 +627,51 @@ int kad_op_ce2(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_cesm(kad_node_t *p, int action)
+{
+	kad_edge_t *e[2];
+	int i, j, n0, n1;
+
+	e[0] = &p->child[0], e[1] = &p->child[1];
+	assert(e[1]->p->to_back == 0); // child[1] is the true; we don't backprop this
+	assert(e[0]->p->to_back); // as we need e[0]->t to be allocated
+	assert(e[0]->p->n_d == 2);
+	n0 = kad_len(e[0]->p);
+	n1 = kad_len(e[1]->p);
+	if (action == KAD_SYNC_DIM) {
+		if (n0 != n1) return -1;
+		p->n_d = 0;
+	} else if (action == KAD_ALLOC) {
+		e[0]->t = (float*)realloc(e[0]->t, n0 * sizeof(float));
+	} else if (action == KAD_FORWARD) {
+		double cost;
+		int r = e[0]->p->d[0], c = e[0]->p->d[1];
+		for (i = 0; i < n0; ++i) e[0]->t[i] = expf(e[0]->p->x[i]);
+		for (j = 0, cost = 0.0; j < r; ++j) {
+			const float *x, *y;
+			float *p, lsx, sx = 0.0f, sy = 0.0f;
+			x = e[0]->p->x + j * c;
+			y = e[1]->p->x + j * c;
+			p = e[0]->t + j * c;
+			for (i = 0; i < c; ++i)
+				sx += p[i], sy += y[i];
+			assert(sx > 0.0 && sy > 0.0);
+			lsx = logf(sx);
+			sx = 1.0 / sx, sy = 1.0 / sy;
+			for (i = 0; i < c; ++i) {
+				float yi = y[i] * sy;
+				if (y[i]) cost += yi * (logf(yi) - (x[i] - lsx));
+				p[i] = (p[i] * sx - yi) / r;
+			}
+		}
+		p->x[0] = cost / r;
+	} else if (action == KAD_BACKWARD) {
+		if (e[0]->p->to_back)
+			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
+	}
+	return 0;
+}
+
 int kad_op_norm2(kad_node_t *p, int action)
 {
 	int i, n;
@@ -777,4 +823,5 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_copy,
 	kad_op_avg,
 	kad_op_1minus,
+	kad_op_cesm
 };
