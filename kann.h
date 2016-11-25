@@ -3,11 +3,14 @@
 
 #define KANN_VERSION "r124"
 
-#define KANN_L_IN     1
-#define KANN_L_OUT    2
-#define KANN_L_TRUTH  3
-#define KANN_L_COST   4
-#define KANN_L_LAST   5
+#define KANN_L_IN       1
+#define KANN_L_OUT      2
+#define KANN_L_TRUTH    3
+#define KANN_L_COST     4
+
+#define KANN_H_TEMP     11
+#define KANN_H_DROPOUT  12
+#define KANN_H_L2REG    13
 
 #define KANN_RDR_BATCH_RESET     1
 #define KANN_RDR_MINI_RESET      2
