@@ -34,10 +34,11 @@ typedef struct {
 typedef struct {
 	int n;
 	kad_node_t **v;
-	float *t, *g;
+	float *t, *g, *c;
 } kann_t;
 
 typedef kad_node_t (*kann_activate_f)(kad_node_t*);
+typedef kad_node_t *(*kann_layer_f)(kad_node_t*, int);
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
@@ -70,6 +71,12 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 const float *kann_fnn_apply1(kann_t *a, float *x);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
+
+// common layers
+kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
+kad_node_t *kann_layer_linear_relu(kad_node_t *in, int n1);
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1);
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
 
 // known models, defined in model.c
 kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
