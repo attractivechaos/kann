@@ -5,7 +5,7 @@ ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
 INCLUDES=	-I.
 OBJS=		kautodiff.o kad_debug.o kann_rand.o kann_min.o kann_data.o ann.o model.o reader.o
 PROG=		kann
-EXAMPLES=	examples/rnn-bit
+EXAMPLES=	examples/rnn-bit examples/rnn-charnn
 LIBS=		-lm -lz
 
 .SUFFIXES:.c .o
@@ -26,6 +26,9 @@ kann_data.o:kann_data.c
 		$(CC) -c $(CFLAGS) $(ZLIB_FLAGS) $(INCLUDES) $< -o $@
 
 examples/rnn-bit:examples/rnn-bit.c libkann.a
+		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
+
+examples/rnn-charnn:examples/rnn-charnn.c libkann.a
 		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
 
 clean:

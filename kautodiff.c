@@ -657,10 +657,10 @@ int kad_op_cesm(kad_node_t *p, int action)
 				sx += p[i], sy += y[i];
 			assert(sx > 0.0 && sy > 0.0);
 			lsx = logf(sx);
-			sx = 1.0 / sx, sy = 1.0 / sy;
+			sx = 1.0f / sx, sy = 1.0f / sy;
 			for (i = 0; i < c; ++i) {
 				float yi = y[i] * sy;
-				if (y[i]) cost += yi * (logf(yi) - (x[i] - lsx));
+				if (yi != 0.0f) cost += yi * (logf(yi) - (x[i] - lsx));
 				p[i] = (p[i] * sx - yi) / r;
 			}
 		}
