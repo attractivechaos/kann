@@ -117,13 +117,3 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	kann_collate(a);
 	return a;
 }
-
-kann_t *kann_model_common(int n_in, int n_out, int n_h_layers, int n_h_neurons, kann_layer_f layer, int cost_type)
-{
-	int i;
-	kad_node_t *t;
-	t = kad_par(0, 2, 1, n_in), t->label = KANN_L_IN;
-	for (i = 0; i < n_h_layers; ++i)
-		t = layer(t, n_h_neurons);
-	return kann_layer_final(t, n_out, cost_type);
-}
