@@ -5,7 +5,7 @@
 
 void kad_debug(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { "", "add", "mul", "cmul", "ce2", "norm2", "sigm", "tanh", "relu", "copy", "avg", "1minus", "softmax" };
+	static const char *op[] = { "", "add", "mul", "cmul", "ce2", "norm2", "sigm", "tanh", "relu", "copy", "avg", "1minus", "softmax2", "softmax" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {

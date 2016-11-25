@@ -12,6 +12,9 @@
 #define KANN_H_DROPOUT  12
 #define KANN_H_L2REG    13
 
+#define KANN_C_BIN_CE   1
+#define KANN_C_CE       2
+
 #define KANN_RDR_BATCH_RESET     1
 #define KANN_RDR_MINI_RESET      2
 #define KANN_RDR_READ_TRAIN      3
@@ -42,6 +45,7 @@ typedef kad_node_t *(*kann_layer_f)(kad_node_t*, int);
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
+#define kann_is_hyper(p) ((p)->label == KANN_H_TEMP || (p)->label == KANN_H_DROPOUT || (p)->label == KANN_H_L2REG)
 
 extern int kann_verbose;
 
@@ -51,12 +55,13 @@ extern "C" {
 
 // basic model allocation/deallocation
 kann_t *kann_new(void);
-void kann_collate_var(kann_t *a);
+void kann_collate(kann_t *a);
 void kann_delete(kann_t *a);
 
 // number of input and output variables
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
+int kann_n_hyper(const kann_t *a);
 
 // unroll an RNN to an FNN
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
@@ -73,15 +78,11 @@ const float *kann_fnn_apply1(kann_t *a, float *x);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
 
 // common layers
+kad_node_t *kann_layer_input(int n1);
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
-kad_node_t *kann_layer_linear_relu(kad_node_t *in, int n1);
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1);
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
-
-// known models, defined in model.c
-kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
-kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
-kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons);
+kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
 // generic data reader for FNN
 void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);

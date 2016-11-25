@@ -4,7 +4,7 @@ CPPFLAGS=
 ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
 INCLUDES=	-I.
 OBJS=		kautodiff.o kad_debug.o kann_rand.o kann_min.o kann_data.o ann.o \
-			layer.o model.o reader.o
+			layer.o reader.o
 PROG=		kann
 EXAMPLES=	examples/rnn-bit examples/rnn-charnn
 LIBS=		-lm -lz
@@ -47,7 +47,8 @@ kann_data.o: kseq.h kann_data.h
 kann_min.o: kann_min.h
 kann_rand.o: kann_rand.h
 kautodiff.o: kautodiff.h
+layer.o: kann_rand.h kann.h kautodiff.h
 main.o: kann.h kautodiff.h
-model.o: kann_rand.h kann.h kautodiff.h
 reader.o: kann_rand.h kann.h kautodiff.h
-examples/rnn-add.o: kann.h kautodiff.h kann_rand.h
+examples/rnn-bit.o: kann.h kautodiff.h kann_rand.h
+examples/rnn-charnn.o: kann.h kautodiff.h kann_rand.h kseq.h

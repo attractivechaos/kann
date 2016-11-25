@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "kann_rand.h"
 #include "kann.h"
 
@@ -26,6 +27,13 @@ kad_node_t *kann_new_bias(int n)
  * Common layers *
  *****************/
 
+kad_node_t *kann_layer_input(int n1)
+{
+	kad_node_t *t;
+	t = kad_par(0, 2, 1, n1), t->label = KANN_L_IN;
+	return t;
+}
+
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 {
 	int n0;
@@ -34,11 +42,6 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 	w = kann_new_weight(n1, n0);
 	b = kann_new_bias(n1);
 	return kad_add(kad_cmul(in, w), b);
-}
-
-kad_node_t *kann_layer_linear_relu(kad_node_t *in, int n1)
-{
-	return kad_relu(kann_layer_linear(in, n1));
 }
 
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1)
@@ -84,4 +87,43 @@ kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
 	out = kad_add(kad_mul(kad_1minus(z), s), kad_mul(z, h0));
 	out->pre = h0;
 	return out;
+}
+
+/**********************
+ * Finalize the graph *
+ **********************/
+
+kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
+{
+	kann_t *a = 0;
+	kad_node_t *cost = 0, *truth = 0;
+	assert(type == KANN_C_BIN_CE || type == KANN_C_CE);
+	truth = kad_par(0, 2, 1, n_out), truth->label = KANN_L_TRUTH;
+	t = kann_layer_linear(t, n_out);
+	if (type == KANN_C_BIN_CE) {
+		cost = kad_ce2(t, truth);
+		t = kad_sigm(t);
+	} else if (type == KANN_C_CE) {
+		kad_node_t *temp;
+		temp = kad_par(0, 0);
+		temp->x = (float*)calloc(1, sizeof(float));
+		*temp->x = 1.0f;
+		cost = kad_cesm(t, truth);
+		t = kad_softmax2(t, temp);
+	}
+	t->label = KANN_L_OUT, cost->label = KANN_L_COST;
+	a = kann_new();
+	a->v = kad_compile(&a->n, 2, t, cost);
+	kann_collate(a);
+	return a;
+}
+
+kann_t *kann_model_common(int n_in, int n_out, int n_h_layers, int n_h_neurons, kann_layer_f layer, int cost_type)
+{
+	int i;
+	kad_node_t *t;
+	t = kad_par(0, 2, 1, n_in), t->label = KANN_L_IN;
+	for (i = 0; i < n_h_layers; ++i)
+		t = layer(t, n_h_neurons);
+	return kann_layer_final(t, n_out, cost_type);
 }

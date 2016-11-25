@@ -77,6 +77,7 @@ KAD_FUNC_OP2(kad_mul, 2)
 KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_ce2, 4)
 KAD_FUNC_OP2(kad_cesm, 12)
+KAD_FUNC_OP2(kad_softmax2, 13)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
@@ -86,6 +87,7 @@ KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
 KAD_FUNC_OP1(kad_copy, 9)
 KAD_FUNC_OP1(kad_1minus, 11)
+KAD_FUNC_OP1(kad_softmax, 14)
 
 kad_node_t *kad_avg(int n, kad_node_t **x)
 {
@@ -751,6 +753,30 @@ int kad_op_relu(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_softmax(kad_node_t *p, int action)
+{
+	int i, j, n;
+	kad_node_t *q = p->child[0].p;
+	assert(q->n_d == 2);
+	assert(!q->to_back);
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		float t1 = p->n_child >= 2? *p->child[1].p->x : 1.0f;
+		for (j = 0; j < p->d[0]; ++j) {
+			float *x0, *x, s;
+			x0 = q->x + j * p->d[1];
+			x = p->x + j * p->d[1];
+			for (i = 0, s = 0.0f; i < p->d[1]; ++i)
+				s += (x[i] = expf(x0[i] * t1));
+			s = 1.0f / s;
+			for (i = 0; i < p->d[1]; ++i) x[i] *= s;
+		}
+	}
+	return 0;
+}
+
 int kad_op_1minus(kad_node_t *p, int action)
 {
 	int i, n;
@@ -823,5 +849,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_copy,
 	kad_op_avg,
 	kad_op_1minus,
-	kad_op_cesm
+	kad_op_cesm,
+	kad_op_softmax,
+	kad_op_softmax
 };

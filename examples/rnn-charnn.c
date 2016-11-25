@@ -187,9 +187,16 @@ int main(int argc, char *argv[])
 
 	kann_srand(seed);
 	nn = read_file(argv[optind], no_space);
-	if (fn_in) ann = kann_read(fn_in);
-	else if (use_vanilla) ann = kann_rnn_gen_vanilla(nn->n_char, nn->n_char, n_h_layers, n_h_neurons);
-	else ann = kann_rnn_gen_gru(nn->n_char, nn->n_char, n_h_layers, n_h_neurons);
+	if (fn_in) {
+		ann = kann_read(fn_in);
+	} else {
+		int i;
+		kad_node_t *t;
+		t = kann_layer_input(nn->n_char);
+		for (i = 0; i < n_h_layers; ++i)
+			t = use_vanilla? kann_layer_rnn(t, n_h_neurons) : kann_layer_gru(t, n_h_neurons);
+		ann = kann_layer_final(t, nn->n_char, KANN_C_CE);
+	}
 	mo.max_rnn_len = max_unroll;
 	kann_train(&mo, ann, charnn_reader, nn);
 	if (fn_out) kann_write(fn_out, ann);

@@ -67,6 +67,7 @@ kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y       (el
 kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // f(x,y) = x * y^T     (column-wise matrix product; i.e. y is transposed)
 kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // f(x,y) = \sum_i -y_i*log(s(x_i)) - (1-y_i)*log(1-s(x_i))  (s() is sigmoid; binary cross-entropy for sigmoid; only x differentiable)
 kad_node_t *kad_cesm(kad_node_t *x, kad_node_t *y);  // f(x,y) = - \sum_i -y_i*log(s(x_i))  (s() is softmax; cross-entropy for softmax; only x differentiable)
+kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperature
 
 // operators taking one operand
 kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)
@@ -74,6 +75,7 @@ kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (el
 kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
+kad_node_t *kad_softmax(kad_node_t *x);// softmax without temperature (i.e. temperature==1)
 
 // operators taking an indefinite number of operands (mostly for pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (mean pooling)

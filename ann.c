@@ -17,7 +17,7 @@ kann_t *kann_new(void)
 
 void kann_delete(kann_t *a)
 {
-	free(a->t); free(a->g);
+	free(a->t); free(a->g); free(a->c);
 	if (a->v) kad_delete(a->n, a->v);
 	free(a);
 }
@@ -30,23 +30,29 @@ kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
 	return m;
 }
 
-void kann_collate_var(kann_t *a)
+void kann_collate(kann_t *a)
 {
-	int i, j, n_par;
+	int i, j, k, l, n_par;
 	n_par = kann_n_par(a);
 	a->t = (float*)realloc(a->t, n_par * sizeof(float));
 	a->g = (float*)realloc(a->g, n_par * sizeof(float));
+	a->c = (float*)realloc(a->c, kann_n_hyper(a) * sizeof(float));
 	memset(a->g, 0, n_par * sizeof(float));
-	for (i = j = 0; i < a->n; ++i) {
+	for (i = j = k = 0; i < a->n; ++i) {
 		kad_node_t *v = a->v[i];
 		if (kad_is_var(v)) {
-			int l;
 			l = kad_len(v);
 			memcpy(&a->t[j], v->x, l * sizeof(float));
 			free(v->x);
 			v->x = &a->t[j];
 			v->g = &a->g[j];
 			j += l;
+		} else if (kann_is_hyper(v)) {
+			l = kad_len(v);
+			memcpy(&a->c[j], v->x, l * sizeof(float));
+			free(v->x);
+			v->x = &a->c[k];
+			k += l;
 		}
 	}
 }
@@ -62,6 +68,15 @@ static inline int kann_n_by_label(const kann_t *a, int label)
 
 int kann_n_in(const kann_t *a) { return kann_n_by_label(a, KANN_L_IN); }
 int kann_n_out(const kann_t *a) { return kann_n_by_label(a, KANN_L_OUT); }
+
+int kann_n_hyper(const kann_t *a)
+{
+	int i, n = 0;
+	for (i = 0; i < a->n; ++i)
+		if (kann_is_hyper(a->v[i]))
+			n += kad_len(a->v[i]);
+	return n;
+}
 
 int kann_is_rnn(const kann_t *a)
 {
