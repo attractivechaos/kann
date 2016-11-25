@@ -103,10 +103,10 @@ int main(int argc, char *argv[])
 		ann = kann_read(fn_in);
 	} else {
 		kad_node_t *t;
-		t = kann_layer_input(bit_len * 4);
+		t = kann_layer_input(4);
 		for (i = 0; i < n_h_layers; ++i)
 			t = use_gru? kann_layer_gru(t, n_h_neurons) : kann_layer_rnn(t, n_h_neurons);
-		ann = kann_layer_final(t, bit_len * 2, KANN_C_BIN_CE);
+		ann = kann_layer_final(t, 2, KANN_C_BIN_CE);
 	}
 	mo.max_rnn_len = bit_len;
 	kann_train(&mo, ann, bit_reader, 0);
