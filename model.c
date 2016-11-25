@@ -40,6 +40,11 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 	return kad_add(kad_cmul(in, w), b);
 }
 
+kad_node_t *kann_layer_linear_relu(kad_node_t *in, int n1)
+{
+	return kad_relu(kann_layer_linear(in, n1));
+}
+
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1)
 {
 	int n0;
@@ -89,35 +94,7 @@ kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
  * Common models *
  *****************/
 
-kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_hidden_layers, int n_hidden_neurons)
-{
-	int i, n_layers, *n_neurons;
-	kad_node_t *in, *out, *truth, *prev, *cost;
-	kann_t *a;
-
-	a = kann_new();
-	n_layers = n_hidden_layers + 2;
-	n_neurons = (int*)alloca(n_layers * sizeof(int));
-	n_neurons[0] = n_in, n_neurons[n_layers-1] = n_out;
-	for (i = 1; i < n_layers - 1; ++i) n_neurons[i] = n_hidden_neurons;
-
-	prev = in = kad_par(0, 2, 1, n_in), in->label = KANN_L_IN;
-	truth = kad_par(0, 2, 1, n_out), truth->label = KANN_L_TRUTH;
-	for (i = 1; i < n_layers; ++i) {
-		kad_node_t *w, *b;
-		if (i > 1) prev = kad_relu(prev);
-		w = kann_new_weight(n_neurons[i], n_neurons[i-1]);
-		b = kann_new_bias(n_neurons[i]);
-		prev = kad_add(kad_cmul(prev, w), b);
-	}
-	out = kad_sigm(prev), out->label = KANN_L_OUT;
-	cost = kad_ce2(prev, truth), cost->label = KANN_L_COST;
-	a->v = kad_compile(&a->n, 2, out, cost);
-	kann_collate_var(a);
-	return a;
-}
-
-static kann_t *kann_rnn_gen_common(int n_in, int n_out, int n_h_layers, int n_h_neurons, kann_layer_f layer)
+static kann_t *kann_gen_common(int n_in, int n_out, int n_h_layers, int n_h_neurons, kann_layer_f layer)
 {
 	int i;
 	kann_t *a;
@@ -135,12 +112,17 @@ static kann_t *kann_rnn_gen_common(int n_in, int n_out, int n_h_layers, int n_h_
 	return a;
 }
 
+kann_t *kann_fnn_gen_mlp(int n_in, int n_out, int n_h_layers, int n_h_neurons)
+{
+	return kann_gen_common(n_in, n_out, n_h_layers, n_h_neurons, kann_layer_linear_relu);
+}
+
 kann_t *kann_rnn_gen_vanilla(int n_in, int n_out, int n_h_layers, int n_h_neurons)
 {
-	return kann_rnn_gen_common(n_in, n_out, n_h_layers, n_h_neurons, kann_layer_rnn);
+	return kann_gen_common(n_in, n_out, n_h_layers, n_h_neurons, kann_layer_rnn);
 }
 
 kann_t *kann_rnn_gen_gru(int n_in, int n_out, int n_h_layers, int n_h_neurons)
 {
-	return kann_rnn_gen_common(n_in, n_out, n_h_layers, n_h_neurons, kann_layer_gru);
+	return kann_gen_common(n_in, n_out, n_h_layers, n_h_neurons, kann_layer_gru);
 }
