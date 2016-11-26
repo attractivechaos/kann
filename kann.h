@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r137"
+#define KANN_VERSION "r138"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
@@ -53,8 +53,14 @@ extern int kann_verbose;
 extern "C" {
 #endif
 
+// common layers
+kad_node_t *kann_layer_input(int n1);
+kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1);
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
+kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
+
 // basic model allocation/deallocation
-kann_t *kann_new(void);
 void kann_collate_x(kann_t *a);
 void kann_delete(kann_t *a);
 
@@ -65,13 +71,6 @@ int kann_n_hyper(const kann_t *a);
 
 // unroll an RNN to an FNN
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
-
-// common layers
-kad_node_t *kann_layer_input(int n1);
-kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1);
-kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
-kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
 // train a model
 void kann_mopt_init(kann_mopt_t *mo);

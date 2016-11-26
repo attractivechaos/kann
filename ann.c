@@ -10,24 +10,15 @@
 
 int kann_verbose = 3;
 
-kann_t *kann_new(void)
-{
-	return (kann_t*)calloc(1, sizeof(kann_t));
-}
+/**************************
+ * Miscellaneous routines *
+ **************************/
 
 void kann_delete(kann_t *a)
 {
 	free(a->t); free(a->g); free(a->c);
 	if (a->v) kad_delete(a->n, a->v);
 	free(a);
-}
-
-kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
-{
-	kann_min_t *m;
-	m = kann_min_new(KANN_MM_RMSPROP, KANN_MB_CONST, n);
-	m->lr = o->lr, m->decay = o->decay;
-	return m;
 }
 
 void kann_collate_x(kann_t *a)
@@ -71,47 +62,6 @@ void kann_sync_x(kann_t *a)
 			k += kad_len(v);
 		}
 	}
-}
-
-static inline int kann_n_by_label(const kann_t *a, int label)
-{
-	int i, n = 0;
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == label)
-			n += a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : 1; // the first dimension is batch size
-	return n;
-}
-
-int kann_n_in(const kann_t *a) { return kann_n_by_label(a, KANN_L_IN); }
-int kann_n_out(const kann_t *a) { return kann_n_by_label(a, KANN_L_OUT); }
-
-int kann_n_hyper(const kann_t *a)
-{
-	int i, n = 0;
-	for (i = 0; i < a->n; ++i)
-		if (kann_is_hyper(a->v[i]))
-			n += kad_len(a->v[i]);
-	return n;
-}
-
-int kann_is_rnn(const kann_t *a)
-{
-	int i;
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->pre) return 1;
-	return 0;
-}
-
-void kann_mopt_init(kann_mopt_t *mo)
-{
-	memset(mo, 0, sizeof(kann_mopt_t));
-	mo->lr = 0.01f;
-	mo->fv = 0.1f;
-	mo->max_mbs = 64;
-	mo->epoch_lazy = 10;
-	mo->max_epoch = 100;
-	mo->decay = 0.9f;
-	mo->max_rnn_len = 1;
 }
 
 static void kann_set_batch_size(kann_t *a, int B)
@@ -164,6 +114,63 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
 		free(root); free(t);
 	}
 	return b;
+}
+
+/**********
+ * Counts *
+ **********/
+
+static inline int kann_n_by_label(const kann_t *a, int label)
+{
+	int i, n = 0;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->label == label)
+			n += a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : 1; // the first dimension is batch size
+	return n;
+}
+
+int kann_n_in(const kann_t *a) { return kann_n_by_label(a, KANN_L_IN); }
+int kann_n_out(const kann_t *a) { return kann_n_by_label(a, KANN_L_OUT); }
+
+int kann_n_hyper(const kann_t *a)
+{
+	int i, n = 0;
+	for (i = 0; i < a->n; ++i)
+		if (kann_is_hyper(a->v[i]))
+			n += kad_len(a->v[i]);
+	return n;
+}
+
+int kann_is_rnn(const kann_t *a)
+{
+	int i;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->pre) return 1;
+	return 0;
+}
+
+/******************
+ * Model training *
+ ******************/
+
+void kann_mopt_init(kann_mopt_t *mo)
+{
+	memset(mo, 0, sizeof(kann_mopt_t));
+	mo->lr = 0.01f;
+	mo->fv = 0.1f;
+	mo->max_mbs = 64;
+	mo->epoch_lazy = 10;
+	mo->max_epoch = 100;
+	mo->decay = 0.9f;
+	mo->max_rnn_len = 1;
+}
+
+kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
+{
+	kann_min_t *m;
+	m = kann_min_new(KANN_MM_RMSPROP, KANN_MB_CONST, n);
+	m->lr = o->lr, m->decay = o->decay;
+	return m;
 }
 
 static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y) // train or validate a minibatch
@@ -272,6 +279,10 @@ void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **
 	kann_train(mo, a, kann_rdr_xy_read, data);
 	kann_rdr_xy_delete(data);
 }
+
+/****************************
+ * Applying a trained model *
+ ****************************/
 
 const float *kann_apply1(kann_t *a, float *x)
 {

@@ -112,7 +112,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 		t = kad_softmax2(t, temp);
 	}
 	t->label = KANN_L_OUT, cost->label = KANN_L_COST;
-	a = kann_new();
+	a = (kann_t*)calloc(1, sizeof(kann_t));
 	a->v = kad_compile(&a->n, 2, t, cost);
 	kann_collate_x(a);
 	return a;
