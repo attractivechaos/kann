@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r143"
+#define KANN_VERSION "r144"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
@@ -54,6 +54,7 @@ extern "C" {
 // common layers
 kad_node_t *kann_layer_input(int n1);
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
+kad_node_t *kann_layer_dropout(kad_node_t *t, float r);
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1);
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);

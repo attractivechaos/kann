@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r143"
+#define KAD_VERSION "r144"
 
 #include <stdio.h>
 #include <string.h>
@@ -48,8 +48,12 @@ struct kad_node_t {
 #define KAD_BACKWARD   3
 #define KAD_SYNC_DIM   4
 
+
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[];
+
+typedef double (*kad_drand_f)(void);
+extern kad_drand_f kad_drand;
 
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
 
@@ -68,6 +72,7 @@ kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // f(x,y) = x * y^T     (co
 kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // f(x,y) = \sum_i -y_i*log(s(x_i)) - (1-y_i)*log(1-s(x_i))  (s() is sigmoid; binary cross-entropy for sigmoid; only x differentiable)
 kad_node_t *kad_cesm(kad_node_t *x, kad_node_t *y);  // f(x,y) = - \sum_i -y_i*log(s(x_i))  (s() is softmax; cross-entropy for softmax; only x differentiable)
 kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperature
+kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 
 // operators taking one operand
 kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)

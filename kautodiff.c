@@ -5,6 +5,8 @@
 #include <math.h>
 #include "kautodiff.h"
 
+kad_drand_f kad_drand = drand48;
+
 /**********************
  * Graph construction *
  **********************/
@@ -78,6 +80,7 @@ KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_ce2, 4)
 KAD_FUNC_OP2(kad_cesm, 12)
 KAD_FUNC_OP2(kad_softmax2, 13)
+KAD_FUNC_OP2(kad_dropout, 15)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
@@ -807,6 +810,34 @@ int kad_op_copy(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_dropout(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	assert(p->child[1].p->n_d == 0);
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_ALLOC) {
+		if (p->child[0].p->to_back)
+			p->child[0].t = (float*)calloc(n, 1);
+	} else if (action == KAD_FORWARD) {
+		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
+		uint8_t *flag = (uint8_t*)p->child[0].t;
+		for (i = 0; i < n; ++i) {
+			int kept = (kad_drand() >= r);
+			p->x[i] = kept? q->x[i] * z : 0.0f;
+			if (flag) flag[i] = kept;
+		}
+	} else if (action == KAD_BACKWARD) {
+		uint8_t *flag = (uint8_t*)p->child[0].t;
+		if (flag)
+			for (i = 0; i < n; ++i)
+				if (flag[i]) q->g[i] += p->g[i];
+	}
+	return 0;
+}
+
 int kad_op_avg(kad_node_t *p, int action)
 {
 	int i, n;
@@ -849,5 +880,6 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_1minus,
 	kad_op_cesm,
 	kad_op_softmax,
-	kad_op_softmax
+	kad_op_softmax,
+	kad_op_dropout
 };

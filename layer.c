@@ -44,6 +44,15 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 	return kad_add(kad_cmul(in, w), b);
 }
 
+kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
+{
+	kad_node_t *s;
+	s = kad_par(0, 0), s->label = KANN_H_DROPOUT;
+	s->x = (float*)calloc(1, sizeof(float));
+	*s->x = r;
+	return kad_dropout(t, s);
+}
+
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1)
 {
 	int n0;
@@ -115,5 +124,6 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	a = (kann_t*)calloc(1, sizeof(kann_t));
 	a->v = kad_compile(&a->n, 2, t, cost);
 	kann_collate_x(a);
+	kad_drand = kann_drand;
 	return a;
 }
