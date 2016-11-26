@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r138"
+#define KANN_VERSION "r139"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
@@ -40,8 +40,6 @@ typedef struct {
 	float *t, *g, *c;
 } kann_t;
 
-typedef kad_node_t (*kann_activate_f)(kad_node_t*);
-typedef kad_node_t *(*kann_layer_f)(kad_node_t*, int);
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
