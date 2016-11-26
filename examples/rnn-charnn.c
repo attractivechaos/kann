@@ -157,7 +157,7 @@ static int charnn_reader(void *data, int action, int len, float *x1, float *y1)
 
 int main(int argc, char *argv[])
 {
-	int c, no_space = 0, n_h_layers = 1, n_h_neurons = 100, max_unroll = 100, use_vanilla = 0;
+	int i, c, no_space = 0, n_h_layers = 1, n_h_neurons = 100, max_unroll = 100, use_vanilla = 0, revmap[MAX_CHAR];
 	uint64_t seed = 11;
 	charnn_t *nn;
 	kann_t *ann;
@@ -203,6 +203,28 @@ int main(int argc, char *argv[])
 	mo.max_rnn_len = max_unroll;
 	kann_train(&mo, ann, charnn_reader, nn);
 	if (fn_out) kann_write(fn_out, ann);
+
+	memset(revmap, 0, MAX_CHAR * sizeof(int));
+	for (i = 0; i < MAX_CHAR; ++i)
+		if (nn->map[i] >= 0) revmap[nn->map[i]] = i;
+
+	kann_rnn_start(ann);
+	for (i = 0, c = ' '; i < 1000; ++i) {
+		float x[MAX_CHAR], s, r;
+		const float *y;
+		int j;
+		memset(x, 0, nn->n_char * sizeof(float));
+		x[nn->map[c]] = 1.0f;
+		y = kann_apply1(ann, x);
+		r = kann_drand();
+		for (j = 0, s = 0.0f; j < nn->n_char; ++j)
+			if (s + y[j] >= r) break;
+			else s += y[j];
+		c = revmap[j];
+		putchar(c);
+	}
+	putchar('\n');
+	kann_rnn_end(ann);
 	kann_delete(ann);
 	return 0;
 }
