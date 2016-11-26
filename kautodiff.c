@@ -636,7 +636,6 @@ int kad_op_cesm(kad_node_t *p, int action)
 
 	e[0] = &p->child[0], e[1] = &p->child[1];
 	assert(e[1]->p->to_back == 0); // child[1] is the true; we don't backprop this
-	assert(e[0]->p->to_back); // as we need e[0]->t to be allocated
 	assert(e[0]->p->n_d == 2);
 	n0 = kad_len(e[0]->p);
 	n1 = kad_len(e[1]->p);
@@ -758,7 +757,6 @@ int kad_op_softmax(kad_node_t *p, int action)
 	int i, j, n;
 	kad_node_t *q = p->child[0].p;
 	assert(q->n_d == 2);
-	assert(!q->to_back);
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
 		kad_sync_dim1(p, q);

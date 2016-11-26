@@ -132,14 +132,16 @@ static int charnn_reader(void *data, int action, int len, float *x1, float *y1)
 	} else if (action == KANN_RDR_READ_TRAIN || action == KANN_RDR_READ_VALIDATE) {
 		int i, j, a, k = action == KANN_RDR_READ_TRAIN? 0 : 1;
 		if (nn->proc[k] == nn->cnt[k]) return 0;
-		do {
+		for (;;) {
 			j = (int)(kann_drand() * n[k]) + (k? n[0] : 0);
-		} while (nn->len[j] < len + 1);
-		i = (int)((nn->len[j] - len - 1) * kann_drand());
-		if (!nn->no_space) {
-			for (; i >= 0; --i)
-				if (nn->s[j][i] == ' ') break;
-			++i;
+			if (nn->len[j] < len + 1) continue;
+			i = (int)((nn->len[j] - len - 1) * kann_drand());
+			if (!nn->no_space) {
+				for (; i < nn->len[j] && nn->s[j][i] == ' '; ++i);
+				for (; i >= 0 && nn->s[j][i] != ' '; --i);
+				++i;
+			}
+			if (i + len < nn->len[j]) break;
 		}
 		memset(x1, 0, len * nn->n_char * sizeof(float));
 		memset(y1, 0, len * nn->n_char * sizeof(float));
