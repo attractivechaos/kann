@@ -172,6 +172,7 @@ int main(int argc, char *argv[])
 		else if (c == 'v') use_vanilla = 1;
 		else if (c == 'l') max_unroll = atoi(optarg);
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
+		else if (c == 'h') n_h_layers = atoi(optarg);
 		else if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'r') mo.lr = atof(optarg);
 	}
