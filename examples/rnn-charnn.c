@@ -166,13 +166,13 @@ int main(int argc, char *argv[])
 
 	kann_mopt_init(&mo);
 	mo.max_epoch = 50;
-	while ((c = getopt(argc, argv, "i:o:vl:m:n:r:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:vu:m:l:n:u:r:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'v') use_vanilla = 1;
-		else if (c == 'l') max_unroll = atoi(optarg);
+		else if (c == 'u') max_unroll = atoi(optarg);
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
-		else if (c == 'h') n_h_layers = atoi(optarg);
+		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'r') mo.lr = atof(optarg);
 	}
