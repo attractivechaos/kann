@@ -761,8 +761,7 @@ int kad_op_softmax(kad_node_t *p, int action)
 	if (action == KAD_SYNC_DIM) {
 		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
-//		float t1 = p->n_child >= 2? *p->child[1].p->x : 1.0f;
-		float t1 = 1.0f;
+		float t1 = p->n_child >= 2 && p->child[1].p->x? *p->child[1].p->x : 1.0f;
 		for (j = 0; j < p->d[0]; ++j) {
 			float *x0, *x, s;
 			x0 = q->x + j * p->d[1];

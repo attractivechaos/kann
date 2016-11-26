@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r139"
+#define KANN_VERSION "r143"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
