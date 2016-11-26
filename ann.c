@@ -30,7 +30,7 @@ kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
 	return m;
 }
 
-void kann_collate(kann_t *a)
+void kann_collate_x(kann_t *a)
 {
 	int i, j, k, l, n_par;
 	n_par = kann_n_par(a);
@@ -53,6 +53,22 @@ void kann_collate(kann_t *a)
 			free(v->x);
 			v->x = &a->c[k];
 			k += l;
+		}
+	}
+}
+
+void kann_sync_x(kann_t *a)
+{
+	int i, j, k;
+	for (i = j = k = 0; i < a->n; ++i) {
+		kad_node_t *v = a->v[i];
+		if (kad_is_var(v)) {
+			v->x = &a->t[j];
+			v->g = &a->g[j];
+			j += kad_len(v);
+		} else if (kann_is_hyper(v)) {
+			v->x = &a->c[k];
+			k += kad_len(v);
 		}
 	}
 }
@@ -257,7 +273,7 @@ void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **
 	kann_rdr_xy_delete(data);
 }
 
-const float *kann_fnn_apply1(kann_t *a, float *x) // FIXME: for now it doesn't work RNN
+const float *kann_apply1(kann_t *a, float *x)
 {
 	int i;
 	kann_set_batch_size(a, 1);
@@ -269,28 +285,41 @@ const float *kann_fnn_apply1(kann_t *a, float *x) // FIXME: for now it doesn't w
 	return 0;
 }
 
+void kann_rnn_start(kann_t *a)
+{
+	int i;
+	kann_set_batch_size(a, 1);
+	for (i = 0; i < a->n; ++i) {
+		kad_node_t *p = a->v[i];
+		if (p->pre) {
+			kad_node_t *q = p->pre;
+			memcpy(p->x, q->x, kad_len(p) * sizeof(float));
+			q->ptr = q->x;
+			q->x = p->x;
+		}
+	}
+}
+
+void kann_rnn_end(kann_t *a)
+{
+	int i;
+	for (i = 0; i < a->n; ++i) {
+		kad_node_t *p = a->v[i];
+		if (p->pre) p->pre->x = (float*)p->pre->ptr;
+	}
+}
+
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x)
 {
-	kann_t *fnn;
 	float *y;
-	int i, k, n_in, n_out;
-
+	int n_in, n_out, i;
 	n_in = kann_n_in(a);
 	n_out = kann_n_out(a);
-	y = (float*)calloc(len * n_out, sizeof(float));
-	fnn = kann_rnn_unroll(a, len, 0);
-	kann_set_batch_size(fnn, 1);
-	for (i = k = 0; i < fnn->n; ++i)
-		if (fnn->v[i]->label == KANN_L_IN)
-			fnn->v[i]->x = &x[k], k += n_in;
-	kad_eval_by_label(fnn->n, fnn->v, KANN_L_OUT);
-	for (i = k = 0; i < fnn->n; ++i)
-		if (fnn->v[i]->label == KANN_L_OUT) {
-			memcpy(&y[k], fnn->v[i]->x, n_out * sizeof(float));
-			k += n_out;
-		}
-	fnn->t = fnn->g = 0;
-	kann_delete(fnn);
+	y = (float*)malloc(len * n_out * sizeof(float));
+	kann_rnn_start(a);
+	for (i = 0; i < len; ++i)
+		memcpy(&y[i*n_out], kann_apply1(a, &x[i*n_in]), n_out * sizeof(float));
+	kann_rnn_end(a);
 	return y;
 }
 
@@ -305,6 +334,7 @@ void kann_write(const char *fn, const kann_t *ann)
 	fwrite(KANN_MAGIC, 1, 4, fp);
 	kad_write(fp, ann->n, ann->v);
 	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
+	fwrite(ann->c, sizeof(float), kann_n_hyper(ann), fp);
 	fclose(fp);
 }
 
@@ -313,7 +343,7 @@ kann_t *kann_read(const char *fn)
 	FILE *fp;
 	char magic[4];
 	kann_t *ann;
-	int i, j, n_par;
+	int n_par, n_hyper;
 
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
 	fread(magic, 1, 4, fp);
@@ -324,19 +354,13 @@ kann_t *kann_read(const char *fn)
 	ann = (kann_t*)calloc(1, sizeof(kann_t));
 	ann->v = kad_read(fp, &ann->n);
 	n_par = kann_n_par(ann);
+	n_hyper = kann_n_hyper(ann);
 	ann->t = (float*)malloc(n_par * sizeof(float));
 	ann->g = (float*)calloc(n_par, sizeof(float));
+	ann->c = (float*)malloc(n_hyper * sizeof(float));
 	fread(ann->t, sizeof(float), n_par, fp);
+	fread(ann->c, sizeof(float), n_hyper, fp);
 	fclose(fp);
-
-	for (i = j = 0; i < ann->n; ++i) {
-		kad_node_t *p = ann->v[i];
-		if (p->n_child == 0 && p->to_back) {
-			p->x = &ann->t[j];
-			p->g = &ann->g[j];
-			j += kad_len(p);
-		}
-	}
-	assert(j == n_par);
+	kann_sync_x(ann);
 	return ann;
 }

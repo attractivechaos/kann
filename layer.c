@@ -114,6 +114,6 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	t->label = KANN_L_OUT, cost->label = KANN_L_COST;
 	a = kann_new();
 	a->v = kad_compile(&a->n, 2, t, cost);
-	kann_collate(a);
+	kann_collate_x(a);
 	return a;
 }

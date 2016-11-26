@@ -86,7 +86,7 @@ int main_mlp_apply(int argc, char *argv[])
 	n_out = kann_n_out(ann);
 	for (i = 0; i < in->n_row; ++i) {
 		const float *y;
-		y = kann_fnn_apply1(ann, in->x[i]);
+		y = kann_apply1(ann, in->x[i]);
 		if (in->rname) printf("%s\t", in->rname[i]);
 		for (j = 0; j < n_out; ++j) {
 			if (j) putchar('\t');

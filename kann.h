@@ -55,7 +55,7 @@ extern "C" {
 
 // basic model allocation/deallocation
 kann_t *kann_new(void);
-void kann_collate(kann_t *a);
+void kann_collate_x(kann_t *a);
 void kann_delete(kann_t *a);
 
 // number of input and output variables
@@ -66,23 +66,27 @@ int kann_n_hyper(const kann_t *a);
 // unroll an RNN to an FNN
 kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
 
-// network I/O
-void kann_write(const char *fn, const kann_t *ann);
-kann_t *kann_read(const char *fn);
-
-// training and applying models
-void kann_mopt_init(kann_mopt_t *mo);
-void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
-void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
-const float *kann_fnn_apply1(kann_t *a, float *x);
-float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
-
 // common layers
 kad_node_t *kann_layer_input(int n1);
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1);
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
+
+// train a model
+void kann_mopt_init(kann_mopt_t *mo);
+void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
+void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
+
+// apply a trained model
+const float *kann_apply1(kann_t *a, float *x);
+void kann_rnn_start(kann_t *a);
+void kann_rnn_end(kann_t *a);
+float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
+
+// network I/O
+void kann_write(const char *fn, const kann_t *ann);
+kann_t *kann_read(const char *fn);
 
 // generic data reader for FNN
 void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
