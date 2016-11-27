@@ -126,6 +126,14 @@ static textgen_t *read_file(const char *fn, int no_space)
 	return nn;
 }
 
+static void textgen_delete(textgen_t *tg)
+{
+	int i;
+	for (i = 0; i < tg->n; ++i) free(tg->s[i]);
+	free(tg->s); free(tg->len);
+	free(tg);
+}
+
 /***************
  * Data reader *
  ***************/
@@ -198,7 +206,7 @@ static kann_t *model_gen(int use_gru, int n_char, int n_h_layers, int n_h_neuron
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 100, use_gru = 0, map[MAX_CHAR];
+	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 100, use_gru = 0, batch_size = 11000, map[MAX_CHAR];
 	float h_dropout = 0.1f;
 	kann_t *ann = 0;
 	kann_mopt_t mo;
@@ -207,7 +215,7 @@ int main(int argc, char *argv[])
 	kann_mopt_init(&mo);
 	mo.max_rnn_len = 100;
 	mo.lr = 0.01f;
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:gt:S")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:gt:Sb:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -220,6 +228,7 @@ int main(int argc, char *argv[])
 		else if (c == 'g') use_gru = 1;
 		else if (c == 't') mo.max_rnn_len = atoi(optarg);
 		else if (c == 'S') no_space = 1;
+		else if (c == 'b') batch_size = atoi(optarg);
 	}
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
@@ -248,11 +257,14 @@ int main(int argc, char *argv[])
 	if (argc - optind >= 1) { // train
 		textgen_t *tg;
 		tg = read_file(argv[optind], no_space);
+		tg->cnt[0] = batch_size * 1.0f / (1.0f + tg->frac_val);
+		tg->cnt[1] = batch_size - tg->cnt[0];
 		memcpy(map, tg->map, MAX_CHAR * sizeof(int));
 		if (ann) assert(kann_n_in(ann) == tg->n_char && kann_n_out(ann) == tg->n_char);
 		else ann = model_gen(use_gru, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
 		kann_train(&mo, ann, textgen_reader, tg);
 		if (fn_out) textgen_write(fn_out, ann, tg->map);
+		textgen_delete(tg);
 	} else { // apply
 		int n_char, revmap[MAX_CHAR];
 		memset(revmap, 0, MAX_CHAR * sizeof(int));

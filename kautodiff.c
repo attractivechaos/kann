@@ -260,6 +260,7 @@ kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n)
 				for (k = 0; k < vi->n_child; ++k) { // set children
 					kad_node_t *p = vi->child[k].p;
 					wi->child[k].p = j > 0 && kad_is_var(p) && !pred[p->tmp]? w[i]->child[k].p : w[shift + p->tmp];
+					wi->child[k].t = 0;
 				}
 				if (j > 0 && vi->pre) { // link to the previous output
 					kad_node_t *pre;
@@ -820,11 +821,10 @@ int kad_op_dropout(kad_node_t *p, int action)
 		kad_sync_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
 		if (p->child[0].p->to_back)
-			p->child[0].t = (float*)calloc(n, 1);
+			p->child[0].t = (float*)realloc(p->child[0].t, n);
 	} else if (action == KAD_FORWARD) {
 		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
 		unsigned char *flag = (unsigned char*)p->child[0].t;
-//		fprintf(stderr, "%f\n", r);
 		for (i = 0; i < n; ++i) {
 			int kept = (kad_drand() >= r);
 			p->x[i] = kept? q->x[i] * z : 0.0f;
