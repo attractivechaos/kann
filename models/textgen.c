@@ -99,7 +99,7 @@ static textgen_t *read_file(const char *fn, int no_space)
 	nn->frac_val = 0.1f;
 	nn->cnt[0] = 10000, nn->cnt[1] = 1000;
 	while (ks_getuntil(ks, KS_SEP_LINE, &s, &dret) >= 0) {
-		if (s.s[s.l-1] == '\r') // for \r\n
+		if (s.l > 0 && s.s[s.l-1] == '\r') // for \r\n
 			--s.l, s.s[s.l-1] = 0;
 		if (s.l) {
 			if (!no_space) kputc(' ', &p);
