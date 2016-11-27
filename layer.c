@@ -53,7 +53,7 @@ kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 	return kad_dropout(t, s);
 }
 
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1)
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kann_activate_f af)
 {
 	int n0;
 	kad_node_t *h0, *w, *u, *b, *out;
@@ -63,7 +63,7 @@ kad_node_t *kann_layer_rnn(kad_node_t *in, int n1)
 	w = kann_new_weight(n1, n0);
 	u = kann_new_weight(n1, n1);
 	b = kann_new_bias(n1);
-	out = kad_relu(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	out = af(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
 	out->pre = h0;
 	return out;
 }

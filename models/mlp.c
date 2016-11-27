@@ -38,19 +38,20 @@ int main(int argc, char *argv[])
 		else if (c == 'd') h_dropout = atof(optarg);
 	}
 	if (argc - optind < 1) {
-		fprintf(stderr, "Usage: mlp [options] <in.knd> [out.knd]\n");
-		fprintf(stderr, "Options:\n");
-		fprintf(stderr, "  Model construction:\n");
-		fprintf(stderr, "    -s INT      random seed [%d]\n", seed);
-		fprintf(stderr, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
-		fprintf(stderr, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
-		fprintf(stderr, "    -i FILE     read trained model from FILE []\n");
-		fprintf(stderr, "    -o FILE     save trained model to FILE [stdout]\n");
-		fprintf(stderr, "  Model training:\n");
-		fprintf(stderr, "    -r FLOAT    learning rate [%g]\n", mo.lr);
-		fprintf(stderr, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
-		fprintf(stderr, "    -m INT      max number of epochs [%d]\n", mo.max_epoch);
-		fprintf(stderr, "    -B INT      mini-batch size [%d]\n", mo.max_mbs);
+		FILE *fp = stdout;
+		fprintf(fp, "Usage: mlp [options] <in.knd> [out.knd]\n");
+		fprintf(fp, "Options:\n");
+		fprintf(fp, "  Model construction:\n");
+		fprintf(fp, "    -i FILE     read trained model from FILE []\n");
+		fprintf(fp, "    -o FILE     save trained model to FILE []\n");
+		fprintf(fp, "    -s INT      random seed [%d]\n", seed);
+		fprintf(fp, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
+		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
+		fprintf(fp, "  Model training:\n");
+		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", mo.lr);
+		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
+		fprintf(fp, "    -m INT      max number of epochs [%d]\n", mo.max_epoch);
+		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mo.max_mbs);
 		return 1;
 	}
 	if (argc - optind == 1 && in_fn == 0) {
