@@ -53,7 +53,6 @@ kann_rand.o: kann_rand.h
 kautodiff.o: kautodiff.h
 layer.o: kann_rand.h kann.h kautodiff.h
 reader.o: kann_rand.h kann.h kautodiff.h
-test.o: kautodiff.h
 examples/rnn-bit.o: kann.h kautodiff.h kann_rand.h
 models/mlp.o: kann.h kautodiff.h kann_rand.h kann_data.h
 models/textgen.o: kann.h kautodiff.h kann_rand.h kseq.h

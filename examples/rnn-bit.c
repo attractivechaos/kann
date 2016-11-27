@@ -94,6 +94,7 @@ int main(int argc, char *argv[])
 	}
 
 	kann_srand(seed);
+	kad_trap_fe();
 	ta = (uint64_t*)malloc((n_tot[0] + n_tot[1]) * 8);
 	tb = (uint64_t*)malloc((n_tot[0] + n_tot[1]) * 8);
 	tc = (uint64_t*)malloc((n_tot[0] + n_tot[1]) * 8);
