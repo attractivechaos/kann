@@ -35,22 +35,21 @@ examples/rnn-charnn:examples/rnn-charnn.c libkann.a
 		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
 
 clean:
-		rm -fr gmon.out *.o a.out $(PROG) *~ *.a *.dSYM
+		rm -fr gmon.out *.o a.out $(EXTRA) *~ *.a *.dSYM models/*.dSYM examples/*.dSYM
 
 depend:
-		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(DFLAGS) -- *.c examples/*.c)
+		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(DFLAGS) -- *.c examples/*.c models/*.c)
 
 # DO NOT DELETE
 
 ann.o: kann_rand.h kann_min.h kann.h kautodiff.h
-cli.o: kann.h kautodiff.h kann_rand.h kann_data.h
 kad_debug.o: kautodiff.h
 kann_data.o: kseq.h kann_data.h
 kann_min.o: kann_min.h
 kann_rand.o: kann_rand.h
 kautodiff.o: kautodiff.h
 layer.o: kann_rand.h kann.h kautodiff.h
-main.o: kann.h kautodiff.h
 reader.o: kann_rand.h kann.h kautodiff.h
 examples/rnn-bit.o: kann.h kautodiff.h kann_rand.h
 examples/rnn-charnn.o: kann.h kautodiff.h kann_rand.h kseq.h
+models/mlp.o: kann.h kautodiff.h kann_rand.h kann_data.h
