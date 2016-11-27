@@ -40,7 +40,7 @@ void kann_collate_x(kann_t *a)
 			j += l;
 		} else if (kann_is_hyper(v)) {
 			l = kad_len(v);
-			memcpy(&a->c[j], v->x, l * sizeof(float));
+			memcpy(&a->c[k], v->x, l * sizeof(float));
 			free(v->x);
 			v->x = &a->c[k];
 			k += l;
@@ -62,6 +62,14 @@ void kann_sync_x(kann_t *a)
 			k += kad_len(v);
 		}
 	}
+}
+
+void kann_set_hyper(kann_t *a, int label, float z)
+{
+	int i;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->label == label && a->v[i]->n_d == 0)
+			*a->v[i]->x = z;
 }
 
 static void kann_set_batch_size(kann_t *a, int B)
@@ -156,11 +164,11 @@ int kann_is_rnn(const kann_t *a)
 void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
-	mo->lr = 0.01f;
+	mo->lr = 0.001f;
 	mo->fv = 0.1f;
 	mo->max_mbs = 64;
 	mo->epoch_lazy = 10;
-	mo->max_epoch = 100;
+	mo->max_epoch = 20;
 	mo->decay = 0.9f;
 	mo->max_rnn_len = 1;
 }
@@ -342,6 +350,11 @@ void kann_write(const char *fn, const kann_t *ann)
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
+	kann_write_core(fp, ann);
+}
+
+void kann_write_core(FILE *fp, const kann_t *ann)
+{
 	fwrite(KANN_MAGIC, 1, 4, fp);
 	kad_write(fp, ann->n, ann->v);
 	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
@@ -352,11 +365,16 @@ void kann_write(const char *fn, const kann_t *ann)
 kann_t *kann_read(const char *fn)
 {
 	FILE *fp;
+	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
+	return kann_read_core(fp);
+}
+
+kann_t *kann_read_core(FILE *fp)
+{
 	char magic[4];
 	kann_t *ann;
 	int n_par, n_hyper;
 
-	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
 	fread(magic, 1, 4, fp);
 	if (strncmp(magic, KANN_MAGIC, 4) != 0) {
 		fclose(fp);

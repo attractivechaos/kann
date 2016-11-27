@@ -824,6 +824,7 @@ int kad_op_dropout(kad_node_t *p, int action)
 	} else if (action == KAD_FORWARD) {
 		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
 		uint8_t *flag = (uint8_t*)p->child[0].t;
+//		fprintf(stderr, "%f\n", r);
 		for (i = 0; i < n; ++i) {
 			int kept = (kad_drand() >= r);
 			p->x[i] = kept? q->x[i] * z : 0.0f;

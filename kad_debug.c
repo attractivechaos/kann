@@ -2,6 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include "kautodiff.h"
+#ifdef __SSE__
+#include <xmmintrin.h>
+#endif
+
+void kad_trap_fe(void)
+{
+#ifdef __SSE__
+	_MM_SET_EXCEPTION_MASK(_MM_GET_EXCEPTION_MASK() & ~(_MM_MASK_INVALID | _MM_MASK_DIV_ZERO));
+#endif
+}
 
 void kad_debug(FILE *fp, int n, kad_node_t **v)
 {

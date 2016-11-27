@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r144"
+#define KANN_VERSION "r145"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
@@ -61,6 +61,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
 // basic model allocation/deallocation
 void kann_collate_x(kann_t *a);
+void kann_set_hyper(kann_t *a, int label, float z);
 void kann_delete(kann_t *a);
 
 // number of input and output variables
@@ -83,7 +84,9 @@ void kann_rnn_end(kann_t *a);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
 
 // network I/O
+void kann_write_core(FILE *fp, const kann_t *ann);
 void kann_write(const char *fn, const kann_t *ann);
+kann_t *kann_read_core(FILE *fp);
 kann_t *kann_read(const char *fn);
 
 // generic data reader for FNN

@@ -105,6 +105,7 @@ float kad_sdot(int n, const float *x, const float *y);
 void kad_saxpy(int n, float a, const float *x, float *y);
 
 // defined in kad_debug.c for debugging only
+void kad_trap_fe(void);
 void kad_debug(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
 
