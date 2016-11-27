@@ -823,7 +823,7 @@ int kad_op_dropout(kad_node_t *p, int action)
 			p->child[0].t = (float*)calloc(n, 1);
 	} else if (action == KAD_FORWARD) {
 		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
-		uint8_t *flag = (uint8_t*)p->child[0].t;
+		unsigned char *flag = (unsigned char*)p->child[0].t;
 //		fprintf(stderr, "%f\n", r);
 		for (i = 0; i < n; ++i) {
 			int kept = (kad_drand() >= r);
@@ -831,7 +831,7 @@ int kad_op_dropout(kad_node_t *p, int action)
 			if (flag) flag[i] = kept;
 		}
 	} else if (action == KAD_BACKWARD) {
-		uint8_t *flag = (uint8_t*)p->child[0].t;
+		unsigned char *flag = (unsigned char*)p->child[0].t;
 		if (flag)
 			for (i = 0; i < n; ++i)
 				if (flag[i]) q->g[i] += p->g[i];
