@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
 	char *fn_out = 0, *fn_in = 0;
 
 	kann_mopt_init(&mo);
+	mo.lr = 0.01f;
 	mo.max_epoch = 50;
 	while ((t = getopt(argc, argv, "m:b:l:r:hn:vo:i:s:t:")) >= 0) {
 		if (t == 'm') mo.max_epoch = atoi(optarg);
