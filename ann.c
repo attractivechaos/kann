@@ -351,6 +351,7 @@ void kann_write(const char *fn, const kann_t *ann)
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
 	kann_write_core(fp, ann);
+	fclose(fp);
 }
 
 void kann_write_core(FILE *fp, const kann_t *ann)
@@ -359,14 +360,16 @@ void kann_write_core(FILE *fp, const kann_t *ann)
 	kad_write(fp, ann->n, ann->v);
 	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
 	fwrite(ann->c, sizeof(float), kann_n_hyper(ann), fp);
-	fclose(fp);
 }
 
 kann_t *kann_read(const char *fn)
 {
 	FILE *fp;
+	kann_t *ann;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
-	return kann_read_core(fp);
+	ann = kann_read_core(fp);
+	fclose(fp);
+	return ann;
 }
 
 kann_t *kann_read_core(FILE *fp)
@@ -389,7 +392,6 @@ kann_t *kann_read_core(FILE *fp)
 	ann->c = (float*)malloc(n_hyper * sizeof(float));
 	fread(ann->t, sizeof(float), n_par, fp);
 	fread(ann->c, sizeof(float), n_hyper, fp);
-	fclose(fp);
 	kann_sync_x(ann);
 	return ann;
 }
