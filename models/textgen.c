@@ -190,7 +190,7 @@ static kann_t *model_gen(int use_gru, int n_char, int n_h_layers, int n_h_neuron
 	kad_node_t *t;
 	t = kann_layer_input(n_char);
 	for (i = 0; i < n_h_layers; ++i) {
-		t = use_gru? kann_layer_gru(t, n_h_neurons) : kann_layer_rnn(t, n_h_neurons, kad_relu);
+		t = use_gru? kann_layer_gru(t, n_h_neurons) : kann_layer_rnn(t, n_h_neurons, kad_tanh);
 		t = kann_layer_dropout(t, h_dropout);
 	}
 	return kann_layer_final(t, n_char, KANN_C_CE);
@@ -206,6 +206,7 @@ int main(int argc, char *argv[])
 
 	kann_mopt_init(&mo);
 	mo.max_rnn_len = 100;
+	mo.lr = 0.01f;
 	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:gt:S")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);

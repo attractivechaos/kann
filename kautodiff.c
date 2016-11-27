@@ -650,7 +650,7 @@ int kad_op_cesm(kad_node_t *p, int action)
 	} else if (action == KAD_FORWARD) {
 		double cost;
 		int r = e[0]->p->d[0], c = e[0]->p->d[1];
-		for (i = 0; i < n0; ++i) e[0]->t[i] = expf(e[0]->p->x[i]);
+		for (i = 0; i < n0; ++i) e[0]->t[i] = expf(e[0]->p->x[i]); // FIXME: numerical stability!
 		for (j = 0, cost = 0.0; j < r; ++j) {
 			const float *x, *y;
 			float *p, lsx, sx = 0.0f, sy = 0.0f;
