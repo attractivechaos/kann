@@ -75,6 +75,7 @@ static void gen_map(textgen_t *nn)
 
 static void push_paragraph(textgen_t *nn, int len, char *s)
 {
+	if (s == 0) return;
 	if (nn->n == nn->m) {
 		nn->m = nn->m? nn->m<<1 : 16;
 		nn->len = (int*)realloc(nn->len, nn->m * sizeof(int));
