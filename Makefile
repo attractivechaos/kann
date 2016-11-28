@@ -3,8 +3,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
 INCLUDES=	-I.
-OBJS=		kautodiff.o kad_debug.o kann_rand.o kann_min.o kann_data.o ann.o \
-			layer.o reader.o
+OBJS=		kautodiff.o kann.o kann_data.o kann_extra.o
 EXTRA=		models/mlp models/textgen examples/rnn-bit
 LIBS=		-lm -lz
 
@@ -14,45 +13,32 @@ LIBS=		-lm -lz
 .c.o:
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
-all:libkann.a $(EXTRA)
-
-kann:libkann.a cli.o main.o
-		$(CC) cli.o main.o -o $@ -L. -lkann $(LIBS)
-
-libkann.a:$(OBJS)
-		$(AR) -csru $@ $(OBJS)
+all:$(EXTRA)
 
 kann_data.o:kann_data.c
 		$(CC) -c $(CFLAGS) $(ZLIB_FLAGS) $(INCLUDES) $< -o $@
 
-models/mlp:models/mlp.c libkann.a
-		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
+models/mlp:models/mlp.o kautodiff.o kann.o kann_data.o kann_extra.o
+		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
-models/textgen:models/textgen.c libkann.a
-		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
+models/textgen:models/textgen.o kautodiff.o kann.o
+		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
-examples/rnn-bit:examples/rnn-bit.c libkann.a
-		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
-
-examples/rnn-charnn:examples/rnn-charnn.c libkann.a
-		$(CC) $(CFLAGS) -o $@ -I. $< -L. -lkann $(LIBS)
+examples/rnn-bit:examples/rnn-bit.o kautodiff.o kann.o
+		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
 clean:
-		rm -fr gmon.out *.o a.out $(EXTRA) *~ *.a *.dSYM models/*.dSYM examples/*.dSYM
+		rm -fr *.o */*.o a.out */a.out *.a *.dSYM */*.dSYM $(EXTRA)
 
 depend:
 		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(DFLAGS) -- *.c examples/*.c models/*.c)
 
 # DO NOT DELETE
 
-ann.o: kann_rand.h kann_min.h kann.h kautodiff.h
-kad_debug.o: kautodiff.h
+kann.o: kann.h kautodiff.h
 kann_data.o: kseq.h kann_data.h
-kann_min.o: kann_min.h
-kann_rand.o: kann_rand.h
+kann_extra.o: kann.h kautodiff.h
 kautodiff.o: kautodiff.h
-layer.o: kann_rand.h kann.h kautodiff.h
-reader.o: kann_rand.h kann.h kautodiff.h
-examples/rnn-bit.o: kann.h kautodiff.h kann_rand.h
-models/mlp.o: kann.h kautodiff.h kann_rand.h kann_data.h
-models/textgen.o: kann.h kautodiff.h kann_rand.h kseq.h
+examples/rnn-bit.o: kann.h kautodiff.h
+models/mlp.o: kann.h kautodiff.h kann_data.h
+models/textgen.o: kann.h kautodiff.h kseq.h

@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include "kann.h"
-#include "kann_rand.h"
 
 static int bit_len = 31, n_tot[2] = {10000,1000}, n_proc[2];
 static uint64_t *ta, *tb, *tc;

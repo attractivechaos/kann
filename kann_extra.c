@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <stdlib.h>
-#include "kann_rand.h"
 #include "kann.h"
 
 typedef struct {

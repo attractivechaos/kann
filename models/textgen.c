@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <zlib.h>
 #include "kann.h"
-#include "kann_rand.h"
 #include "kseq.h"
 KSTREAM_INIT(gzFile, gzread, 16384)
 

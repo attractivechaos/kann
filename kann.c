@@ -2,23 +2,102 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "kann_rand.h"
-#include "kann_min.h"
 #include "kann.h"
 
 #define KANN_MAGIC "KAN\1"
 
 int kann_verbose = 3;
 
-/**************************
- * Miscellaneous routines *
- **************************/
+/***********************************
+ *** Layers and model generation ***
+ ***********************************/
 
-void kann_delete(kann_t *a)
+kad_node_t *kann_new_weight(int n_row, int n_col)
 {
-	free(a->t); free(a->g); free(a->c);
-	if (a->v) kad_delete(a->n, a->v);
-	free(a);
+	kad_node_t *w;
+	w = kad_var(0, 0, 2, n_row, n_col);
+	w->x = (float*)malloc(n_row * n_col * sizeof(float));
+	kann_rand_weight(n_row, n_col, w->x);
+	return w;
+}
+
+kad_node_t *kann_new_bias(int n)
+{
+	kad_node_t *b;
+	b = kad_var(0, 0, 1, n);
+	b->x = (float*)calloc(n, sizeof(float));
+	return b;
+}
+
+kad_node_t *kann_layer_input(int n1)
+{
+	kad_node_t *t;
+	t = kad_par(0, 2, 1, n1), t->label = KANN_L_IN;
+	return t;
+}
+
+kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
+{
+	int n0;
+	kad_node_t *w, *b;
+	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	w = kann_new_weight(n1, n0);
+	b = kann_new_bias(n1);
+	return kad_add(kad_cmul(in, w), b);
+}
+
+kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
+{
+	kad_node_t *s;
+	s = kad_par(0, 0), s->label = KANN_H_DROPOUT;
+	s->x = (float*)calloc(1, sizeof(float));
+	*s->x = r;
+	return kad_dropout(t, s);
+}
+
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kann_activate_f af)
+{
+	int n0;
+	kad_node_t *h0, *w, *u, *b, *out;
+	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	h0 = kad_var(0, 0, 2, 1, n1);
+	h0->x = (float*)calloc(n1, sizeof(float));
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	out = af(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	out->pre = h0;
+	return out;
+}
+
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
+{
+	int n0;
+	kad_node_t *r, *z, *w, *u, *b, *s, *h0, *out;
+
+	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	h0 = kad_var(0, 0, 2, 1, n1);
+	h0->x = (float*)calloc(n1, sizeof(float));
+
+	// z = sigm(x_t * W_z + h_{t-1} * U_z + b_z)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	z = kad_sigm(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	// r = sigm(x_t * W_r + h_{t-1} * U_r + b_r)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	r = kad_sigm(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	// s = tanh(x_t * W_s + (h_{t-1} # r) * U_s + b_s)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	s = kad_tanh(kad_add(kad_add(kad_cmul(in, w), kad_cmul(kad_mul(r, h0), u)), b));
+	// h_t = z # h_{t-1} + (1 - z) # s
+	out = kad_add(kad_mul(kad_1minus(z), s), kad_mul(z, h0));
+	out->pre = h0;
+	return out;
 }
 
 void kann_collate_x(kann_t *a)
@@ -62,6 +141,43 @@ void kann_sync_x(kann_t *a)
 			k += kad_len(v);
 		}
 	}
+}
+
+kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
+{
+	kann_t *a = 0;
+	kad_node_t *cost = 0, *truth = 0;
+	assert(type == KANN_C_BIN_CE || type == KANN_C_CE);
+	truth = kad_par(0, 2, 1, n_out), truth->label = KANN_L_TRUTH;
+	t = kann_layer_linear(t, n_out);
+	if (type == KANN_C_BIN_CE) {
+		cost = kad_ce2(t, truth);
+		t = kad_sigm(t);
+	} else if (type == KANN_C_CE) {
+		kad_node_t *temp;
+		temp = kad_par(0, 0), temp->label = KANN_H_TEMP;
+		temp->x = (float*)calloc(1, sizeof(float));
+		*temp->x = 1.0f;
+		cost = kad_cesm(t, truth);
+		t = kad_softmax2(t, temp);
+	}
+	t->label = KANN_L_OUT, cost->label = KANN_L_COST;
+	a = (kann_t*)calloc(1, sizeof(kann_t));
+	a->v = kad_compile(&a->n, 2, t, cost);
+	kann_collate_x(a);
+	kad_drand = kann_drand;
+	return a;
+}
+
+/**************************
+ * Miscellaneous routines *
+ **************************/
+
+void kann_delete(kann_t *a)
+{
+	free(a->t); free(a->g); free(a->c);
+	if (a->v) kad_delete(a->n, a->v);
+	free(a);
 }
 
 void kann_set_hyper(kann_t *a, int label, float z)
@@ -386,4 +502,204 @@ kann_t *kann_read_core(FILE *fp)
 	fread(ann->c, sizeof(float), n_hyper, fp);
 	kann_sync_x(ann);
 	return ann;
+}
+
+/**************************************
+ *** Pseudo-random number generator ***
+ **************************************/
+
+#define KANN_SEED1 1181783497276652981ULL
+
+typedef struct {
+	uint64_t s[2];
+	double n_gset;
+	int n_iset;
+	volatile int lock;
+} kann_rand_t;
+
+static kann_rand_t kann_rng = { {11ULL, KANN_SEED1}, 0.0, 0, 0 };
+
+static inline uint64_t xorshift128plus(uint64_t s[2])
+{
+	uint64_t x, y;
+	x = s[0], y = s[1];
+	s[0] = y;
+	x ^= x << 23;
+	s[1] = x ^ y ^ (x >> 17) ^ (y >> 26);
+	y += s[1];
+	return y;
+}
+
+void kann_srand(uint64_t seed0)
+{
+	kann_rand_t *r = &kann_rng;
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	memset(r, 0, sizeof(kann_rand_t));
+	r->s[0] = seed0, r->s[1] = KANN_SEED1;
+	__sync_lock_release(&r->lock);
+}
+
+static inline uint64_t kann_rand_unsafe(kann_rand_t *r)
+{
+	return xorshift128plus(r->s);
+}
+
+static inline double kann_drand_unsafe(kann_rand_t *r)
+{
+	return (xorshift128plus(r->s)>>11) * (1.0/9007199254740992.0);
+}
+
+static double kann_normal_unsafe(kann_rand_t *r)
+{
+	if (r->n_iset == 0) {
+		double fac, rsq, v1, v2; 
+		do { 
+			v1 = 2.0 * kann_drand_unsafe(r) - 1.0;
+			v2 = 2.0 * kann_drand_unsafe(r) - 1.0; 
+			rsq = v1 * v1 + v2 * v2;
+		} while (rsq >= 1.0 || rsq == 0.0);
+		fac = sqrt(-2.0 * log(rsq) / rsq); 
+		r->n_gset = v1 * fac; 
+		r->n_iset = 1;
+		return v2 * fac;
+	} else {
+		r->n_iset = 0;
+		return r->n_gset;
+	}
+}
+
+uint64_t kann_rand(void)
+{
+	uint64_t x;
+	kann_rand_t *r = &kann_rng;
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	x = kann_rand_unsafe(r);
+	__sync_lock_release(&r->lock);
+	return x;
+}
+
+double kann_drand(void)
+{
+	double x;
+	kann_rand_t *r = &kann_rng;
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	x = kann_drand_unsafe(r);
+	__sync_lock_release(&r->lock);
+	return x;
+}
+
+double kann_normal(void)
+{
+	double x;
+	kann_rand_t *r = &kann_rng;
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	x = kann_normal_unsafe(r);
+	__sync_lock_release(&r->lock);
+	return x;
+}
+
+void kann_shuffle(int n, float **x, float **y, char **rname)
+{
+	int i, *s;
+	kann_rand_t *r = &kann_rng;
+
+	s = (int*)malloc(n * sizeof(int));
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	for (i = n - 1; i >= 0; --i)
+		s[i] = (int)(kann_drand_unsafe(r) * (i+1));
+	__sync_lock_release(&r->lock);
+	for (i = n - 1; i >= 0; --i) {
+		float *tf;
+		char *ts;
+		int j = s[i];
+		if (x) tf = x[i], x[i] = x[j], x[j] = tf;
+		if (y) tf = y[i], y[i] = y[j], y[j] = tf;
+		if (rname) ts = rname[i], rname[i] = rname[j], rname[j] = ts;
+	}
+	free(s);
+}
+
+void kann_rand_weight(int n_row, int n_col, float *w)
+{
+	int i, j;
+	double s;
+	kann_rand_t *r = &kann_rng;
+
+	s = 1.0 / sqrt(n_col);
+	while (__sync_lock_test_and_set(&r->lock, 1));
+	for (i = 0; i < n_row; ++i)
+		for (j = 0; j < n_col; ++j)
+			w[i*n_col+j] = kann_normal_unsafe(r) * s;
+	__sync_lock_release(&r->lock);
+}
+
+/*****************
+ *** Minimizer ***
+ *****************/
+
+#ifdef __SSE__
+#include <xmmintrin.h>
+
+void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r)
+{
+	int i, n4 = n>>2<<2;
+	__m128 vh, vg, vr, vt, vd, vd1, tmp, vtiny;
+	vh = _mm_set1_ps(h0);
+	vd = _mm_set1_ps(decay);
+	vd1 = _mm_set1_ps(1.0f - decay);
+	vtiny = _mm_set1_ps(1e-6f);
+	for (i = 0; i < n4; i += 4) {
+		vt = _mm_loadu_ps(&t[i]);
+		vr = _mm_loadu_ps(&r[i]);
+		vg = _mm_loadu_ps(&g[i]);
+		if (h) vh = _mm_loadu_ps(&h[i]);
+		vr = _mm_add_ps(_mm_mul_ps(vd1, _mm_mul_ps(vg, vg)), _mm_mul_ps(vd, vr));
+		_mm_storeu_ps(&r[i], vr);
+		tmp = _mm_sub_ps(vt, _mm_mul_ps(_mm_mul_ps(vh, _mm_rsqrt_ps(_mm_add_ps(vtiny, vr))), vg));
+		_mm_storeu_ps(&t[i], tmp);
+	}
+	for (; i < n; ++i) {
+		r[i] = (1. - decay) * g[i] * g[i] + decay * r[i];
+		t[i] -= (h? h[i] : h0) / sqrt(1e-6 + r[i]) * g[i];
+	}
+}
+#else
+void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r)
+{
+	int i;
+	for (i = 0; i < n; ++i) {
+		float lr = h? h[i] : h0;
+		r[i] = (1. - decay) * g[i] * g[i] + decay * r[i];
+		t[i] -= lr / sqrt(1e-6 + r[i]) * g[i];
+	}
+}
+#endif
+
+kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n)
+{
+	kann_min_t *m;
+	if (mini_algo <= 0) mini_algo = KANN_MM_RMSPROP;
+	if (batch_algo <= 0) batch_algo = KANN_MB_CONST;
+	m = (kann_min_t*)calloc(1, sizeof(kann_min_t));
+	m->mini_algo = mini_algo, m->batch_algo = batch_algo, m->n = n;
+	if (mini_algo == KANN_MM_RMSPROP) {
+		m->lr = 0.001f, m->decay = 0.9f;
+		m->maux = (float*)calloc(n, sizeof(float));
+	}
+	return m;
+}
+
+void kann_min_delete(kann_min_t *m)
+{
+	free(m->maux); free(m->baux); free(m);
+}
+
+void kann_min_mini_update(kann_min_t *m, const float *g, float *t)
+{
+	if (m->mini_algo == KANN_MM_RMSPROP)
+		kann_RMSprop(m->n, m->lr, 0, m->decay, g, t, m->maux);
+}
+
+void kann_min_batch_finish(kann_min_t *m, const float *t)
+{
 }

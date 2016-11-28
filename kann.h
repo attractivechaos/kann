@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r158"
+#define KANN_VERSION "r160"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
@@ -20,8 +20,21 @@
 #define KANN_RDR_READ_TRAIN      3
 #define KANN_RDR_READ_VALIDATE   4
 
+#define KANN_MM_DEFAULT 0
+#define KANN_MM_SGD     1
+#define KANN_MM_RMSPROP 2
+
+#define KANN_MB_DEFAULT 0
+#define KANN_MB_CONST   1
+
 #include <stdint.h>
 #include "kautodiff.h"
+
+typedef struct {
+	int n;
+	kad_node_t **v;
+	float *t, *g, *c;
+} kann_t;
 
 typedef struct {
 	float lr;    // learning rate
@@ -35,10 +48,12 @@ typedef struct {
 } kann_mopt_t;
 
 typedef struct {
-	int n;
-	kad_node_t **v;
-	float *t, *g, *c;
-} kann_t;
+	int n, epoch;
+	short mini_algo, batch_algo;
+	float lr;
+	float decay;
+	float *maux, *baux;
+} kann_min_t;
 
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
 typedef kad_node_t *(*kann_activate_f)(kad_node_t*);
@@ -76,7 +91,6 @@ kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
 // train a model
 void kann_mopt_init(kann_mopt_t *mo);
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
-void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 
 // apply a trained model
 const float *kann_apply1(kann_t *a, float *x);
@@ -84,16 +98,31 @@ void kann_rnn_start(kann_t *a);
 void kann_rnn_end(kann_t *a);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
 
-// network I/O
+// model I/O
 void kann_write_core(FILE *fp, const kann_t *ann);
 void kann_write(const char *fn, const kann_t *ann);
 kann_t *kann_read_core(FILE *fp);
 kann_t *kann_read(const char *fn);
 
+// pseudo-random number generator
+void kann_srand(uint64_t seed);
+uint64_t kann_rand(void);
+double kann_drand(void);
+double kann_normal(void);
+void kann_shuffle(int n, float **x, float **y, char **rname);
+void kann_rand_weight(int n_row, int n_col, float *w);
+
+// kann minimizer
+kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n);
+void kann_min_delete(kann_min_t *m);
+void kann_min_mini_update(kann_min_t *m, const float *g, float *t);
+void kann_min_batch_finish(kann_min_t *m, const float *t);
+
 // generic data reader for FNN
 void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
 void kann_rdr_xy_delete(void *data);
 int kann_rdr_xy_read(void *data, int action, int len, float *x1, float *y1);
+void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 
 #ifdef __cplusplus
 }

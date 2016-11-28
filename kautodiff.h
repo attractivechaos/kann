@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r156"
+#define KAD_VERSION "r160"
 
 #include <stdio.h>
 #include <string.h>
@@ -104,9 +104,9 @@ kad_node_t **kad_read(FILE *fp, int *_n_node);
 float kad_sdot(int n, const float *x, const float *y);
 void kad_saxpy(int n, float a, const float *x, float *y);
 
-// defined in kad_debug.c for debugging only
+// debugging routines
 void kad_trap_fe(void);
-void kad_debug(FILE *fp, int n, kad_node_t **v);
+void kad_print_graph(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
 
 #ifdef __cplusplus
