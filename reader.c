@@ -49,3 +49,11 @@ int kann_rdr_xy_read(void *data, int action, int max_len, float *x, float *y)
 	}
 	return 1;
 }
+
+void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y)
+{
+	void *data;
+	data = kann_rdr_xy_new(n, mo->fv, kann_n_in(a), x, kann_n_out(a), y);
+	kann_train(mo, a, kann_rdr_xy_read, data);
+	kann_rdr_xy_delete(data);
+}

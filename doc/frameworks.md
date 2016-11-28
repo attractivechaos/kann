@@ -2,6 +2,7 @@
   - Homepage: http://pjreddie.com/darknet/
   - Source code: https://github.com/pjreddie/darknet
   - OpenHub: https://www.openhub.net/p/darknet-nn
+  - Primary language: C
   - Comments: a portable and versatile implementation in plain C, supporting
 	CUDA optionally
 * Theano
@@ -51,3 +52,14 @@
   - Homepage: http://chainer.org/
   - Source code: https://github.com/pfnet/chainer
   - OpenHub: https://www.openhub.net/p/pfnet_chainer
+* tiny-dnn
+  - Source code: https://github.com/tiny-dnn/tiny-dnn
+  - OpenHub: https://www.openhub.net/p/tiny-dnn
+  - RNN support: no, as of 2016-11-28
+  - Primary interface language: C++
+* leaf
+  - Homepage: http://autumnai.com/leaf/book/
+  - Source code: https://github.com/autumnai/leaf
+  - OpenHub: https://www.openhub.net/p/leaf-nn
+  - Primary interface language: Rust
+  - Comment: no commits since 2016-04-27

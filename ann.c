@@ -280,14 +280,6 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 	}
 }
 
-void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y)
-{
-	void *data;
-	data = kann_rdr_xy_new(n, mo->fv, kann_n_in(a), x, kann_n_out(a), y);
-	kann_train(mo, a, kann_rdr_xy_read, data);
-	kann_rdr_xy_delete(data);
-}
-
 /****************************
  * Applying a trained model *
  ****************************/
