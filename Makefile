@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
 INCLUDES=	-I.
-OBJS=		kautodiff.o kann.o kann_data.o kann_extra.o
+OBJS=		kautodiff.o kann.o kann_data.o
 EXTRA=		models/mlp models/textgen examples/rnn-bit
 LIBS=		-lm -lz
 
@@ -18,7 +18,7 @@ all:$(EXTRA)
 kann_data.o:kann_data.c
 		$(CC) -c $(CFLAGS) $(ZLIB_FLAGS) $(INCLUDES) $< -o $@
 
-models/mlp:models/mlp.o kautodiff.o kann.o kann_data.o kann_extra.o
+models/mlp:models/mlp.o kautodiff.o kann.o kann_data.o
 		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
 models/textgen:models/textgen.o kautodiff.o kann.o
@@ -37,8 +37,8 @@ depend:
 
 kann.o: kann.h kautodiff.h
 kann_data.o: kseq.h kann_data.h
-kann_extra.o: kann.h kautodiff.h
 kautodiff.o: kautodiff.h
+test.o: kautodiff.h
 examples/rnn-bit.o: kann.h kautodiff.h
 models/mlp.o: kann.h kautodiff.h kann_data.h
 models/textgen.o: kann.h kautodiff.h kseq.h
