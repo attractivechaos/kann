@@ -1,12 +1,13 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r160"
+#define KANN_VERSION "r164"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
 #define KANN_L_TRUTH    3
 #define KANN_L_COST     4
+#define KANN_L_PIVOT    5
 
 #define KANN_H_TEMP     11
 #define KANN_H_DROPOUT  12
@@ -79,6 +80,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 void kann_collate_x(kann_t *a);
 void kann_set_hyper(kann_t *a, int label, float z);
 void kann_delete(kann_t *a);
+void kann_delete_unrolled(kann_t *a);
 
 // number of input and output variables
 int kann_n_in(const kann_t *a);
@@ -86,7 +88,7 @@ int kann_n_out(const kann_t *a);
 int kann_n_hyper(const kann_t *a);
 
 // unroll an RNN to an FNN
-kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden);
+kann_t *kann_rnn_unroll(kann_t *a, int len);
 
 // train a model
 void kann_mopt_init(kann_mopt_t *mo);

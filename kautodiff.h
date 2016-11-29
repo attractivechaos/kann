@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r160"
+#define KAD_VERSION "r164"
 
 #include <stdio.h>
 #include <string.h>
@@ -39,7 +39,7 @@ struct kad_node_t {
 	float *x;             // value; allocated for internal nodes
 	float *g;             // gradient; allocated for internal nodes
 	kad_edge_t *child;    // child nodes
-	kad_node_t *pre;      // usually NULL; only used when unrolling an RNN
+	kad_node_t *pre;      // usually NULL; only used for RNN
 	void *ptr;            // auxiliary data
 };
 
@@ -56,6 +56,7 @@ typedef double (*kad_drand_f)(void);
 extern kad_drand_f kad_drand;
 
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
+#define kad_is_pool(p) ((p)->op == 10)
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,9 +90,9 @@ kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (me
 kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 kad_node_t **kad_compile(int *n_node, int n_roots, ...);
 void kad_delete(int n, kad_node_t **a);
+void kad_allocate_internal(int n, kad_node_t **v);
 
 // operations on compiled graph
-kad_node_t **kad_unroll(int n, kad_node_t **v, int len, int *new_n);
 const float *kad_eval_from(int n, kad_node_t **a, int from);
 void kad_eval_by_label(int n, kad_node_t **a, int label);
 void kad_grad(int n, kad_node_t **a, int from);

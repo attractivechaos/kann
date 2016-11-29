@@ -8,6 +8,8 @@
 
 int kann_verbose = 3;
 
+#define kann_is_rnn_pool(p) (kad_is_pool(p) && (p)->n_child == 1)
+
 /***********************************
  *** Layers and model generation ***
  ***********************************/
@@ -147,6 +149,8 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 {
 	kann_t *a = 0;
 	kad_node_t *cost = 0, *truth = 0;
+	int i, is_rnn = 0, has_pool = 0;
+
 	assert(type == KANN_C_BIN_CE || type == KANN_C_CE);
 	truth = kad_par(0, 2, 1, n_out), truth->label = KANN_L_TRUTH;
 	t = kann_layer_linear(t, n_out);
@@ -162,22 +166,141 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 		t = kad_softmax2(t, temp);
 	}
 	t->label = KANN_L_OUT, cost->label = KANN_L_COST;
+
 	a = (kann_t*)calloc(1, sizeof(kann_t));
 	a->v = kad_compile(&a->n, 2, t, cost);
+	for (i = 0; i < a->n; ++i) {
+		if (a->v[i]->pre) is_rnn = 1;
+		if (kann_is_rnn_pool(a->v[i])) has_pool = 1;
+	}
+	if (is_rnn && !has_pool) { // add a pooling node if we have an RNN but without such a node
+		cost->label = 0;
+		cost = kad_avg(1, &cost), cost->label = KANN_L_COST;
+		free(a->v);
+		a->v = kad_compile(&a->n, 2, t, cost);
+	}
 	kann_collate_x(a);
 	kad_drand = kann_drand;
 	return a;
+}
+
+/************************
+ *** Unrolling an RNN ***
+ ************************/
+
+static inline kad_node_t *kad_dup1(const kad_node_t *p)
+{
+	kad_node_t *q;
+	q = (kad_node_t*)malloc(sizeof(kad_node_t));
+	memcpy(q, p, sizeof(kad_node_t));
+	q->ptr = 0, q->pre = 0, q->tmp = 0;
+	if (q->n_child) {
+		q->x = q->g = 0;
+		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
+	}
+	return q;
+}
+
+static kad_node_t **kann_unroll_helper(int n_v, kad_node_t **v, int len, int *new_n)
+{
+	int i, j, k, l, k0;
+	short *flag;
+	kad_node_t **w, **alt;
+
+	// set flags
+	flag = (short*)calloc(n_v, sizeof(short));
+	for (i = 0; i < n_v; ++i) {
+		v[i]->tmp = i;
+		if (kad_is_var(v[i]) || kann_is_hyper(v[i])) flag[i] |= 1;
+		if (v[i]->pre) flag[v[i]->pre->tmp] |= 2;
+		if (kann_is_rnn_pool(v[i])) {
+			assert(v[i]->n_child == 1);
+			flag[v[i]->child[0].p->tmp] |= 4; // parent is a pooling node
+			flag[i] |= 8;
+		}
+		for (j = 0; j < v[i]->n_child; ++j)
+			if (flag[v[i]->child[j].p->tmp]&8) flag[i] |= 8; // a node that can't be unrolled
+	}
+
+	// unroll unrollable nodes
+	w = (kad_node_t**)calloc(n_v * len, sizeof(kad_node_t*));
+	alt = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
+	for (l = k = 0; l < len; ++l) {
+		for (i = 0; i < n_v; ++i) {
+			if (flag[i]&8) continue;
+			if (l > 0 && (flag[i]&3)) continue;
+			w[k] = kad_dup1(v[i]);
+			if (w[k]->n_child) {
+				w[k]->x = w[k]->g = 0;
+				for (j = 0; j < w[k]->n_child; ++j)
+					w[k]->child[j].p = alt[v[i]->child[j].p->tmp];
+			}
+			w[k]->tmp = (flag[i]&4)? i : -1;
+			if (v[i]->pre) alt[v[i]->pre->tmp] = w[k];
+			alt[i] = w[k++];
+		}
+	}
+	k0 = k;
+
+	// unroll the rest of nodes
+	for (i = 0; i < n_v; ++i) {
+		if (!(flag[i]&8)) continue;
+		assert(v[i]->pre == 0);
+		w[k] = kad_dup1(v[i]);
+		if (kann_is_rnn_pool(v[i])) {
+			w[k]->n_child = len, w[k]->tmp = 0;
+			w[k]->child = (kad_edge_t*)realloc(w[k]->child, len * sizeof(kad_edge_t));
+			memset(w[k]->child, 0, len * sizeof(kad_edge_t));
+		} else if (w[k]->n_child) {
+			w[k]->x = w[k]->g = 0;
+			for (j = 0; j < w[k]->n_child; ++j)
+				w[k]->child[j].p = alt[v[i]->child[j].p->tmp];
+		}
+		alt[i] = w[k++];
+	}
+
+	// pool
+	for (i = 0; i < n_v; ++i)
+		if (kann_is_rnn_pool(v[i]))
+			alt[v[i]->child[0].p->tmp] = alt[i];
+	for (i = 0; i < k0; ++i) {
+		if (w[i]->tmp >= 0) {
+			kad_node_t *q = alt[w[i]->tmp];
+			q->child[q->tmp++].p = w[i];
+		}
+		w[i]->tmp = 0;
+	}
+	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
+
+	free(alt); free(flag);
+	kad_allocate_internal(k, w);
+	*new_n = k;
+	return w;
+}
+
+kann_t *kann_rnn_unroll(kann_t *a, int len)
+{
+	kann_t *b;
+	b = (kann_t*)calloc(1, sizeof(kann_t));
+	b->t = a->t, b->g = a->g, b->c = a->c; // these arrays are shared
+	b->v = kann_unroll_helper(a->n, a->v, len, &b->n);
+	return b;
 }
 
 /**************************
  * Miscellaneous routines *
  **************************/
 
+void kann_delete_unrolled(kann_t *a)
+{
+	if (a && a->v) kad_delete(a->n, a->v);
+	free(a);
+}
+
 void kann_delete(kann_t *a)
 {
 	free(a->t); free(a->g); free(a->c);
-	if (a->v) kad_delete(a->n, a->v);
-	free(a);
+	kann_delete_unrolled(a);
 }
 
 void kann_set_hyper(kann_t *a, int label, float z)
@@ -211,33 +334,6 @@ static int kann_bind_by_label(kann_t *a, int label, float **x)
 		if (a->v[i]->n_child == 0 && !a->v[i]->to_back && a->v[i]->label == label)
 			a->v[i]->x = x[k++];
 	return k;
-}
-
-kann_t *kann_rnn_unroll(kann_t *a, int len, int pool_hidden)
-{
-	kann_t *b;
-	b = (kann_t*)calloc(1, sizeof(kann_t));
-	b->t = a->t, b->g = a->g;
-	if (pool_hidden) {
-		abort();
-	} else {
-		int i, n_root = 0, k;
-		kad_node_t **t, **root;
-		b->v = kad_unroll(a->n, a->v, len, &b->n);
-		t = (kad_node_t**)calloc(len, sizeof(kad_node_t*));
-		root = (kad_node_t**)calloc(len + 1, sizeof(kad_node_t*));
-		for (i = k = 0; i < b->n; ++i) {
-			if (b->v[i]->label == KANN_L_OUT) root[n_root++] = b->v[i];
-			else if (b->v[i]->label == KANN_L_COST) t[k++] = b->v[i], b->v[i]->label = 0;
-		}
-		assert(k == len && n_root == len);
-		root[n_root++] = kad_avg(k, t);
-		root[n_root-1]->label = KANN_L_COST;
-		free(b->v);
-		b->v = kad_compile_array(&b->n, n_root, root);
-		free(root); free(t);
-	}
-	return b;
 }
 
 /**********
@@ -341,13 +437,10 @@ static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, v
 			}
 		}
 		if (k == 0) break;
-		fnn = len == max_len && fnn_max? fnn_max : kann_rnn_unroll(a, len, 0);
+		fnn = len == max_len && fnn_max? fnn_max : kann_rnn_unroll(a, len);
 		cost += kann_fnn_process_mini(fnn, min, k, x, y) * k;
 		tot += k;
-		if (fnn && fnn != fnn_max) {
-			fnn->t = fnn->g = 0;
-			kann_delete(fnn);
-		}
+		if (fnn && fnn != fnn_max) kann_delete_unrolled(fnn);
 	}
 	free(y1); free(x1);
 	cost /= tot;
@@ -365,7 +458,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 	n_out = kann_n_out(a);
 	n_par = kann_n_par(a);
 	max_rnn_len = kann_is_rnn(a)? mo->max_rnn_len : 1;
-	if (max_rnn_len > 1) fnn_max = kann_rnn_unroll(a, max_rnn_len, 0);
+	if (max_rnn_len > 1) fnn_max = kann_rnn_unroll(a, max_rnn_len);
 
 	x = (float**)malloc(max_rnn_len * sizeof(float*));
 	y = (float**)malloc(max_rnn_len * sizeof(float*));
@@ -390,10 +483,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 		free(y[i]); free(x[i]);
 	}
 	free(y); free(x);
-	if (fnn_max) {
-		fnn_max->t = fnn_max->g = 0;
-		kann_delete(fnn_max);
-	}
+	if (fnn_max) kann_delete_unrolled(fnn_max);
 }
 
 /****************************

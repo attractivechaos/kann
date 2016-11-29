@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 		free(y);
 	}
 
-	free(x);
+	free(x); free(ta); free(tb); free(tc);
 	kann_delete(ann);
 	return 0;
 }

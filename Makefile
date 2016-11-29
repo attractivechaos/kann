@@ -5,7 +5,7 @@ EXE=		models/mlp models/textgen examples/rnn-bit
 LIBS=		-lm -lz
 
 .SUFFIXES:.c .o
-.PHONY:all demo clean depend
+.PHONY:all clean depend
 
 .c.o:
 		$(CC) -c $(CFLAGS) -I. $(CPPFLAGS) $< -o $@
