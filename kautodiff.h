@@ -1,7 +1,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r164"
+#define KAD_VERSION "r165"
 
 #include <stdio.h>
 #include <string.h>
@@ -31,16 +31,15 @@ typedef struct {
 struct kad_node_t {
 	short n_d;            // number of dimensions; no larger than KAD_MAX_DIM
 	short op;             // operator; kad_op_list[op] is the actual function
+	short n_child;        // number of child nodes.
+	short to_back;        // whether to do back propogation
 	int label;            // label for external uses
 	int tmp;              // temporary field; MUST BE zero before calling kad_compile()
-	short n_child;        // number of child nodes
-	short to_back;        // whether to do back propogation
 	int d[KAD_MAX_DIM];   // dimensions
 	float *x;             // value; allocated for internal nodes
 	float *g;             // gradient; allocated for internal nodes
 	kad_edge_t *child;    // child nodes
 	kad_node_t *pre;      // usually NULL; only used for RNN
-	void *ptr;            // auxiliary data
 };
 
 #define KAD_ALLOC      1

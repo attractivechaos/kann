@@ -193,7 +193,7 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	kad_node_t *q;
 	q = (kad_node_t*)malloc(sizeof(kad_node_t));
 	memcpy(q, p, sizeof(kad_node_t));
-	q->ptr = 0, q->pre = 0, q->tmp = 0;
+	q->pre = 0, q->tmp = 0;
 	if (q->n_child) {
 		q->x = q->g = 0;
 		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
@@ -511,7 +511,6 @@ void kann_rnn_start(kann_t *a)
 		if (p->pre) {
 			kad_node_t *q = p->pre;
 			memcpy(p->x, q->x, kad_len(p) * sizeof(float));
-			q->ptr = q->x;
 			q->x = p->x;
 		}
 	}
@@ -519,11 +518,7 @@ void kann_rnn_start(kann_t *a)
 
 void kann_rnn_end(kann_t *a)
 {
-	int i;
-	for (i = 0; i < a->n; ++i) {
-		kad_node_t *p = a->v[i];
-		if (p->pre) p->pre->x = (float*)p->pre->ptr;
-	}
+	kann_sync_x(a);
 }
 
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x)

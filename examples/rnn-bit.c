@@ -12,8 +12,8 @@ static inline void gen_num(int bit_len, uint64_t *a, uint64_t *b, uint64_t *c)
 	uint64_t mask = (1ULL<<bit_len) - 1;
 	*a = kann_rand() & mask;
 	*b = kann_rand() & mask;
-//	*c = (*a + *b) & mask;
-	*c = (*a * 53 + *b * 17) & mask;
+	*c = (*a + *b) & mask;
+//	*c = (*a * 53 + *b * 17) & mask;
 }
 
 static void num2vec(int bit_len, float *x, float *y, uint64_t a, uint64_t b, uint64_t c)
