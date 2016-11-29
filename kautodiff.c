@@ -122,6 +122,7 @@ static void kad_mark_back(int n, kad_node_t **v)
 void kad_allocate_internal(int n, kad_node_t **v)
 {
 	int i;
+	kad_mark_back(n, v);
 	for (i = 0; i < n; ++i) {
 		kad_node_t *p = v[i];
 		if (p->n_child == 0) continue;
@@ -184,7 +185,6 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
-	kad_mark_back(a.n, a.a);
 	kad_allocate_internal(a.n, a.a);
 
 	*n_node = a.n;
