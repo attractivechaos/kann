@@ -1,8 +1,6 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
-ZLIB_FLAGS=	-DHAVE_ZLIB   # comment out this line to drop the zlib dependency
-INCLUDES=	-I.
 EXE=		models/mlp models/textgen examples/rnn-bit
 LIBS=		-lm -lz
 
@@ -10,14 +8,14 @@ LIBS=		-lm -lz
 .PHONY:all demo clean depend
 
 .c.o:
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -I. $(CPPFLAGS) $< -o $@
 
 all:$(EXE)
 
-kann_data.o:kann_data.c
-		$(CC) -c $(CFLAGS) $(ZLIB_FLAGS) $(INCLUDES) $< -o $@
+models/kann_data.o:models/kann_data.c
+		$(CC) -c $(CFLAGS) -DHAVE_ZLIB $< -o $@
 
-models/mlp:models/mlp.o kautodiff.o kann.o kann_data.o
+models/mlp:models/mlp.o kautodiff.o kann.o models/kann_data.o
 		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
 models/textgen:models/textgen.o kautodiff.o kann.o
@@ -35,8 +33,8 @@ depend:
 # DO NOT DELETE
 
 kann.o: kann.h kautodiff.h
-kann_data.o: kseq.h kann_data.h
 kautodiff.o: kautodiff.h
 examples/rnn-bit.o: kann.h kautodiff.h
-models/mlp.o: kann.h kautodiff.h kann_data.h
-models/textgen.o: kann.h kautodiff.h kseq.h
+models/kann_data.o: models/kseq.h models/kann_data.h
+models/mlp.o: kann.h kautodiff.h models/kann_data.h
+models/textgen.o: kann.h kautodiff.h models/kseq.h
