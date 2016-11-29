@@ -1,7 +1,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r166"
+#define KANN_VERSION "r167"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
@@ -46,14 +46,6 @@ typedef struct {
 	float decay;
 } kann_mopt_t;
 
-typedef struct {
-	int n, epoch;
-	short mini_algo, batch_algo;
-	float lr;
-	float decay;
-	float *maux, *baux;
-} kann_min_t;
-
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
@@ -90,6 +82,7 @@ kann_t *kann_rnn_unroll(kann_t *a, int len);
 // train a model
 void kann_mopt_init(kann_mopt_t *mo);
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
+void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 
 // apply a trained model
 const float *kann_apply1(kann_t *a, float *x);
@@ -110,18 +103,6 @@ double kann_drand(void);
 double kann_normal(void);
 void kann_shuffle(int n, float **x, float **y, char **rname);
 void kann_rand_weight(int n_row, int n_col, float *w);
-
-// kann minimizer
-kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n);
-void kann_min_delete(kann_min_t *m);
-void kann_min_mini_update(kann_min_t *m, const float *g, float *t);
-void kann_min_batch_finish(kann_min_t *m, const float *t);
-
-// generic data reader for FNN
-void *kann_rdr_xy_new(int n, float frac_validate, int d_x, float **x, int d_y, float **y);
-void kann_rdr_xy_delete(void *data);
-int kann_rdr_xy_read(void *data, int action, int len, float *x1, float *y1);
-void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
 
 #ifdef __cplusplus
 }
