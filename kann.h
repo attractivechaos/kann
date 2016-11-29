@@ -1,13 +1,12 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r165"
+#define KANN_VERSION "r166"
 
 #define KANN_L_IN       1
 #define KANN_L_OUT      2
 #define KANN_L_TRUTH    3
 #define KANN_L_COST     4
-#define KANN_L_PIVOT    5
 
 #define KANN_H_TEMP     11
 #define KANN_H_DROPOUT  12
@@ -28,7 +27,6 @@
 #define KANN_MB_DEFAULT 0
 #define KANN_MB_CONST   1
 
-#include <stdint.h>
 #include "kautodiff.h"
 
 typedef struct {
@@ -57,7 +55,6 @@ typedef struct {
 } kann_min_t;
 
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
-typedef kad_node_t *(*kann_activate_f)(kad_node_t*);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
 #define kann_is_hyper(p) ((p)->label == KANN_H_TEMP || (p)->label == KANN_H_DROPOUT || (p)->label == KANN_H_L2REG)
@@ -72,7 +69,7 @@ extern "C" {
 kad_node_t *kann_layer_input(int n1);
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r);
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kann_activate_f af);
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*));
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
@@ -101,8 +98,8 @@ void kann_rnn_end(kann_t *a);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
 
 // model I/O
-void kann_write_core(FILE *fp, const kann_t *ann);
-void kann_write(const char *fn, const kann_t *ann);
+void kann_write_core(FILE *fp, kann_t *ann);
+void kann_write(const char *fn, kann_t *ann);
 kann_t *kann_read_core(FILE *fp);
 kann_t *kann_read(const char *fn);
 

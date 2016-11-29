@@ -281,18 +281,18 @@ void kad_grad(int n, kad_node_t **a, int from)
 
 static void kad_write1(FILE *fp, const kad_node_t *p)
 {
-	fwrite(&p->n_child, sizeof(short), 1, fp);
+	fwrite(&p->label, 4, 1, fp);
+	fwrite(&p->n_child, 4, 1, fp);
 	if (p->n_child) {
-		int j, pre = p->pre? p->pre->tmp : -1;
-		fwrite(&p->op, sizeof(int), 1, fp);
+		int32_t j, pre = p->pre? p->pre->tmp : -1;
+		fwrite(&p->op, 2, 1, fp);
 		for (j = 0; j < p->n_child; ++j)
-			fwrite(&p->child[j].p->tmp, sizeof(int), 1, fp);
-		fwrite(&pre, sizeof(int), 1, fp);
+			fwrite(&p->child[j].p->tmp, 4, 1, fp);
+		fwrite(&pre, 4, 1, fp);
 	} else {
-		fwrite(&p->n_d, sizeof(short), 1, fp);
-		if (p->n_d) fwrite(p->d, sizeof(int), p->n_d, fp);
-		fwrite(&p->label, sizeof(int), 1, fp);
-		fwrite(&p->to_back, sizeof(short), 1, fp);
+		fwrite(&p->n_d, 1, 1, fp);
+		if (p->n_d) fwrite(p->d, 4, p->n_d, fp);
+		fwrite(&p->to_back, 1, 1, fp);
 	}
 }
 
@@ -300,30 +300,30 @@ static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 {
 	kad_node_t *p;
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
-	fread(&p->n_child, sizeof(short), 1, fp);
+	fread(&p->label, 4, 1, fp);
+	fread(&p->n_child, 4, 1, fp);
 	if (p->n_child) {
-		int j, k;
+		int32_t j, k;
 		p->child = (kad_edge_t*)calloc(p->n_child, sizeof(kad_edge_t));
-		fread(&p->op, sizeof(int), 1, fp);
+		fread(&p->op, 2, 1, fp);
 		for (j = 0; j < p->n_child; ++j) {
-			fread(&k, sizeof(int), 1, fp);
+			fread(&k, 4, 1, fp);
 			p->child[j].p = node? node[k] : 0;
 		}
-		fread(&k, sizeof(int), 1, fp);
+		fread(&k, 4, 1, fp);
 		if (k >= 0) p->pre = node[k];
 	} else {
-		fread(&p->n_d, sizeof(short), 1, fp);
-		if (p->n_d) fread(p->d, sizeof(int), p->n_d, fp);
-		fread(&p->label, sizeof(int), 1, fp);
-		fread(&p->to_back, sizeof(short), 1, fp);
+		fread(&p->n_d, 1, 1, fp);
+		if (p->n_d) fread(p->d, 4, p->n_d, fp);
+		fread(&p->to_back, 1, 1, fp);
 	}
 	return p;
 }
 
 int kad_write(FILE *fp, int n_node, kad_node_t **node)
 {
-	int i;
-	fwrite(&n_node, sizeof(int), 1, fp);
+	int32_t i, k = n_node;
+	fwrite(&k, 4, 1, fp);
 	for (i = 0; i < n_node; ++i) node[i]->tmp = i;
 	for (i = 0; i < n_node; ++i) kad_write1(fp, node[i]);
 	for (i = 0; i < n_node; ++i) node[i]->tmp = 0;
@@ -332,9 +332,9 @@ int kad_write(FILE *fp, int n_node, kad_node_t **node)
 
 kad_node_t **kad_read(FILE *fp, int *_n_node)
 {
-	int i, n_node;
+	int32_t i, n_node;
 	kad_node_t **node;
-	fread(&n_node, sizeof(int), 1, fp);
+	fread(&n_node, 4, 1, fp);
 	node = (kad_node_t**)malloc(n_node * sizeof(kad_node_t*));
 	for (i = 0; i < n_node; ++i) {
 		kad_node_t *p;
@@ -345,6 +345,7 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 		}
 	}
 	*_n_node = n_node;
+	kad_mark_back(n_node, node);
 	return node;
 }
 

@@ -1,11 +1,10 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r165"
+#define KAD_VERSION "r166"
 
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include <stdint.h>
 
 #define KAD_MAX_DIM 4     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
@@ -23,23 +22,23 @@ typedef struct kad_node_t kad_node_t;
 
 // an edge between two nodes in the autodiff graph
 typedef struct {
-	kad_node_t *p;        // child node
-	float *t;             // temporary data needed for backprop; allocated on heap if not NULL
+	kad_node_t *p;  // child node, not allocated
+	float *t;       // temporary data needed for backprop; allocated on heap if not NULL
 } kad_edge_t;
 
 // a node in the autodiff graph
 struct kad_node_t {
-	short n_d;            // number of dimensions; no larger than KAD_MAX_DIM
-	short op;             // operator; kad_op_list[op] is the actual function
-	short n_child;        // number of child nodes.
-	short to_back;        // whether to do back propogation
-	int label;            // label for external uses
-	int tmp;              // temporary field; MUST BE zero before calling kad_compile()
-	int d[KAD_MAX_DIM];   // dimensions
-	float *x;             // value; allocated for internal nodes
-	float *g;             // gradient; allocated for internal nodes
-	kad_edge_t *child;    // child nodes
-	kad_node_t *pre;      // usually NULL; only used for RNN
+	uint8_t     n_d;            // number of dimensions; no larger than KAD_MAX_DIM
+	uint8_t     to_back;        // whether to do back propogation (boolean)
+	uint16_t    op;             // operator; kad_op_list[op] is the actual function
+	uint32_t    n_child;        // number of child nodes
+	int32_t     label;          // label for external uses
+	int32_t     tmp;            // temporary field; MUST BE zero before calling kad_compile()
+	int32_t     d[KAD_MAX_DIM]; // dimensions
+	float      *x;              // value; allocated for internal nodes
+	float      *g;              // gradient; allocated for internal nodes
+	kad_edge_t *child;          // child nodes
+	kad_node_t *pre;            // usually NULL; only used for RNN
 };
 
 #define KAD_ALLOC      1
@@ -47,12 +46,11 @@ struct kad_node_t {
 #define KAD_BACKWARD   3
 #define KAD_SYNC_DIM   4
 
-
 typedef int (*kad_op_f)(kad_node_t*, int);
-extern kad_op_f kad_op_list[];
+extern kad_op_f kad_op_list[KAD_MAX_OP];
 
 typedef double (*kad_drand_f)(void);
-extern kad_drand_f kad_drand;
+extern kad_drand_f kad_drand; // random number generator, default to drand48()
 
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
 #define kad_is_pool(p) ((p)->op == 10)

@@ -10,7 +10,7 @@ LIBS=		-lm -lz
 .c.o:
 		$(CC) -c $(CFLAGS) -I. $(CPPFLAGS) $< -o $@
 
-all:$(EXE)
+all:kautodiff.o kann.o $(EXE)
 
 models/kann_data.o:models/kann_data.c
 		$(CC) -c $(CFLAGS) -DHAVE_ZLIB $< -o $@

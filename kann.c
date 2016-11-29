@@ -57,7 +57,7 @@ kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 	return kad_dropout(t, s);
 }
 
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kann_activate_f af)
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*))
 {
 	int n0;
 	kad_node_t *h0, *w, *u, *b, *out;
@@ -598,7 +598,7 @@ void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **
  * Model I/O *
  *************/
 
-void kann_write(const char *fn, const kann_t *ann)
+void kann_write(const char *fn, kann_t *ann)
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
@@ -606,22 +606,13 @@ void kann_write(const char *fn, const kann_t *ann)
 	fclose(fp);
 }
 
-void kann_write_core(FILE *fp, const kann_t *ann)
+void kann_write_core(FILE *fp, kann_t *ann)
 {
+	kann_set_batch_size(ann, 1);
 	fwrite(KANN_MAGIC, 1, 4, fp);
 	kad_write(fp, ann->n, ann->v);
 	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
 	fwrite(ann->c, sizeof(float), kann_n_hyper(ann), fp);
-}
-
-kann_t *kann_read(const char *fn)
-{
-	FILE *fp;
-	kann_t *ann;
-	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
-	ann = kann_read_core(fp);
-	fclose(fp);
-	return ann;
 }
 
 kann_t *kann_read_core(FILE *fp)
@@ -645,6 +636,16 @@ kann_t *kann_read_core(FILE *fp)
 	fread(ann->t, sizeof(float), n_par, fp);
 	fread(ann->c, sizeof(float), n_hyper, fp);
 	kann_sync_x(ann);
+	return ann;
+}
+
+kann_t *kann_read(const char *fn)
+{
+	FILE *fp;
+	kann_t *ann;
+	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
+	ann = kann_read_core(fp);
+	fclose(fp);
 	return ann;
 }
 
