@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r170"
+#define KAD_VERSION "r171"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -121,10 +121,6 @@ void kad_grad(int n, kad_node_t **a, int from);
 // autodiff graph I/O
 int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
-
-// generic vector operations
-float kad_sdot(int n, const float *x, const float *y);
-void kad_saxpy(int n, float a, const float *x, float *y);
 
 // debugging routines
 void kad_trap_fe(void);

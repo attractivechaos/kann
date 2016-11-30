@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r170"
+#define KANN_VERSION "r171"
 
 #define KANN_L_IN       1   // input
 #define KANN_L_OUT      2   // output
@@ -92,10 +92,8 @@ kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
 // basic model allocation/deallocation
-void kann_collate_x(kann_t *a);
 void kann_set_hyper(kann_t *a, int label, float z);
 void kann_delete(kann_t *a);
-void kann_delete_unrolled(kann_t *a);
 
 // number of input and output variables
 int kann_n_in(const kann_t *a);
@@ -104,6 +102,7 @@ int kann_n_hyper(const kann_t *a);
 
 // unroll an RNN to an FNN
 kann_t *kann_rnn_unroll(kann_t *a, int len);
+void kann_delete_unrolled(kann_t *a);
 
 // train a model
 void kann_mopt_init(kann_mopt_t *mo);
