@@ -296,7 +296,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	if (type == KANN_C_CEB) {
 		cost = kad_ceb(t, truth);
 		t = kad_sigm(t);
-	} else if (type == KANN_C_CEB) {
+	} else if (type == KANN_C_CEM) {
 		kad_node_t *temp;
 		temp = kad_par(0, 0), temp->label = KANN_H_TEMP;
 		temp->x = (float*)calloc(1, sizeof(float));
