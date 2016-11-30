@@ -458,6 +458,7 @@ int kad_op_add(kad_node_t *p, int action)
 		if (n0 % n1 != 0) return -1;
 		kad_sync_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
+		assert(n0 >= n1);
 		memcpy(p->x, q[0]->x, n0 * sizeof(float));
 		for (i = 0; i < n0; i += n1)
 			kad_saxpy(n1, 1.0f, q[1]->x, p->x + i);
@@ -481,6 +482,7 @@ int kad_op_mul(kad_node_t *p, int action)
 		if (n0 % n1 != 0) return -1;
 		kad_sync_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
+		assert(n0 >= n1);
 		memset(p->x, 0, n0 * sizeof(float));
 		if (q[0]->x != 0 && q[1]->x != 0)
 			for (i = 0; i < n0; i += n1) // TODO: optimize when n1==1

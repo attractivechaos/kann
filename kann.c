@@ -211,6 +211,47 @@ kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*
 	return out;
 }
 
+kad_node_t *kann_layer_lstm(kad_node_t *in, int n1)
+{
+	int j, n0;
+	kad_node_t *i, *f, *o, *g, *w, *u, *b, *h0, *c0, *c, *out;
+
+	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	h0 = kad_var(0, 0, 2, 1, n1);
+	h0->x = (float*)calloc(n1, sizeof(float));
+	c0 = kad_var(0, 0, 2, 1, n1);
+	c0->x = (float*)calloc(n1, sizeof(float));
+
+	// i = sigm(x_t * W_i + h_{t-1} * U_i + b_i)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	i = kad_sigm(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	// f = sigm(x_t * W_f + h_{t-1} * U_f + b_f)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	for (j = 0; j < n1; ++j) b->x[j] = 1.0f; // see Jozefowicz et al on using a large bias
+	f = kad_sigm(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	// o = sigm(x_t * W_o + h_{t-1} * U_o + b_o)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	o = kad_sigm(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	// g = tanh(x_t * W_g + h_{t-1} * U_g + b_g)
+	w = kann_new_weight(n1, n0);
+	u = kann_new_weight(n1, n1);
+	b = kann_new_bias(n1);
+	g = kad_tanh(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	// c_t = c_{t-1} # f + g # i
+	c = kad_add(kad_mul(f, c0), kad_mul(g, i)); // can't be kad_mul(c0, f)!!!
+	c->pre = c0;
+	// h_t = tanh(c_t) # o
+	out = kad_mul(kad_tanh(c), o);
+	out->pre = h0;
+	return out;
+}
+
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
 {
 	int n0;
@@ -234,7 +275,7 @@ kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
 	w = kann_new_weight(n1, n0);
 	u = kann_new_weight(n1, n1);
 	b = kann_new_bias(n1);
-	s = kad_tanh(kad_add(kad_add(kad_cmul(in, w), kad_cmul(kad_mul(r, h0), u)), b));
+	s = kad_tanh(kad_add(kad_add(kad_cmul(in, w), kad_cmul(kad_mul(r, h0), u)), b)); // can't be kad_mul(h0, r)!!!
 	// h_t = z # h_{t-1} + (1 - z) # s
 	out = kad_add(kad_mul(kad_1minus(z), s), kad_mul(z, h0));
 	out->pre = h0;

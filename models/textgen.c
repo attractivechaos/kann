@@ -192,13 +192,15 @@ static kann_t *textgen_read(const char *fn, int map[MAX_CHAR])
 	return ann;
 }
 
-static kann_t *model_gen(int use_gru, int n_char, int n_h_layers, int n_h_neurons, float h_dropout)
+static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout)
 {
 	int i;
 	kad_node_t *t;
 	t = kann_layer_input(n_char);
 	for (i = 0; i < n_h_layers; ++i) {
-		t = use_gru? kann_layer_gru(t, n_h_neurons) : kann_layer_rnn(t, n_h_neurons, kad_tanh);
+		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, kad_tanh);
+		else if (model == 1) t = kann_layer_lstm(t, n_h_neurons);
+		else if (model == 2) t = kann_layer_gru(t, n_h_neurons);
 		t = kann_layer_dropout(t, h_dropout);
 	}
 	return kann_layer_final(t, n_char, KANN_C_CEM);
@@ -206,7 +208,7 @@ static kann_t *model_gen(int use_gru, int n_char, int n_h_layers, int n_h_neuron
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 100, use_gru = 0, batch_size = 11000, map[MAX_CHAR];
+	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 100, model = 0, batch_size = 11000, map[MAX_CHAR];
 	float h_dropout = 0.1f, temp = 0.5f;
 	kann_t *ann = 0;
 	kann_mopt_t mo;
@@ -215,7 +217,7 @@ int main(int argc, char *argv[])
 	kann_mopt_init(&mo);
 	mo.max_rnn_len = 100;
 	mo.lr = 0.01f;
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:gt:Sb:T:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:t:Sb:T:M:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -225,11 +227,15 @@ int main(int argc, char *argv[])
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
 		else if (c == 'B') mo.max_mbs = atoi(optarg);
 		else if (c == 'd') h_dropout = atof(optarg);
-		else if (c == 'g') use_gru = 1;
 		else if (c == 't') mo.max_rnn_len = atoi(optarg);
 		else if (c == 'S') no_space = 1;
 		else if (c == 'b') batch_size = atoi(optarg);
 		else if (c == 'T') temp = atof(optarg);
+		else if (c == 'M') {
+			if (strcmp(optarg, "rnn") == 0) model = 0;
+			else if (strcmp(optarg, "lstm") == 0) model = 1;
+			else if (strcmp(optarg, "gru") == 0) model = 2;
+		}
 	}
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
@@ -241,7 +247,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -s INT      random seed [%d]\n", seed);
 		fprintf(fp, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
 		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
-		fprintf(fp, "    -g          use GRU (vanilla RNN by default)\n");
+		fprintf(fp, "    -M STR      model: rnn, lstm or gru [rnn]\n");
 		fprintf(fp, "  Model training:\n");
 		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", mo.lr);
 		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
@@ -264,7 +270,7 @@ int main(int argc, char *argv[])
 		tg->cnt[1] = batch_size - tg->cnt[0];
 		memcpy(map, tg->map, MAX_CHAR * sizeof(int));
 		if (ann) assert(kann_n_in(ann) == tg->n_char && kann_n_out(ann) == tg->n_char);
-		else ann = model_gen(use_gru, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
+		else ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
 		kann_train(&mo, ann, textgen_reader, tg);
 		if (fn_out) textgen_write(fn_out, ann, tg->map);
 		textgen_delete(tg);
