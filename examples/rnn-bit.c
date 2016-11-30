@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 		t = kann_layer_input(4);
 		for (i = 0; i < n_h_layers; ++i)
 			t = use_gru? kann_layer_gru(t, n_h_neurons) : kann_layer_rnn(t, n_h_neurons, kad_relu);
-		ann = kann_layer_final(t, 2, KANN_C_BIN_CE);
+		ann = kann_layer_final(t, 2, KANN_C_CEB);
 	}
 	mo.max_rnn_len = bit_len;
 	kann_train(&mo, ann, bit_reader, 0);

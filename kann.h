@@ -27,19 +27,19 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r168"
+#define KANN_VERSION "r170"
 
-#define KANN_L_IN       1
-#define KANN_L_OUT      2
-#define KANN_L_TRUTH    3
-#define KANN_L_COST     4
+#define KANN_L_IN       1   // input
+#define KANN_L_OUT      2   // output
+#define KANN_L_TRUTH    3   // truth output
+#define KANN_L_COST     4   // final cost
 
-#define KANN_H_TEMP     11
-#define KANN_H_DROPOUT  12
-#define KANN_H_L2REG    13
+#define KANN_H_TEMP     11  // temperature for softmax
+#define KANN_H_DROPOUT  12  // dropout ratio
+#define KANN_H_L2REG    13  // coefficient for L2 regulation
 
-#define KANN_C_BIN_CE   1
-#define KANN_C_CE       2
+#define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
+#define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
 
 #define KANN_RDR_BATCH_RESET     1
 #define KANN_RDR_MINI_RESET      2

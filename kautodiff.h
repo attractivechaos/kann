@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r169"
+#define KAD_VERSION "r170"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -35,35 +35,33 @@
 #define KAD_MAX_DIM 4     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
 
-/* An autodiff graph is a directed acyclic graph (DAG), where an external node
- * represents a variable (differentiable) or a parameter (not differentiable),
- * and an internal node represents an operator. Each node is associated with a
- * value, which is a single-precision N-dimensional array. An operator is the
- * parent of all its operands. A node without parents is a terminal node. The
- * graph may have one or multiple terminal nodes.
- */
-
 struct kad_node_t;
 typedef struct kad_node_t kad_node_t;
 
-// an edge between two nodes in the autodiff graph
+/* A differentiable computational graph (DCG) is an acyclic directed graph. In
+ * a DCG, an external node represents a differentiable variable or a
+ * non-differentiable parameter; an internal node represents an operator; an
+ * edge from node v to w indicates v is an operand of w.
+ */
+
+// an edge between two nodes in the computational graph
 typedef struct {
 	kad_node_t *p;  // child node, not allocated
 	float *t;       // temporary data needed for backprop; allocated on heap if not NULL
 } kad_edge_t;
 
-// a node in the autodiff graph
+// a node in the computational graph
 struct kad_node_t {
 	uint8_t     n_d;            // number of dimensions; no larger than KAD_MAX_DIM
 	uint8_t     to_back;        // whether to do back propogation (boolean)
 	uint16_t    op;             // operator; kad_op_list[op] is the actual function
-	uint32_t    n_child;        // number of child nodes
+	uint32_t    n_child;        // number of operands/child nodes
 	int32_t     label;          // label for external uses
 	int32_t     tmp;            // temporary field; MUST BE zero before calling kad_compile()
 	int32_t     d[KAD_MAX_DIM]; // dimensions
 	float      *x;              // value; allocated for internal nodes
 	float      *g;              // gradient; allocated for internal nodes
-	kad_edge_t *child;          // child nodes
+	kad_edge_t *child;          // operands/child nodes
 	kad_node_t *pre;            // usually NULL; only used for RNN
 };
 
@@ -93,8 +91,8 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...);
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // f(x,y) = x + y       (element-wise addition)
 kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y       (element-wise product)
 kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // f(x,y) = x * y^T     (column-wise matrix product; i.e. y is transposed)
-kad_node_t *kad_ce2(kad_node_t *x, kad_node_t *y);   // f(x,y) = \sum_i -y_i*log(s(x_i)) - (1-y_i)*log(1-s(x_i))  (s() is sigmoid; binary cross-entropy for sigmoid; only x differentiable)
-kad_node_t *kad_cesm(kad_node_t *x, kad_node_t *y);  // f(x,y) = - \sum_i -y_i*log(s(x_i))  (s() is softmax; cross-entropy for softmax; only x differentiable)
+kad_node_t *kad_ceb(kad_node_t *x, kad_node_t *y);   // f(x,y) = \sum_i -y_i*log(s(x_i)) - (1-y_i)*log(1-s(x_i))  (s() is sigmoid; binary cross-entropy for sigmoid; only x differentiable)
+kad_node_t *kad_cem(kad_node_t *x, kad_node_t *y);   // f(x,y) = - \sum_i -y_i*log(s(x_i))  (s() is softmax; cross-entropy for softmax; only x differentiable)
 kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperature
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 

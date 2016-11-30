@@ -77,8 +77,8 @@ static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 KAD_FUNC_OP2(kad_add, 1)
 KAD_FUNC_OP2(kad_mul, 2)
 KAD_FUNC_OP2(kad_cmul, 3)
-KAD_FUNC_OP2(kad_ce2, 4)
-KAD_FUNC_OP2(kad_cesm, 12)
+KAD_FUNC_OP2(kad_ceb, 4)
+KAD_FUNC_OP2(kad_cem, 12)
 KAD_FUNC_OP2(kad_softmax2, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
 
@@ -534,7 +534,7 @@ int kad_op_cmul(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_ce2(kad_node_t *p, int action)
+int kad_op_ceb(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
 	kad_edge_t *e[2];
@@ -568,7 +568,7 @@ int kad_op_ce2(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_cesm(kad_node_t *p, int action)
+int kad_op_cem(kad_node_t *p, int action)
 {
 	kad_edge_t *e[2];
 	int i, j, n0, n1;
@@ -806,7 +806,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_add,
 	kad_op_mul,
 	kad_op_cmul,
-	kad_op_ce2,
+	kad_op_ceb,
 	kad_op_norm2,
 	kad_op_sigm,
 	kad_op_tanh,
@@ -814,7 +814,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_copy,
 	kad_op_avg,
 	kad_op_1minus,
-	kad_op_cesm,
+	kad_op_cem,
 	kad_op_softmax,
 	kad_op_softmax,
 	kad_op_dropout

@@ -290,18 +290,18 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	kad_node_t *cost = 0, *truth = 0;
 	int i, is_rnn = 0, has_pool = 0;
 
-	assert(type == KANN_C_BIN_CE || type == KANN_C_CE);
+	assert(type == KANN_C_CEB || type == KANN_C_CEM);
 	truth = kad_par(0, 2, 1, n_out), truth->label = KANN_L_TRUTH;
 	t = kann_layer_linear(t, n_out);
-	if (type == KANN_C_BIN_CE) {
-		cost = kad_ce2(t, truth);
+	if (type == KANN_C_CEB) {
+		cost = kad_ceb(t, truth);
 		t = kad_sigm(t);
-	} else if (type == KANN_C_CE) {
+	} else if (type == KANN_C_CEB) {
 		kad_node_t *temp;
 		temp = kad_par(0, 0), temp->label = KANN_H_TEMP;
 		temp->x = (float*)calloc(1, sizeof(float));
 		*temp->x = 1.0f;
-		cost = kad_cesm(t, truth);
+		cost = kad_cem(t, truth);
 		t = kad_softmax2(t, temp);
 	}
 	t->label = KANN_L_OUT, cost->label = KANN_L_COST;

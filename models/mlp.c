@@ -12,7 +12,7 @@ static kann_t *model_gen(int n_in, int n_out, int n_h_layers, int n_h_neurons, f
 	t = kann_layer_input(n_in);
 	for (i = 0; i < n_h_layers; ++i)
 		t = kann_layer_dropout(kad_relu(kann_layer_linear(t, n_h_neurons)), h_dropout);
-	return kann_layer_final(t, n_out, KANN_C_BIN_CE);
+	return kann_layer_final(t, n_out, KANN_C_CEB);
 }
 
 int main(int argc, char *argv[])

@@ -201,7 +201,7 @@ static kann_t *model_gen(int use_gru, int n_char, int n_h_layers, int n_h_neuron
 		t = use_gru? kann_layer_gru(t, n_h_neurons) : kann_layer_rnn(t, n_h_neurons, kad_tanh);
 		t = kann_layer_dropout(t, h_dropout);
 	}
-	return kann_layer_final(t, n_char, KANN_C_CE);
+	return kann_layer_final(t, n_char, KANN_C_CEM);
 }
 
 int main(int argc, char *argv[])
