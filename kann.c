@@ -552,9 +552,12 @@ int kann_is_rnn(const kann_t *a)
 typedef struct {
 	int n, epoch;
 	short mini_algo, batch_algo;
-	float lr;
 	float decay;
-	float *maux, *baux;
+	// for Rprop-
+	float rprop_dec, rprop_inc;
+	float h_min, h_max;
+	// persistent arrays
+	float *maux, *baux, *h;
 } kann_min_t;
 
 #ifdef __SSE__
@@ -597,31 +600,67 @@ void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, 
 
 kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n)
 {
+	int i;
 	kann_min_t *m;
 	if (mini_algo <= 0) mini_algo = KANN_MM_RMSPROP;
-	if (batch_algo <= 0) batch_algo = KANN_MB_CONST;
+	if (batch_algo <= 0) batch_algo = KANN_MB_RPROP;
 	m = (kann_min_t*)calloc(1, sizeof(kann_min_t));
 	m->mini_algo = mini_algo, m->batch_algo = batch_algo, m->n = n;
+	m->h_min = 0.0f, m->h_max = .1f;
+	m->rprop_dec = 0.5f, m->rprop_inc = 1.2f;
+	m->decay = 0.9f;
+	m->h = (float*)calloc(n, sizeof(float));
+	for (i = 0; i < n; ++i) m->h[i] = 0.001f;
 	if (mini_algo == KANN_MM_RMSPROP) {
-		m->lr = 0.001f, m->decay = 0.9f;
 		m->maux = (float*)calloc(n, sizeof(float));
+	}
+	if (batch_algo == KANN_MB_RPROP) {
+		m->baux = (float*)calloc(2 * n, sizeof(float));
 	}
 	return m;
 }
 
+void kann_min_set_lr(kann_min_t *m, float lr)
+{
+	int i;
+	for (i = 0; i < m->n; ++i) m->h[i] = lr;
+}
+
 void kann_min_delete(kann_min_t *m)
 {
-	free(m->maux); free(m->baux); free(m);
+	free(m->maux); free(m->baux); free(m->h); free(m);
 }
 
 void kann_min_mini_update(kann_min_t *m, const float *g, float *t)
 {
-	if (m->mini_algo == KANN_MM_RMSPROP)
-		kann_RMSprop(m->n, m->lr, 0, m->decay, g, t, m->maux);
+	if (m->mini_algo == KANN_MM_RMSPROP) {
+		kann_RMSprop(m->n, 0.0f, m->h, m->decay, g, t, m->maux);
+	}
 }
 
 void kann_min_batch_finish(kann_min_t *m, const float *t)
 {
+	if (m->batch_algo == KANN_MB_RPROP) {
+		int i;
+		float *t0 = m->baux, *g0 = m->baux + m->n;
+		if (m->epoch == 1) {
+			for (i = 0; i < m->n; ++i) g0[i] = t[i] - t0[i];
+		} else if (m->epoch > 1) {
+			for (i = 0; i < m->n; ++i) {
+				float g = t[i] - t0[i], tmp = g * g0[i];
+				if (tmp > 0.0f) {
+					m->h[i] *= m->rprop_inc;
+					if (m->h[i] > m->h_max) m->h[i] = m->h_max;
+				} else if (tmp < 0.0f) {
+					m->h[i] *= m->rprop_dec;
+					if (m->h[i] < m->h_min) m->h[i] = m->h_min;
+				}
+				g0[i] = g;
+			}
+		}
+		memcpy(m->baux, t, m->n * sizeof(float));
+	}
+	++m->epoch;
 }
 
 /*******************************
@@ -631,20 +670,21 @@ void kann_min_batch_finish(kann_min_t *m, const float *t)
 void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
+	mo->mini_algo = KANN_MM_RMSPROP;
+	mo->batch_algo = KANN_MB_RPROP;
 	mo->lr = 0.001f;
 	mo->fv = 0.1f;
 	mo->max_mbs = 64;
 	mo->epoch_lazy = 10;
-	mo->max_epoch = 20;
-	mo->decay = 0.9f;
+	mo->max_epoch = 25;
 	mo->max_rnn_len = 1;
 }
 
 kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
 {
 	kann_min_t *m;
-	m = kann_min_new(KANN_MM_RMSPROP, KANN_MB_CONST, n);
-	m->lr = o->lr, m->decay = o->decay;
+	m = kann_min_new(o->mini_algo, o->batch_algo, n);
+	kann_min_set_lr(m, o->lr);
 	return m;
 }
 

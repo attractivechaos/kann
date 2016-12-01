@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r173"
+#define KANN_VERSION "r174"
 
 #define KANN_L_IN       1   // input
 #define KANN_L_OUT      2   // output
@@ -46,12 +46,11 @@
 #define KANN_RDR_READ_TRAIN      3
 #define KANN_RDR_READ_VALIDATE   4
 
-#define KANN_MM_DEFAULT 0
 #define KANN_MM_SGD     1
 #define KANN_MM_RMSPROP 2
 
-#define KANN_MB_DEFAULT 0
 #define KANN_MB_CONST   1
+#define KANN_MB_RPROP   2
 
 #include "kautodiff.h"
 
@@ -68,8 +67,7 @@ typedef struct {
 	int max_rnn_len;
 	int epoch_lazy;
 	int max_epoch;
-
-	float decay;
+	int mini_algo, batch_algo;
 } kann_mopt_t;
 
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);

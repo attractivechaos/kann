@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	kann_mopt_init(&mo);
 	mo.lr = 0.01f;
 	mo.max_epoch = 50;
-	while ((t = getopt(argc, argv, "m:b:l:r:hn:vo:i:s:t:")) >= 0) {
+	while ((t = getopt(argc, argv, "m:b:l:r:hn:vo:i:s:t:C")) >= 0) {
 		if (t == 'm') mo.max_epoch = atoi(optarg);
 		else if (t == 'b') bit_len = atoi(optarg);
 		else if (t == 'r') mo.lr = atof(optarg);
@@ -77,6 +77,7 @@ int main(int argc, char *argv[])
 		else if (t == 'i') fn_in = optarg;
 		else if (t == 't') n_print = atoi(optarg);
 		else if (t == 's') seed = atol(optarg);
+		else if (t == 'C') mo.batch_algo = KANN_MB_CONST;
 		else if (t == 'h') {
 			FILE *fp = stdout;
 			fprintf(fp, "Usage: rnn-bit [options]\nOptions:\n");
