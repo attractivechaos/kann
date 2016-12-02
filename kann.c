@@ -744,8 +744,8 @@ static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, v
 
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 {
-	float **x, **y;
-	int i, j, n_in, n_out, n_par, max_rnn_len;
+	float **x, **y, min_cost, *bak;
+	int i, j, n_in, n_out, n_par, max_rnn_len, min_j, n_adj, streak;
 	kann_min_t *min;
 	kann_t *fnn_max = 0;
 
@@ -762,8 +762,9 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 		y[i] = (float*)calloc(mo->max_mbs * n_out, sizeof(float));
 	}
 
+	bak = (float*)calloc(n_par * 2 + kann_n_hyper(a), sizeof(float));
 	min = kann_minimizer(mo, n_par);
-	for (j = 0; j < mo->max_epoch; ++j) {
+	for (j = n_adj = streak = 0, min_cost = 1e30, min_j = -1; j < mo->max_epoch; ++j) {
 		float running_cost = 0.0f, validate_cost = 0.0f;
 		rdr(data, KANN_RDR_BATCH_RESET, 0, 0, 0);
 		running_cost =  kann_process_batch(a, min, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
@@ -771,8 +772,26 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 		kann_min_batch_finish(min, a->t);
 		if (kann_verbose >= 3)
 			fprintf(stderr, "epoch: %d; running cost: %g; validation cost: %g\n", j+1, running_cost, validate_cost);
+		if (j >= mo->epoch_lazy) {
+			if (validate_cost < min_cost) {
+				min_j = j, min_cost = validate_cost;
+				memcpy(bak, a->t, n_par * sizeof(float));
+				memcpy(bak + n_par, a->g, n_par * sizeof(float));
+				memcpy(bak + n_par * 2, a->c, kann_n_hyper(a) * sizeof(float));
+			} else if (++streak >= mo->epoch_lazy) {
+				kann_min_set_lr(min, .1f * mo->lr);
+				streak = 0;
+				if (++n_adj >= 2) break;
+			}
+		}
 	}
 	kann_min_delete(min);
+	memcpy(a->t, bak, n_par * sizeof(float));
+	memcpy(a->g, bak + n_par, n_par * sizeof(float));
+	memcpy(a->c, bak + n_par * 2, kann_n_hyper(a) * sizeof(float));
+	if (kann_verbose >= 3)
+		fprintf(stderr, "min epoch: %d\n", min_j + 1);
+	free(bak);
 
 	for (i = 0; i < mo->max_rnn_len; ++i) {
 		free(y[i]); free(x[i]);
