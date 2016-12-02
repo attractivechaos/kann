@@ -22,10 +22,10 @@ int main(int argc, char *argv[])
 	kann_mopt_t mo;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
-	float h_dropout = 0.1f;
+	float h_dropout = 0.0f;
 
 	kann_mopt_init(&mo);
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:R")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
 		else if (c == 'B') mo.max_mbs = atoi(optarg);
 		else if (c == 'd') h_dropout = atof(optarg);
+		else if (c == 'R') mo.batch_algo = KANN_MB_iRprop;
 	}
 	if (argc - optind < 1) {
 		FILE *fp = stdout;
@@ -51,6 +52,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
 		fprintf(fp, "    -m INT      max number of epochs [%d]\n", mo.max_epoch);
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mo.max_mbs);
+		fprintf(fp, "    -R          use iRprop- after a batch\n");
 		return 1;
 	}
 	if (argc - optind == 1 && in_fn == 0) {

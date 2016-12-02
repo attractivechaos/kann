@@ -209,7 +209,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 int main(int argc, char *argv[])
 {
 	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 100, model = 0, batch_size = 11000, map[MAX_CHAR];
-	float h_dropout = 0.1f, temp = 0.5f;
+	float h_dropout = 0.0f, temp = 0.5f;
 	kann_t *ann = 0;
 	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 	kann_mopt_init(&mo);
 	mo.max_rnn_len = 100;
 	mo.lr = 0.01f;
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:t:Sb:T:M:C")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:t:Sb:T:M:R")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 		else if (c == 'S') no_space = 1;
 		else if (c == 'b') batch_size = atoi(optarg);
 		else if (c == 'T') temp = atof(optarg);
-		else if (c == 'C') mo.batch_algo = KANN_MB_CONST;
+		else if (c == 'R') mo.batch_algo = KANN_MB_iRprop;
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
 	}
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
-		fprintf(fp, "Usage: textgen [options] [in.txt]\n");
+		fprintf(fp, "Usage: textgen [options] <in.fq>\n");
 		fprintf(fp, "Options:\n");
 		fprintf(fp, "  Model construction:\n");
 		fprintf(fp, "    -i FILE     read trained model from FILE []\n");
@@ -255,6 +255,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -m INT      max number of epochs [%d]\n", mo.max_epoch);
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mo.max_mbs);
 		fprintf(fp, "    -t INT      max unroll [%d]\n", mo.max_rnn_len);
+		fprintf(fp, "    -R          use iRprop- after a batch\n");
 		fprintf(fp, "  Text generation:\n");
 		fprintf(fp, "    -T FLOAT    temperature [%g]\n", temp);
 		return 1;

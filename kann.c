@@ -672,7 +672,7 @@ void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
 	mo->mini_algo = KANN_MM_RMSPROP;
-	mo->batch_algo = KANN_MB_iRprop;
+	mo->batch_algo = KANN_MB_CONST;
 	mo->lr = 0.001f;
 	mo->fv = 0.1f;
 	mo->max_mbs = 64;
