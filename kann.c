@@ -774,6 +774,7 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 			fprintf(stderr, "epoch: %d; running cost: %g; validation cost: %g\n", j+1, running_cost, validate_cost);
 		if (j >= mo->epoch_lazy) {
 			if (validate_cost < min_cost) {
+				streak = 0;
 				min_j = j, min_cost = validate_cost;
 				memcpy(bak, a->t, n_par * sizeof(float));
 				memcpy(bak + n_par, a->g, n_par * sizeof(float));
