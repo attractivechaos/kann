@@ -606,7 +606,7 @@ kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n)
 	if (batch_algo <= 0) batch_algo = KANN_MB_RPROP;
 	m = (kann_min_t*)calloc(1, sizeof(kann_min_t));
 	m->mini_algo = mini_algo, m->batch_algo = batch_algo, m->n = n;
-	m->h_min = 0.0f, m->h_max = .1f;
+	m->h_min = 1e-7f, m->h_max = 0.1f;
 	m->rprop_dec = 0.5f, m->rprop_inc = 1.2f;
 	m->decay = 0.9f;
 	m->h = (float*)calloc(n, sizeof(float));
@@ -732,10 +732,10 @@ static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, v
 			}
 		}
 		if (k == 0) break;
-		fnn = len == max_len && fnn_max? fnn_max : kann_rnn_unroll(a, len);
+		fnn = len == max_len && fnn_max? fnn_max : kann_is_rnn(a)? kann_rnn_unroll(a, len) : a;
 		cost += kann_fnn_process_mini(fnn, min, k, x, y) * k;
 		tot += k;
-		if (fnn && fnn != fnn_max) kann_delete_unrolled(fnn);
+		if (fnn && fnn != fnn_max && fnn != a) kann_delete_unrolled(fnn);
 	}
 	free(y1); free(x1);
 	cost /= tot;
@@ -895,14 +895,6 @@ void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **
 
 #define KANN_MAGIC "KAN\1"
 
-void kann_write(const char *fn, kann_t *ann)
-{
-	FILE *fp;
-	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
-	kann_write_core(fp, ann);
-	fclose(fp);
-}
-
 void kann_write_core(FILE *fp, kann_t *ann)
 {
 	kann_set_batch_size(ann, 1);
@@ -910,6 +902,14 @@ void kann_write_core(FILE *fp, kann_t *ann)
 	kad_write(fp, ann->n, ann->v);
 	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
 	fwrite(ann->c, sizeof(float), kann_n_hyper(ann), fp);
+}
+
+void kann_write(const char *fn, kann_t *ann)
+{
+	FILE *fp;
+	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
+	kann_write_core(fp, ann);
+	fclose(fp);
 }
 
 kann_t *kann_read_core(FILE *fp)
