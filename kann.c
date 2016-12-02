@@ -781,16 +781,16 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 				memcpy(bak + n_par, a->g, n_par * sizeof(float));
 				memcpy(bak + n_par * 2, a->c, kann_n_hyper(a) * sizeof(float));
 			} else if (++streak >= mo->epoch_lazy) {
-				kann_min_set_lr(min, .1f * mo->lr);
 				streak = 0;
+				memcpy(a->t, bak, n_par * sizeof(float));
+				memcpy(a->g, bak + n_par, n_par * sizeof(float));
+				memcpy(a->c, bak + n_par * 2, kann_n_hyper(a) * sizeof(float));
 				if (++n_adj >= 2) break;
+				kann_min_set_lr(min, .1f * mo->lr);
 			}
 		}
 	}
 	kann_min_delete(min);
-	memcpy(a->t, bak, n_par * sizeof(float));
-	memcpy(a->g, bak + n_par, n_par * sizeof(float));
-	memcpy(a->c, bak + n_par * 2, kann_n_hyper(a) * sizeof(float));
 	if (kann_verbose >= 3)
 		fprintf(stderr, "min epoch: %d\n", min_j + 1);
 	free(bak);
