@@ -662,9 +662,12 @@ int kad_op_tanh(kad_node_t *p, int action)
 		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) {
-			float y;
-			y = expf(-2.0f * q->x[i]);
-			p->x[i] = (1.0f - y) / (1.0f + y);
+			if (q->x[i] < -20.0f) p->x[i] = -1.0f;
+			else {
+				float y;
+				y = expf(-2.0f * q->x[i]);
+				p->x[i] = (1.0f - y) / (1.0f + y);
+			}
 		}
 	} else if (action == KAD_BACKWARD) {
 		if (q->to_back)
