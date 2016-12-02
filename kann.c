@@ -603,10 +603,10 @@ kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n)
 	int i;
 	kann_min_t *m;
 	if (mini_algo <= 0) mini_algo = KANN_MM_RMSPROP;
-	if (batch_algo <= 0) batch_algo = KANN_MB_RPROP;
+	if (batch_algo <= 0) batch_algo = KANN_MB_iRprop;
 	m = (kann_min_t*)calloc(1, sizeof(kann_min_t));
 	m->mini_algo = mini_algo, m->batch_algo = batch_algo, m->n = n;
-	m->h_min = 1e-7f, m->h_max = 0.1f;
+	m->h_min = 1e-7f, m->h_max = 10.0f;
 	m->rprop_dec = 0.5f, m->rprop_inc = 1.2f;
 	m->decay = 0.9f;
 	m->h = (float*)calloc(n, sizeof(float));
@@ -614,7 +614,7 @@ kann_min_t *kann_min_new(int mini_algo, int batch_algo, int n)
 	if (mini_algo == KANN_MM_RMSPROP) {
 		m->maux = (float*)calloc(n, sizeof(float));
 	}
-	if (batch_algo == KANN_MB_RPROP) {
+	if (batch_algo == KANN_MB_iRprop) {
 		m->baux = (float*)calloc(2 * n, sizeof(float));
 	}
 	return m;
@@ -640,7 +640,7 @@ void kann_min_mini_update(kann_min_t *m, const float *g, float *t)
 
 void kann_min_batch_finish(kann_min_t *m, const float *t)
 {
-	if (m->batch_algo == KANN_MB_RPROP) {
+	if (m->batch_algo == KANN_MB_iRprop) {
 		int i;
 		float *t0 = m->baux, *g0 = m->baux + m->n;
 		if (m->epoch == 1) {
@@ -654,6 +654,7 @@ void kann_min_batch_finish(kann_min_t *m, const float *t)
 				} else if (tmp < 0.0f) {
 					m->h[i] *= m->rprop_dec;
 					if (m->h[i] < m->h_min) m->h[i] = m->h_min;
+					g = 0.0f;
 				}
 				g0[i] = g;
 			}
@@ -671,7 +672,7 @@ void kann_mopt_init(kann_mopt_t *mo)
 {
 	memset(mo, 0, sizeof(kann_mopt_t));
 	mo->mini_algo = KANN_MM_RMSPROP;
-	mo->batch_algo = KANN_MB_RPROP;
+	mo->batch_algo = KANN_MB_iRprop;
 	mo->lr = 0.001f;
 	mo->fv = 0.1f;
 	mo->max_mbs = 64;

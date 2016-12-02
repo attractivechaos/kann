@@ -217,7 +217,7 @@ int main(int argc, char *argv[])
 	kann_mopt_init(&mo);
 	mo.max_rnn_len = 100;
 	mo.lr = 0.01f;
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:t:Sb:T:M:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:t:Sb:T:M:C")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -231,6 +231,7 @@ int main(int argc, char *argv[])
 		else if (c == 'S') no_space = 1;
 		else if (c == 'b') batch_size = atoi(optarg);
 		else if (c == 'T') temp = atof(optarg);
+		else if (c == 'C') mo.batch_algo = KANN_MB_CONST;
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;

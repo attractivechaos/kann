@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r183"
+#define KANN_VERSION "r184"
 
 #define KANN_L_IN       1   // input
 #define KANN_L_OUT      2   // output
@@ -50,7 +50,7 @@
 #define KANN_MM_RMSPROP 2
 
 #define KANN_MB_CONST   1
-#define KANN_MB_RPROP   2
+#define KANN_MB_iRprop  2
 
 #include "kautodiff.h"
 
