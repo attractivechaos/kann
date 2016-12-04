@@ -63,6 +63,7 @@ struct kad_node_t {
 	float      *g;              // gradient; allocated for internal nodes
 	kad_edge_t *child;          // operands/child nodes
 	kad_node_t *pre;            // usually NULL; only used for RNN
+	void       *ptr;
 };
 
 #define KAD_ALLOC      1

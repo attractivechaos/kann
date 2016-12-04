@@ -806,6 +806,54 @@ int kad_op_avg(kad_node_t *p, int action)
 	return 0;
 }
 
+typedef struct {
+	int h_stride, w_stride;
+	int h_pad, w_pad;
+} kad_conv2d_t;
+
+int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (nchw) shape
+{
+	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
+	kad_node_t *q, *w;
+
+	assert(aux->h_pad == 0 && aux->w_pad == 0); // TODO: padding not implemented yet
+	assert(p->n_child == 2);
+	q = p->child[1].p, w = p->child[0].p;
+
+	if (action == KAD_SYNC_DIM) {
+		if (q->n_d != 4 || w->n_d != 4) return -1;
+		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
+		p->n_d = 4;
+		p->d[0] = q->d[0], p->d[1] = w->d[0];
+		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->h_pad) / aux->h_stride + 1; // TODO: test if can be divided by stride!
+		p->d[3] = (q->d[3] - w->d[3] + 2 * aux->w_pad) / aux->w_stride + 1;
+	} else if (action == KAD_ALLOC) {
+	} else if (action == KAD_FORWARD) {
+		float *t;
+		int n;
+		t = (float*)malloc((p->d[2] * p->d[3]) * (w->d[1] * w->d[2] * w->d[3]) * sizeof(float));
+		for (n = 0; n < q->d[0]; ++n) { // traverse mini batch
+			int m = 0, c, i, j, k;
+			memset(t, 0, (p->d[2] * p->d[3]) * (w->d[1] * w->d[2] * w->d[3]) * sizeof(float));
+			for (i = 0; i < q->d[2]; i += aux->h_stride)
+				for (j = 0; j < q->d[3]; j += aux->w_stride)
+					for (c = 0; c < q->d[1]; ++c) // traverse input channels
+						for (k = 0; k < w->d[2]; ++k) {
+							memcpy(&t[m], &q->x[((n * q->d[1] + c) * q->d[2] + i + k) * q->d[3] + j], w->d[3] * sizeof(float));
+							m += w->d[3];
+						}
+			kad_mat_cmul(w->d[1] * w->d[2] * w->d[3], w->d[0], w->x, p->d[2] * p->d[3], t, &p->x[n * p->d[1] * p->d[2] * p->d[3]]);
+		}
+		free(t);
+	} else if (action == KAD_BACKWARD) {
+		if (p->child[0].p->to_back) {
+		}
+		if (p->child[1].p->to_back) {
+		}
+	}
+	return 0;
+}
+
 kad_op_f kad_op_list[KAD_MAX_OP] = {
 	0,
 	kad_op_add,
