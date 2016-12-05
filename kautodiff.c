@@ -828,27 +828,58 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->h_pad) / aux->h_stride + 1; // TODO: test if can be divided by stride!
 		p->d[3] = (q->d[3] - w->d[3] + 2 * aux->w_pad) / aux->w_stride + 1;
 	} else if (action == KAD_ALLOC) {
+		p->child[0].t = (float*)malloc(w->d[1] * w->d[2] * w->d[3] * sizeof(float));
 	} else if (action == KAD_FORWARD) {
-		float *t;
-		int n;
-		t = (float*)malloc((p->d[2] * p->d[3]) * (w->d[1] * w->d[2] * w->d[3]) * sizeof(float));
-		for (n = 0; n < q->d[0]; ++n) { // traverse mini batch
-			int m = 0, c, i, j, k;
-			memset(t, 0, (p->d[2] * p->d[3]) * (w->d[1] * w->d[2] * w->d[3]) * sizeof(float));
-			for (i = 0; i < q->d[2]; i += aux->h_stride)
-				for (j = 0; j < q->d[3]; j += aux->w_stride)
-					for (c = 0; c < q->d[1]; ++c) // traverse input channels
-						for (k = 0; k < w->d[2]; ++k) {
-							memcpy(&t[m], &q->x[((n * q->d[1] + c) * q->d[2] + i + k) * q->d[3] + j], w->d[3] * sizeof(float));
-							m += w->d[3];
-						}
-			kad_mat_cmul(w->d[1] * w->d[2] * w->d[3], w->d[0], w->x, p->d[2] * p->d[3], t, &p->x[n * p->d[1] * p->d[2] * p->d[3]]);
+		int n, u;
+		float *t = p->child[0].t;
+		for (n = u = 0; n < q->d[0]; ++n) { // traverse mini batch
+			int i, j, c1, c0, k, m;
+			for (c1 = 0; c1 < w->d[0]; ++c1) {
+				float *c1w = &w->x[c1 * q->d[1] * w->d[2] * w->d[3]];
+				for (i = 0; i < p->d[2]; ++i)
+					for (j = 0; j < p->d[3]; ++j) {
+						int qi = i * aux->h_stride - aux->h_pad, qj = j * aux->w_stride - aux->w_pad;
+						for (c0 = m = 0; c0 < q->d[1]; ++c0) // traverse input channels
+							for (k = 0; k < w->d[2]; ++k, m += w->d[3])
+								memcpy(&t[m], &q->x[((n * q->d[1] + c0) * q->d[2] + qi) * q->d[3] + qj], w->d[3] * sizeof(float));
+						p->x[u++] = kad_sdot(q->d[1] * w->d[2] * w->d[3], c1w, t);
+					}
+			}
 		}
-		free(t);
 	} else if (action == KAD_BACKWARD) {
 		if (p->child[0].p->to_back) {
+			int n, u;
+			for (n = u = 0; n < q->d[0]; ++n) {
+				int i, j, c0, c1, k;
+				for (c1 = 0; c1 < w->d[0]; ++c1) {
+					for (i = 0; i < p->d[2]; ++i)
+						for (j = 0; j < p->d[3]; ++j) {
+							int qi = i * aux->h_stride - aux->h_pad, qj = j * aux->w_stride - aux->w_pad;
+							float g = p->g[u++];
+							for (c0 = 0; c0 < q->d[1]; ++c0)
+								for (k = 0; k < w->d[2]; ++k)
+									kad_saxpy(w->d[3], g, &w->x[((c1 * w->d[1] + c0) * w->d[2] + k) * w->d[3]], &q->g[((n * q->d[1] + c0) * q->d[2] + qi + k) * w->d[3] + qj]);
+						}
+				}
+			}
 		}
 		if (p->child[1].p->to_back) {
+			int n, u;
+			float *t = p->child[0].t;
+			for (n = u = 0; n < q->d[0]; ++n) { // traverse mini batch
+				int i, j, c0, c1, k, m;
+				for (c1 = 0; c1 < w->d[0]; ++c1) {
+					float *c1w = &w->g[c1 * q->d[1] * w->d[2] * w->d[3]];
+					for (i = 0; i < q->d[2]; ++i)
+						for (j = 0; j < q->d[3]; ++j) {
+							int qi = i * aux->h_stride - aux->h_pad, qj = j * aux->w_stride - aux->w_pad;
+							for (c0 = m = 0; c0 < q->d[1]; ++c0) // traverse input channels
+								for (k = 0; k < w->d[2]; ++k, m += w->d[3])
+									memcpy(&t[m], &q->x[((n * q->d[1] + c0) * q->d[2] + qi + k) * q->d[3] + qj], w->d[3] * sizeof(float));
+							kad_saxpy(q->d[1] * w->d[2] * w->d[3], p->g[u++], t, c1w);
+						}
+				}
+			}
 		}
 	}
 	return 0;
@@ -870,7 +901,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_cem,
 	kad_op_softmax,
 	kad_op_softmax,
-	kad_op_dropout
+	kad_op_dropout,
+	kad_op_conv2d
 };
 
 /**************************
