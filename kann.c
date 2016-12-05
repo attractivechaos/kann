@@ -282,6 +282,25 @@ kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
 	return out;
 }
 
+kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad)
+{
+	kad_node_t *w;
+	int i, n, m;
+	w = kad_var(0, 0, 4, n_flt, in->d[1], k_rows, k_cols);
+	w->x = (float*)calloc(kad_len(w), sizeof(float));
+	n = n_flt * in->d[1], m = k_rows * k_cols;
+	for (i = 0; i < n; ++i)
+		kann_rand_weight(k_rows, k_cols, &w->x[i*m]);
+	return kad_conv2d(in, w, stride, pad);
+}
+
+kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad)
+{
+	kad_node_t *m;
+	m = kad_par(0, 2, k_rows, k_cols);
+	return kad_max2d(in, m, stride, pad);
+}
+
 void kann_collate_x(kann_t *a)
 {
 	int i, j, k, l, n_par;

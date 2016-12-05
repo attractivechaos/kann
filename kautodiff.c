@@ -112,21 +112,21 @@ typedef struct {
 	int c_pad, r_pad;
 } kad_conv2d_t;
 
-static kad_node_t *kad_op_2d_core(int op, kad_node_t *x, kad_node_t *w, int stride, int pad)
+static kad_node_t *kad_op_2d_core(int op, kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad)
 {
 	kad_node_t *s;
 	kad_conv2d_t *cnn;
-	assert(pad == 0); // not implemented yet
+	assert(r_pad == 0 && c_pad == 0); // not implemented yet
 	s = kad_op2_core(op, x, w);
 	cnn = (kad_conv2d_t*)calloc(1, sizeof(kad_conv2d_t));
-	cnn->c_stride = cnn->r_stride = stride;
-	cnn->c_pad = cnn->r_pad = pad;
+	cnn->r_stride = r_stride, cnn->r_pad = r_pad;
+	cnn->c_stride = c_stride, cnn->c_pad = c_pad;
 	s->ptr = cnn;
 	return s;
 }
 
-kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad) { return kad_op_2d_core(16, x, w, stride, pad); }
-kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { return kad_op_2d_core(17, x, m, stride, pad); }
+kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad) { return kad_op_2d_core(16, x, w, stride, stride, pad, pad); }
+kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { return kad_op_2d_core(17, x, m, stride, stride, pad, pad); }
 
 /***********************
  * Graph linearization *
