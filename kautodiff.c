@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <float.h>
 #include <math.h>
 #include "kautodiff.h"
 
@@ -105,6 +106,27 @@ kad_node_t *kad_avg(int n, kad_node_t **x)
 	}
 	return s;
 }
+
+typedef struct {
+	int c_stride, r_stride;
+	int c_pad, r_pad;
+} kad_conv2d_t;
+
+static kad_node_t *kad_op_2d_core(int op, kad_node_t *x, kad_node_t *w, int stride, int pad)
+{
+	kad_node_t *s;
+	kad_conv2d_t *cnn;
+	assert(pad == 0); // not implemented yet
+	s = kad_op2_core(op, x, w);
+	cnn = (kad_conv2d_t*)calloc(1, sizeof(kad_conv2d_t));
+	cnn->c_stride = cnn->r_stride = stride;
+	cnn->c_pad = cnn->r_pad = pad;
+	s->ptr = cnn;
+	return s;
+}
+
+kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad) { return kad_op_2d_core(16, x, w, stride, pad); }
+kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { return kad_op_2d_core(17, x, m, stride, pad); }
 
 /***********************
  * Graph linearization *
@@ -216,6 +238,7 @@ void kad_delete(int n, kad_node_t **a)
 			free(p->g);
 		}
 		free(p->child);
+		free(p->ptr);
 		free(p);
 	}
 	free(a);
@@ -806,29 +829,26 @@ int kad_op_avg(kad_node_t *p, int action)
 	return 0;
 }
 
-typedef struct {
-	int h_stride, w_stride;
-	int h_pad, w_pad;
-} kad_conv2d_t;
-
 int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (nchw) shape
 {
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
 	kad_node_t *q, *w;
 
-	assert(aux->h_pad == 0 && aux->w_pad == 0); // TODO: padding not implemented yet
+	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
 	assert(p->n_child == 2);
 	q = p->child[1].p, w = p->child[0].p;
 
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || w->n_d != 4) return -1;
 		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
+		if ((q->d[2] - w->d[2] + 2 * aux->r_pad) % aux->r_stride != 0) return -1;
+		if ((q->d[3] - w->d[3] + 2 * aux->c_pad) % aux->c_stride != 0) return -1;
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = w->d[0];
-		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->h_pad) / aux->h_stride + 1; // TODO: test if can be divided by stride!
-		p->d[3] = (q->d[3] - w->d[3] + 2 * aux->w_pad) / aux->w_stride + 1;
+		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->r_pad) / aux->r_stride + 1; // TODO: test if can be divided by stride!
+		p->d[3] = (q->d[3] - w->d[3] + 2 * aux->c_pad) / aux->c_stride + 1;
 	} else if (action == KAD_ALLOC) {
-		p->child[0].t = (float*)malloc(w->d[1] * w->d[2] * w->d[3] * sizeof(float));
+		p->child[0].t = (float*)realloc(p->child[0].t, w->d[1] * w->d[2] * w->d[3] * sizeof(float));
 	} else if (action == KAD_FORWARD) {
 		int n, u;
 		float *t = p->child[0].t;
@@ -838,7 +858,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				float *c1w = &w->x[c1 * q->d[1] * w->d[2] * w->d[3]];
 				for (i = 0; i < p->d[2]; ++i)
 					for (j = 0; j < p->d[3]; ++j) {
-						int qi = i * aux->h_stride - aux->h_pad, qj = j * aux->w_stride - aux->w_pad;
+						int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
 						for (c0 = m = 0; c0 < q->d[1]; ++c0) // traverse input channels
 							for (k = 0; k < w->d[2]; ++k, m += w->d[3])
 								memcpy(&t[m], &q->x[((n * q->d[1] + c0) * q->d[2] + qi) * q->d[3] + qj], w->d[3] * sizeof(float));
@@ -854,7 +874,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				for (c1 = 0; c1 < w->d[0]; ++c1) {
 					for (i = 0; i < p->d[2]; ++i)
 						for (j = 0; j < p->d[3]; ++j) {
-							int qi = i * aux->h_stride - aux->h_pad, qj = j * aux->w_stride - aux->w_pad;
+							int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
 							float g = p->g[u++];
 							for (c0 = 0; c0 < q->d[1]; ++c0)
 								for (k = 0; k < w->d[2]; ++k)
@@ -870,9 +890,9 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				int i, j, c0, c1, k, m;
 				for (c1 = 0; c1 < w->d[0]; ++c1) {
 					float *c1w = &w->g[c1 * q->d[1] * w->d[2] * w->d[3]];
-					for (i = 0; i < q->d[2]; ++i)
-						for (j = 0; j < q->d[3]; ++j) {
-							int qi = i * aux->h_stride - aux->h_pad, qj = j * aux->w_stride - aux->w_pad;
+					for (i = 0; i < p->d[2]; ++i)
+						for (j = 0; j < p->d[3]; ++j) {
+							int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
 							for (c0 = m = 0; c0 < q->d[1]; ++c0) // traverse input channels
 								for (k = 0; k < w->d[2]; ++k, m += w->d[3])
 									memcpy(&t[m], &q->x[((n * q->d[1] + c0) * q->d[2] + qi + k) * q->d[3] + qj], w->d[3] * sizeof(float));
@@ -881,6 +901,53 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				}
 			}
 		}
+	}
+	return 0;
+}
+
+int kad_op_max2d(kad_node_t *p, int action)
+{
+	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
+	kad_node_t *q, *m;
+
+	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
+	assert(p->n_child == 2);
+	q = p->child[1].p, m = p->child[0].p;
+	assert(q->to_back && !m->to_back);
+	if (action == KAD_SYNC_DIM) {
+		if (q->n_d != 4 || m->n_d != 2) return -1;
+		if ((q->d[2] - m->d[0] + 2 * aux->r_pad) % aux->r_stride != 0) return -1;
+		if ((q->d[3] - m->d[1] + 2 * aux->c_pad) % aux->c_stride != 0) return -1;
+		p->n_d = 4;
+		p->d[0] = q->d[0], p->d[1] = q->d[1];
+		p->d[2] = (q->d[2] - m->d[0] + 2 * aux->r_pad) / aux->r_stride + 1;
+		p->d[3] = (q->d[3] - m->d[1] + 2 * aux->c_pad) / aux->c_stride + 1;
+	} else if (action == KAD_ALLOC) {
+		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
+	} else if (action == KAD_FORWARD) {
+		int rest = 1, len, t, i, j, k, l, u = 0;
+		int *f = (int*)p->child[0].t;
+		len = kad_len(p);
+		for (i = 0; i < kad_len(p); ++i) p->x[i] = -FLT_MAX;
+		for (i = 0; i < p->n_d - 2; ++i) rest *= p->d[i];
+		for (t = u = 0; t < rest; ++t) {
+			for (i = 0; i < p->d[p->n_d - 2]; ++i)
+				for (j = 0; j < p->d[p->n_d - 1]; ++j) {
+					int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
+					int shift = t * q->d[q->n_d - 2];
+					for (k = 0; k < m->d[0]; ++k)
+						for (l = 0; l < m->d[1]; ++l) {
+							int v = (shift + qi + k) * q->d[q->n_d - 1] + qj + l;
+							if (p->x[u] < q->x[v])
+								p->x[u] = q->x[v], f[u] = v;
+						}
+					++u;
+				}
+		}
+	} else if (action == KAD_BACKWARD) {
+		int i, len, *f = (int*)p->child[0].t;
+		len = kad_len(p);
+		for (i = 0; i < len; ++i) q->g[f[i]] += p->g[i];
 	}
 	return 0;
 }
@@ -902,7 +969,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_softmax,
 	kad_op_softmax,
 	kad_op_dropout,
-	kad_op_conv2d
+	kad_op_conv2d,
+	kad_op_max2d
 };
 
 /**************************
