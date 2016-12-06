@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <stdlib.h>
 #include <assert.h>
 #include "models/kann_data.h"
 #include "kann.h"
@@ -9,12 +10,15 @@ int main(int argc, char *argv[])
 	kann_data_t *x, *y;
 	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
-	int c;
+	int c, n_h_fc = 50, n_h_flt = 32;
 
 	kann_mopt_init(&mo);
-	while ((c = getopt(argc, argv, "i:o:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:h:f:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
+		else if (c == 'm') mo.max_epoch = atoi(optarg);
+		else if (c == 'h') n_h_fc = atoi(optarg);
+		else if (c == 'f') n_h_flt = atoi(optarg);
 	}
 
 	if (argc - optind == 0 || (argc - optind == 1 && fn_in == 0)) {
@@ -28,15 +32,15 @@ int main(int argc, char *argv[])
 	} else {
 		kad_node_t *t;
 		t = kad_par(0, 4, 1, 1, 28, 28), t->label = KANN_L_IN;
-		t = kann_layer_conv2d(t, 32, 3, 3, 1, 0);
-		t = kad_relu(t);
-		t = kann_layer_conv2d(t, 32, 3, 3, 1, 0);
+//		t = kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0);
+//		t = kad_relu(t);
+		t = kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0);
 		t = kad_relu(t);
 		t = kann_layer_max2d(t, 2, 2, 2, 0);
-		t = kann_layer_dropout(t, 0.25f);
-		t = kann_layer_linear(t, 128);
+//		t = kann_layer_dropout(t, 0.25f);
+		t = kann_layer_linear(t, n_h_fc);
 		t = kad_relu(t);
-		t = kann_layer_dropout(t, 0.5f);
+//		t = kann_layer_dropout(t, 0.5f);
 		ann = kann_layer_final(t, 10, KANN_C_CEB);
 	}
 
