@@ -317,6 +317,8 @@ static void kad_write1(FILE *fp, const kad_node_t *p)
 		for (j = 0; j < p->n_child; ++j)
 			fwrite(&p->child[j].p->tmp, 4, 1, fp);
 		fwrite(&pre, 4, 1, fp);
+		if (p->op == 16 || p->op == 17)
+			fwrite(p->ptr, sizeof(kad_conv2d_t), 1, fp);
 	} else {
 		fwrite(&p->n_d, 1, 1, fp);
 		if (p->n_d) fwrite(p->d, 4, p->n_d, fp);
@@ -340,6 +342,10 @@ static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 		}
 		fread(&k, 4, 1, fp);
 		if (k >= 0) p->pre = node[k];
+		if (p->op == 16 || p->op == 17) { // read additional conv2d parameters
+			p->ptr = calloc(1, sizeof(kad_conv2d_t));
+			fread(p->ptr, sizeof(kad_conv2d_t), 1, fp);
+		}
 	} else {
 		fread(&p->n_d, 1, 1, fp);
 		if (p->n_d) fread(p->d, 4, p->n_d, fp);
