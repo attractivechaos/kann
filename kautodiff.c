@@ -523,26 +523,18 @@ int kad_op_mul(kad_node_t *p, int action)
 
 int kad_op_cmul(kad_node_t *p, int action)
 {
-	int i, j, n_a_row, n_b_row, n_col;
+	int i, j, n_a_row, n_b_row, n_col, n_a_col, n_b_col;
 	kad_node_t *q[2];
 
 	q[0] = p->child[0].p;
 	q[1] = p->child[1].p;
-	if (q[0]->n_d == 1 && q[1]->n_d == 2)      n_a_row = 1, n_b_row = q[1]->d[0], n_col = q[0]->d[0];
-	else if (q[0]->n_d == 2 && q[1]->n_d == 1) n_a_row = q[0]->d[0], n_b_row = 1, n_col = q[1]->d[0];
-	else if (q[0]->n_d == 2 && q[1]->n_d == 2) n_a_row = q[0]->d[0], n_b_row = q[1]->d[0], n_col = q[0]->d[1];
-	else abort();
+	n_a_col = q[0]->n_d == 1? q[0]->d[0] : kad_len(q[0]) / q[0]->d[0];
+	n_b_col = q[1]->n_d == 1? q[1]->d[0] : kad_len(q[1]) / q[1]->d[0];
+	n_a_row = kad_len(q[0]) / n_a_col, n_b_row = kad_len(q[1]) / n_b_col;
+	n_col = n_a_col;
 	if (action == KAD_SYNC_DIM) {
-		if (q[0]->n_d == 1 && q[1]->n_d == 2) {
-			if (q[0]->d[0] != q[1]->d[1]) return -1;
-			p->n_d = 1, p->d[1] = q[0]->d[0];
-		} else if (q[0]->n_d == 2 && q[1]->n_d == 1) {
-			if (q[0]->d[1] != q[1]->d[0]) return -1;
-			p->n_d = 1, p->d[1] = q[1]->d[0];
-		} else if (q[0]->n_d == 2 && q[1]->n_d == 2) {
-			if (q[0]->d[1] != q[1]->d[1]) return -1;
-			p->n_d = 2, p->d[0] = q[0]->d[0], p->d[1] = q[1]->d[0];
-		} else return -1;
+		if (n_a_col != n_b_col) return -1;
+		p->n_d = 2, p->d[0] = n_a_row, p->d[1] = n_b_row;
 	} else if (action == KAD_FORWARD) {
 		if (q[0]->x == 0 || q[1]->x == 0) memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
 		else kad_mat_cmul(n_col, n_a_row, q[0]->x, n_b_row, q[1]->x, p->x);
