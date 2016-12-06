@@ -117,11 +117,16 @@ static kad_node_t *kad_op_2d_core(int op, kad_node_t *x, kad_node_t *w, int r_st
 	kad_node_t *s;
 	kad_conv2d_t *cnn;
 	assert(r_pad == 0 && c_pad == 0); // not implemented yet
-	s = kad_op2_core(op, x, w);
+	s = kad_new_core(0, op, 2);
+	s->child[0].p = x, s->child[1].p = w;
 	cnn = (kad_conv2d_t*)calloc(1, sizeof(kad_conv2d_t));
 	cnn->r_stride = r_stride, cnn->r_pad = r_pad;
 	cnn->c_stride = c_stride, cnn->c_pad = c_pad;
 	s->ptr = cnn;
+	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
+		free(cnn); free(s->child); free(s);
+		return 0;
+	}
 	return s;
 }
 
@@ -828,7 +833,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 
 	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
 	assert(p->n_child == 2);
-	q = p->child[1].p, w = p->child[0].p;
+	q = p->child[0].p, w = p->child[1].p;
 
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || w->n_d != 4) return -1;
@@ -904,8 +909,7 @@ int kad_op_max2d(kad_node_t *p, int action)
 
 	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
 	assert(p->n_child == 2);
-	q = p->child[1].p, m = p->child[0].p;
-	assert(q->to_back && !m->to_back);
+	q = p->child[0].p, m = p->child[1].p;
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || m->n_d != 2) return -1;
 		if ((q->d[2] - m->d[0] + 2 * aux->r_pad) % aux->r_stride != 0) return -1;

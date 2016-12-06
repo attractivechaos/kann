@@ -1,7 +1,7 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
-EXE=		models/mlp models/textgen examples/rnn-bit
+EXE=		models/mlp models/textgen examples/rnn-bit examples/mnist-cnn
 LIBS=		-lm -lz
 
 .SUFFIXES:.c .o
@@ -24,6 +24,9 @@ models/textgen:models/textgen.o kautodiff.o kann.o
 examples/rnn-bit:examples/rnn-bit.o kautodiff.o kann.o
 		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
+examples/mnist-cnn:examples/mnist-cnn.o kautodiff.o kann.o models/kann_data.o
+		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+
 clean:
 		rm -fr *.o */*.o a.out */a.out *.a *.dSYM */*.dSYM $(EXE)
 
@@ -34,6 +37,7 @@ depend:
 
 kann.o: kann.h kautodiff.h
 kautodiff.o: kautodiff.h
+examples/mnist-cnn.o: models/kann_data.h kann.h kautodiff.h
 examples/rnn-bit.o: kann.h kautodiff.h
 models/kann_data.o: models/kseq.h models/kann_data.h
 models/mlp.o: kann.h kautodiff.h models/kann_data.h
