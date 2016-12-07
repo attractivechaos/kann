@@ -837,7 +837,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
 	kad_node_t *q, *w;
 
-	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
+	assert(aux->c_pad == 0); // TODO: padding not implemented yet
 	assert(p->n_child == 2);
 	q = p->child[0].p, w = p->child[1].p;
 
@@ -870,19 +870,21 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 						int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
 						for (k = k_st; k < k_en; ++k) {
 							float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
-							for (l = 0; l < w->d[3]; ++l) {
-								if (aux->c_stride > 1) {
+							if (aux->c_stride > 1) {
+								for (l = 0; l < w->d[3]; ++l) {
 									float *rl = &r[l];
 									for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
 									kad_saxpy(p->d[3], wm[k * w->d[2] + l], t, &out[i * p->d[3]]);
-								} else {
-									kad_saxpy(p->d[3], wm[k * w->d[2] + l], &r[l], &out[i * p->d[3]]);
 								}
+							} else {
+								for (l = 0; l < w->d[3]; ++l)
+									kad_saxpy(p->d[3], wm[k * w->d[2] + l], &r[l], &out[i * p->d[3]]);
 							}
-						}
-					}
-				} // c0, c1, n
+						} // ~k
+					} // ~i
+				} // ~c0, c1, n
 	} else if (action == KAD_BACKWARD) {
+		float *t = p->child[0].t;
 		if (p->child[0].p->to_back) {
 			int n, c1, c0, k_size = w->d[2] * w->d[3];
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
@@ -892,23 +894,28 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 						float *wm = &w->x[(c1 * w->d[1] + c0) * k_size];
 						float *go = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
 						int i, j, k, l;
-						for (i = 0; i < p->d[2]; ++i) // output row
-							for (k = 0; k < w->d[2]; ++k) {
+						for (i = 0; i < p->d[2]; ++i) {
+							int k_st = i? 0 : aux->r_pad;
+							int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
+							for (k = k_st; k < k_en; ++k) {
 								float *r = &gi[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
-								if (aux->c_stride == 1 && aux->c_pad == 0) {
+								if (aux->c_stride > 1) {
+									for (l = 0; l < w->d[3]; ++l) {
+										float *rl = &r[l];
+										memset(t, 0, p->d[3] * sizeof(float));
+										kad_saxpy(p->d[3], wm[k * w->d[2] + l], &go[i * p->d[3]], t);
+										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) *rl += t[j];
+									}
+								} else {
 									for (l = 0; l < w->d[3]; ++l)
 										kad_saxpy(p->d[3], wm[k * w->d[2] + l], &go[i * p->d[3]], &r[l]);
-								} else {
-									for (j = 0; j < p->d[3]; ++j)
-										kad_saxpy(w->d[3], go[i * p->d[3] + j], &wm[k * w->d[2]], &r[j * aux->c_stride - aux->c_pad]);
 								}
-							} // k, i
-					} // c0, c1, n
+							} // ~k
+						} // ~i
+					} // ~c0, c1, n
 		}
 		if (p->child[1].p->to_back) {
 			int n, c1, c0, k_size = w->d[2] * w->d[3];
-			float *t;
-			t = (float*)malloc(p->d[3] * w->d[2] * w->d[3] * sizeof(float));
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
 				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
 					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
@@ -917,24 +924,23 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 						float *go  = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
 						int i, j, k, l;
 						for (i = 0; i < p->d[2]; ++i) { // output row
-							if (aux->c_stride == 1 && aux->c_pad == 0) {
-								for (k = 0; k < w->d[2]; ++k) {
-									float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
+							int k_st = i? 0 : aux->r_pad;
+							int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
+							for (k = k_st; k < k_en; ++k) {
+								float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
+								if (aux->c_stride > 1) {
+									for (l = 0; l < w->d[3]; ++l) {
+										float *rl = &r[l];
+										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
+										gw[k * w->d[2] + l] += kad_sdot(p->d[3], &go[i * p->d[3]], t);
+									}
+								} else {
 									for (l = 0; l < w->d[3]; ++l)
 										gw[k * w->d[2] + l] += kad_sdot(p->d[3], &go[i * p->d[3]], &r[l]);
 								}
-							} else {
-								for (k = 0; k < w->d[2]; ++k) {
-									float *tj, *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
-									for (j = 0, tj = t; j < p->d[3]; ++j, tj += k_size)
-										memcpy(&tj[k * w->d[3]], &r[j * aux->c_stride - aux->c_pad], w->d[3] * sizeof(float));
-								} // k
-								for (j = 0; j < p->d[3]; ++j)
-									kad_saxpy(k_size, go[i * p->d[3] + j], &t[j * k_size], gw);
-							}
-						} // i
-					} // c0, c1, n
-			free(t);
+							} // ~k
+						} // ~i
+					} // ~c0, c1, n
 		}
 	}
 	return 0;
