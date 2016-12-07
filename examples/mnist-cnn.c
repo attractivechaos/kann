@@ -11,14 +11,16 @@ int main(int argc, char *argv[])
 	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
 	int c, n_h_fc = 50, n_h_flt = 32;
+	float dropout = 0.2f;
 
 	kann_mopt_init(&mo);
-	while ((c = getopt(argc, argv, "i:o:m:h:f:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:h:f:d:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
 		else if (c == 'h') n_h_fc = atoi(optarg);
 		else if (c == 'f') n_h_flt = atoi(optarg);
+		else if (c == 'd') dropout = atof(optarg);
 	}
 
 	if (argc - optind == 0 || (argc - optind == 1 && fn_in == 0)) {
@@ -37,10 +39,10 @@ int main(int argc, char *argv[])
 		t = kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0);
 		t = kad_relu(t);
 		t = kann_layer_max2d(t, 2, 2, 2, 0);
-//		t = kann_layer_dropout(t, 0.25f);
+		t = kann_layer_dropout(t, dropout);
 		t = kann_layer_linear(t, n_h_fc);
 		t = kad_relu(t);
-//		t = kann_layer_dropout(t, 0.5f);
+		t = kann_layer_dropout(t, dropout);
 		ann = kann_layer_final(t, 10, KANN_C_CEB);
 	}
 
@@ -54,6 +56,20 @@ int main(int argc, char *argv[])
 		if (fn_out) kann_write(fn_out, ann);
 		kann_data_free(y);
 	} else { // applying
+		int i, j, n_out;
+		kann_set_hyper(ann, KANN_H_DROPOUT, 0.0f);
+		n_out = kann_n_out(ann);
+		assert(n_out == 10);
+		for (i = 0; i < x->n_row; ++i) {
+			const float *y;
+			y = kann_apply1(ann, x->x[i]);
+			if (x->rname) printf("%s\t", x->rname[i]);
+			for (j = 0; j < n_out; ++j) {
+				if (j) putchar('\t');
+				printf("%.3g", y[j] + 1.0f - 1.0f);
+			}
+			putchar('\n');
+		}
 	}
 
 	kann_data_free(x);
