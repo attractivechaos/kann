@@ -721,7 +721,7 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	kann_bind_by_label(a, KANN_L_TRUTH, y);
 	cost = *kad_eval_from(a->n, a->v, i_cost);
 	if (m) {
-//		kad_check_grad(a->n, a->v, i_cost);
+		kad_check_grad(a->n, a->v, i_cost);
 		kad_grad(a->n, a->v, i_cost);
 		kann_min_mini_update(m, a->g, a->t);
 	}
