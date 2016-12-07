@@ -965,14 +965,16 @@ int kad_op_max2d(kad_node_t *p, int action)
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
-		int rest = 1, len, t, i, j, k, l, u = 0;
+		int rest = 1, len, t, i, u = 0;
 		int *f = (int*)p->child[0].t;
 		len = kad_len(p);
-		for (i = 0; i < kad_len(p); ++i) p->x[i] = -FLT_MAX;
+		for (i = 0; i < len; ++i) p->x[i] = -FLT_MAX;
 		for (i = 0; i < p->n_d - 2; ++i) rest *= p->d[i];
 		for (t = u = 0; t < rest; ++t) {
-			for (i = 0; i < p->d[p->n_d - 2]; ++i)
-				for (j = 0; j < p->d[p->n_d - 1]; ++j) {
+			int n_row = p->d[p->n_d - 2], n_col = p->d[p->n_d - 1];
+			int i, j, k, l;
+			for (i = 0; i < n_row; ++i)
+				for (j = 0; j < n_col; ++j) {
 					int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
 					int shift = t * q->d[q->n_d - 2];
 					for (k = 0; k < m->d[0]; ++k)
