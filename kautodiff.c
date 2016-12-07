@@ -550,7 +550,7 @@ int kad_op_cmul(kad_node_t *p, int action)
 		if (q[0]->x == 0 || q[1]->x == 0) memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
 		else kad_mat_cmul(n_col, n_a_row, q[0]->x, n_b_row, q[1]->x, p->x);
 	} else if (action == KAD_BACKWARD) {
-		if (q[0]->to_back && q[1]->x) // TODO: is this correct?
+		if (q[0]->to_back && q[1]->x)
 			for (j = 0; j < n_b_row; ++j)
 				for (i = 0; i < n_a_row; ++i)
 					kad_saxpy(n_col, p->g[i * n_b_row + j], q[1]->x + j * n_col, q[0]->g + i * n_col);
