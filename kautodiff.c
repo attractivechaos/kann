@@ -856,7 +856,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		int n, c1, c0, k_size = w->d[2] * w->d[3];
 		float *t;
 		memset(p->x, 0, kad_len(p) * sizeof(float));
-		t = (float*)malloc(p->d[2] * w->d[2] * w->d[3] * sizeof(float));
+		t = (float*)malloc(p->d[3] * w->d[2] * w->d[3] * sizeof(float));
 		for (n = 0; n < q->d[0]; ++n) // mini-batch
 			for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
 				for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
@@ -893,22 +893,27 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			}
 		}
 		if (p->child[1].p->to_back) {
-			int n, u;
-			float *t = p->child[0].t;
-			for (n = u = 0; n < q->d[0]; ++n) { // traverse mini batch
-				int i, j, c0, c1, k, m;
-				for (c1 = 0; c1 < w->d[0]; ++c1) {
-					float *c1w = &w->g[c1 * q->d[1] * w->d[2] * w->d[3]];
-					for (i = 0; i < p->d[2]; ++i)
-						for (j = 0; j < p->d[3]; ++j) {
-							int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
-							for (c0 = m = 0; c0 < q->d[1]; ++c0) // traverse input channels
-								for (k = 0; k < w->d[2]; ++k, m += w->d[3])
-									memcpy(&t[m], &q->x[((n * q->d[1] + c0) * q->d[2] + qi + k) * q->d[3] + qj], w->d[3] * sizeof(float));
-							kad_saxpy(q->d[1] * w->d[2] * w->d[3], p->g[u++], t, c1w);
-						}
-				}
-			}
+			int n, c1, c0, k_size = w->d[2] * w->d[3];
+			float *t;
+			t = (float*)malloc(p->d[3] * w->d[2] * w->d[3] * sizeof(float));
+			for (n = 0; n < q->d[0]; ++n) // mini-batch
+				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
+					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
+						float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
+						float *gw  = &w->g[(c1 * w->d[1] + c0) * k_size];
+						float *go  = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
+						int i, j, k;
+						for (i = 0; i < p->d[2]; ++i) { // output row
+							for (k = 0; k < w->d[2]; ++k) {
+								float *tj, *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
+								for (j = 0, tj = t; j < p->d[3]; ++j, tj += k_size)
+									memcpy(&tj[k * w->d[3]], &r[j * aux->c_stride - aux->c_pad], w->d[3] * sizeof(float));
+							} // k
+							for (j = 0; j < p->d[3]; ++j)
+								kad_saxpy(k_size, go[i * p->d[3] + j], &t[j * k_size], gw);
+						} // i
+					} // c0, c1, n
+			free(t);
 		}
 	}
 	return 0;
