@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
 	kann_data_t *x, *y;
 	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
-	int c, n_h_fc = 50, n_h_flt = 32;
+	int c, n_h_fc = 128, n_h_flt = 32;
 	float dropout = 0.2f;
 
 	kann_mopt_init(&mo);
