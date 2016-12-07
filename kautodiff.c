@@ -951,13 +951,15 @@ int kad_op_max2d(kad_node_t *p, int action)
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
 	kad_node_t *q, *m;
 
-	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
+	assert(aux->c_pad == 0); // TODO: padding not implemented yet
 	assert(p->n_child == 2);
 	q = p->child[0].p, m = p->child[1].p;
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || m->n_d != 2) return -1;
 		if ((q->d[2] - m->d[0] + 2 * aux->r_pad) % aux->r_stride != 0) return -1;
 		if ((q->d[3] - m->d[1] + 2 * aux->c_pad) % aux->c_stride != 0) return -1;
+		if (aux->r_stride <= aux->r_pad) return -1;
+		if (aux->c_stride <= aux->c_pad) return -1;
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = q->d[1];
 		p->d[2] = (q->d[2] - m->d[0] + 2 * aux->r_pad) / aux->r_stride + 1;
@@ -965,26 +967,25 @@ int kad_op_max2d(kad_node_t *p, int action)
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
-		int rest = 1, len, t, i, u = 0;
+		int rest = 1, len, t, i;
 		int *f = (int*)p->child[0].t;
 		len = kad_len(p);
 		for (i = 0; i < len; ++i) p->x[i] = -FLT_MAX;
 		for (i = 0; i < p->n_d - 2; ++i) rest *= p->d[i];
-		for (t = u = 0; t < rest; ++t) {
-			int n_row = p->d[p->n_d - 2], n_col = p->d[p->n_d - 1];
-			int i, j, k, l;
-			for (i = 0; i < n_row; ++i)
-				for (j = 0; j < n_col; ++j) {
-					int qi = i * aux->r_stride - aux->r_pad, qj = j * aux->c_stride - aux->c_pad;
-					int shift = t * q->d[q->n_d - 2];
-					for (k = 0; k < m->d[0]; ++k)
-						for (l = 0; l < m->d[1]; ++l) {
-							int v = (shift + qi + k) * q->d[q->n_d - 1] + qj + l;
-							if (p->x[u] < q->x[v])
-								p->x[u] = q->x[v], f[u] = v;
-						}
-					++u;
-				}
+		for (t = 0; t < rest; ++t) {
+			int i, j, k, l, p_row = p->d[p->n_d - 2], p_col = p->d[p->n_d - 1];
+			for (i = 0; i < p_row; ++i) {
+				int k_st = i? 0 : aux->r_pad;
+				int k_en = i < p_row - 1? m->d[0] : m->d[0] - aux->r_pad;
+				int u = (t * p_row + i) * p_col;
+				for (k = k_st; k < k_en; ++k) {
+					int v, v0 = (t * q->d[p->n_d - 2] + i * aux->r_stride - aux->r_pad + k) * q->d[p->n_d - 1];
+					for (l = 0; l < m->d[1]; ++l)
+						for (j = 0, v = v0 + l; j < p_col; ++j, v += aux->c_stride)
+							if (p->x[u + j] < q->x[v])
+								p->x[u + j] = q->x[v], f[u + j] = v;
+				} // ~k
+			} // ~i
 		}
 	} else if (action == KAD_BACKWARD) {
 		int i, len, *f = (int*)p->child[0].t;
