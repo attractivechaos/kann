@@ -34,8 +34,8 @@ int main(int argc, char *argv[])
 	} else {
 		kad_node_t *t;
 		t = kad_par(0, 4, 1, 1, 28, 28), t->label = KANN_L_IN;
-//		t = kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0);
-//		t = kad_relu(t);
+		t = kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0);
+		t = kad_relu(t);
 		t = kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0);
 		t = kad_relu(t);
 		t = kann_layer_max2d(t, 2, 2, 2, 0);
