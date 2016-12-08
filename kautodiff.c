@@ -89,7 +89,6 @@ KAD_FUNC_OP1(kad_norm2, 5)
 KAD_FUNC_OP1(kad_sigm, 6)
 KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
-KAD_FUNC_OP1(kad_copy, 9)
 KAD_FUNC_OP1(kad_1minus, 11)
 KAD_FUNC_OP1(kad_softmax, 14)
 
@@ -562,6 +561,71 @@ int kad_op_cmul(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_norm2(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		p->n_d = 0;
+	} else if (action == KAD_FORWARD) {
+		p->x[0] = kad_sdot(n, q->x, q->x);
+	} else if (action == KAD_BACKWARD) {
+		if (q->to_back) {
+			float s = 1.0f / n;
+			for (i = 0; i < n; ++i)
+				q->g[i] += s * p->g[0] * (q->x[i] + q->x[i]);
+		}
+	}
+	return 0;
+}
+
+int kad_op_1minus(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		for (i = 0; i < n; ++i) p->x[i] = 1.0f - q->x[i];
+	} else if (action == KAD_BACKWARD) {
+		if (q->to_back)
+			kad_saxpy(n, -1.0f, p->g, q->g);
+	}
+	return 0;
+}
+
+int kad_op_dropout(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	assert(p->child[1].p->n_d == 0);
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_ALLOC) {
+		if (p->child[0].p->to_back)
+			p->child[0].t = (float*)realloc(p->child[0].t, n);
+	} else if (action == KAD_FORWARD) {
+		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
+		unsigned char *flag = (unsigned char*)p->child[0].t;
+		for (i = 0; i < n; ++i) {
+			int kept = (kad_drand() >= r);
+			p->x[i] = kept? q->x[i] * z : 0.0f;
+			if (flag) flag[i] = kept;
+		}
+	} else if (action == KAD_BACKWARD) {
+		unsigned char *flag = (unsigned char*)p->child[0].t;
+		if (flag)
+			for (i = 0; i < n; ++i)
+				if (flag[i]) q->g[i] += p->g[i];
+	}
+	return 0;
+}
+
+/////////// Binary and multi-class cross-entropy ///////////
+
 int kad_op_ceb(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
@@ -640,24 +704,7 @@ int kad_op_cem(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_norm2(kad_node_t *p, int action)
-{
-	int i, n;
-	kad_node_t *q = p->child[0].p;
-	n = kad_len(q);
-	if (action == KAD_SYNC_DIM) {
-		p->n_d = 0;
-	} else if (action == KAD_FORWARD) {
-		p->x[0] = kad_sdot(n, q->x, q->x);
-	} else if (action == KAD_BACKWARD) {
-		if (q->to_back) {
-			float s = 1.0f / n;
-			for (i = 0; i < n; ++i)
-				q->g[i] += s * p->g[0] * (q->x[i] + q->x[i]);
-		}
-	}
-	return 0;
-}
+/////////// Activation functions ///////////
 
 int kad_op_sigm(kad_node_t *p, int action)
 {
@@ -745,65 +792,7 @@ int kad_op_softmax(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_1minus(kad_node_t *p, int action)
-{
-	int i, n;
-	kad_node_t *q = p->child[0].p;
-	n = kad_len(q);
-	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
-	} else if (action == KAD_FORWARD) {
-		for (i = 0; i < n; ++i) p->x[i] = 1.0f - q->x[i];
-	} else if (action == KAD_BACKWARD) {
-		if (q->to_back)
-			kad_saxpy(n, -1.0f, p->g, q->g);
-	}
-	return 0;
-}
-
-int kad_op_copy(kad_node_t *p, int action)
-{
-	int n;
-	kad_node_t *q = p->child[0].p;
-	n = kad_len(q);
-	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
-	} else if (action == KAD_FORWARD) {
-		memcpy(p->x, q->x, n * sizeof(float));
-	} else if (action == KAD_BACKWARD) {
-		if (q->to_back)
-			kad_saxpy(n, 1.0f, p->g, q->g);
-	}
-	return 0;
-}
-
-int kad_op_dropout(kad_node_t *p, int action)
-{
-	int i, n;
-	kad_node_t *q = p->child[0].p;
-	assert(p->child[1].p->n_d == 0);
-	n = kad_len(q);
-	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
-	} else if (action == KAD_ALLOC) {
-		if (p->child[0].p->to_back)
-			p->child[0].t = (float*)realloc(p->child[0].t, n);
-	} else if (action == KAD_FORWARD) {
-		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
-		unsigned char *flag = (unsigned char*)p->child[0].t;
-		for (i = 0; i < n; ++i) {
-			int kept = (kad_drand() >= r);
-			p->x[i] = kept? q->x[i] * z : 0.0f;
-			if (flag) flag[i] = kept;
-		}
-	} else if (action == KAD_BACKWARD) {
-		unsigned char *flag = (unsigned char*)p->child[0].t;
-		if (flag)
-			for (i = 0; i < n; ++i)
-				if (flag[i]) q->g[i] += p->g[i];
-	}
-	return 0;
-}
+/////////// General pooling operator ///////////
 
 int kad_op_avg(kad_node_t *p, int action)
 {
@@ -832,6 +821,24 @@ int kad_op_avg(kad_node_t *p, int action)
 	return 0;
 }
 
+/////////// Convolution operator ///////////
+
+static float *conv_move_d1(int d[4], const float *x)
+{
+	int i, j, k, l, n = 1;
+	float *y;
+	for (i = 0; i < 4; ++i) n *= d[i];
+	y = (float*)malloc(n * sizeof(float));
+	for (i = 0; i < d[0]; ++i)
+		for (j = 0; j < d[1]; ++j)
+			for (k = 0; k < d[2]; ++k) {
+				int ik = (i * d[2] + k) * d[3], ijk = ((i * d[1] + j) * d[2] + k) * d[3];
+				for (l = 0; l < d[3]; ++l)
+					y[(ik + l) * d[1] + j] = x[ijk + l];
+			}
+	return y;
+}
+
 int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (nchw) shape
 {
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
@@ -855,35 +862,55 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, p->d[3] * sizeof(float));
 	} else if (action == KAD_FORWARD) {
-		int n, c1, c0, k_size = w->d[2] * w->d[3];
-		float *t = p->child[0].t;
-		memset(p->x, 0, kad_len(p) * sizeof(float));
-		for (n = 0; n < q->d[0]; ++n) // mini-batch
-			for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
-				for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
-					float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
-					float *wm  = &w->x[(c1 * w->d[1] + c0) * k_size];
-					float *out = &p->x[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
-					int i, j, k, l;
-					for (i = 0; i < p->d[2]; ++i) { // output row
-						int k_st = i? 0 : aux->r_pad;
-						int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
-						float *s = &out[i * p->d[3]];
-						for (k = k_st; k < k_en; ++k) {
-							float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
-							if (aux->c_stride > 1) {
-								for (l = 0; l < w->d[3]; ++l) {
-									float *rl = &r[l];
-									for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
-									kad_saxpy(p->d[3], wm[k * w->d[2] + l], t, s);
+		int n, c1, c0;
+		if (w->d[3] * w->d[1] < 16) {
+			int k_size = w->d[2] * w->d[3];
+			float *t = p->child[0].t;
+			memset(p->x, 0, kad_len(p) * sizeof(float));
+			for (n = 0; n < q->d[0]; ++n) // mini-batch
+				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
+					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
+						float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
+						float *wm  = &w->x[(c1 * w->d[1] + c0) * k_size];
+						float *out = &p->x[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
+						int i, j, k, l;
+						for (i = 0; i < p->d[2]; ++i) { // output row
+							float *s = &out[i * p->d[3]];
+							for (k = 0; k < w->d[2]; ++k) {
+								float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
+								if (aux->c_stride > 1) {
+									for (l = 0; l < w->d[3]; ++l) {
+										float *rl = &r[l];
+										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
+										kad_saxpy(p->d[3], wm[k * w->d[2] + l], t, s);
+									}
+								} else {
+									for (l = 0; l < w->d[3]; ++l)
+										kad_saxpy(p->d[3], wm[k * w->d[2] + l], &r[l], s);
 								}
-							} else {
-								for (l = 0; l < w->d[3]; ++l)
-									kad_saxpy(p->d[3], wm[k * w->d[2] + l], &r[l], s);
-							}
-						} // ~k
-					} // ~i
-				} // ~c0, c1, n
+							} // ~k
+						} // ~i
+					} // ~c0, c1, n
+		} else {
+			float *q1, *w1;
+			int i, j, k, ii;
+			int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
+			memset(p->x, 0, kad_len(p) * sizeof(float));
+			q1 = conv_move_d1(q->d, q->x);
+			w1 = conv_move_d1(w->d, w->x);
+			for (n = 0; n < q->d[0]; ++n)
+				for (c1 = 0; c1 < w->d[0]; ++c1)
+					for (k = 0; k < w->d[2]; ++k) {
+						const float *w1k = &w1[(c1 * w->d[2] + k) * m];
+						for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
+							const float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
+							float *px = &p->x[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
+							for (j = 0; j < p->d[3]; ++j, q1j += j_skip)
+								px[j] += kad_sdot(m, w1k, q1j);
+						} // ~i
+					} // ~k, c1, n
+			free(w1); free(q1);
+		}
 	} else if (action == KAD_BACKWARD) {
 		float *t = p->child[0].t;
 		if (p->child[0].p->to_back) {
@@ -998,25 +1025,27 @@ int kad_op_max2d(kad_node_t *p, int action)
 	return 0;
 }
 
+/////////// List of operators ///////////
+
 kad_op_f kad_op_list[KAD_MAX_OP] = {
 	0,
-	kad_op_add,
-	kad_op_mul,
-	kad_op_cmul,
-	kad_op_ceb,
-	kad_op_norm2,
-	kad_op_sigm,
-	kad_op_tanh,
-	kad_op_relu,
-	kad_op_copy,
-	kad_op_avg,
-	kad_op_1minus,
-	kad_op_cem,
-	kad_op_softmax,
-	kad_op_softmax,
-	kad_op_dropout,
-	kad_op_conv2d,
-	kad_op_max2d
+	kad_op_add,     // 1:  element-wise addition
+	kad_op_mul,     // 2:  element-wise multiplication
+	kad_op_cmul,    // 3:  column multiplication
+	kad_op_ceb,     // 4:  binary cross-entroy
+	kad_op_norm2,   // 5:  L2-norm
+	kad_op_sigm,    // 6:  sigmoid
+	kad_op_tanh,    // 7:  tanh
+	kad_op_relu,    // 8:  ReLU
+	0,
+	kad_op_avg,     // 9:  general average pooling (not for ConvNet)
+	kad_op_1minus,  // 10: 1-x
+	kad_op_cem,     // 11: multi-class cross-entropy
+	kad_op_softmax, // 12: softmax without temperature
+	kad_op_softmax, // 13: softmax with temperature
+	kad_op_dropout, // 14: dropout
+	kad_op_conv2d,  // 15: 2D convolution
+	kad_op_max2d    // 16: 2D max pooling
 };
 
 /**************************
