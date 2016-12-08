@@ -1088,14 +1088,14 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_tanh,    // 7:  tanh
 	kad_op_relu,    // 8:  ReLU
 	0,
-	kad_op_avg,     // 9:  general average pooling (not for ConvNet)
-	kad_op_1minus,  // 10: 1-x
-	kad_op_cem,     // 11: multi-class cross-entropy
-	kad_op_softmax, // 12: softmax without temperature
-	kad_op_softmax, // 13: softmax with temperature
-	kad_op_dropout, // 14: dropout
-	kad_op_conv2d,  // 15: 2D convolution
-	kad_op_max2d    // 16: 2D max pooling
+	kad_op_avg,     // 10:  general average pooling (not for ConvNet)
+	kad_op_1minus,  // 11: 1-x
+	kad_op_cem,     // 12: multi-class cross-entropy
+	kad_op_softmax, // 13: softmax without temperature
+	kad_op_softmax, // 14: softmax with temperature
+	kad_op_dropout, // 15: dropout
+	kad_op_conv2d,  // 16: 2D convolution
+	kad_op_max2d    // 17: 2D max pooling
 };
 
 /**************************
