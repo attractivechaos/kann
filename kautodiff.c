@@ -926,7 +926,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} else if (action == KAD_BACKWARD) {
 		int n, c1, c0;
 		int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
-		// backprop to the input data
+		// backprop to the input vector
 		if (p->child[0].p->to_back && w->d[3] * w->d[1] < batch_thres) {
 			float *t = p->child[0].t;
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
@@ -962,7 +962,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			for (n = 0; n < q->d[0]; ++n)
 				for (c1 = 0; c1 < w->d[0]; ++c1)
 					for (k = 0; k < w->d[2]; ++k) {
-						const float *w1k = &w->x[(c1 * w->d[2] + k) * m];
+						const float *w1k = &w1[(c1 * w->d[2] + k) * m];
 						for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
 							float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
 							const float *pg = &p->g[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
