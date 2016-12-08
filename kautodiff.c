@@ -839,7 +839,7 @@ static float *conv_move_1to3(int d[4], const float *x)
 	return y;
 }
 
-static void conv_copy_3to1(int d[4], const float *y, float *x)
+static void conv_add_3to1(int d[4], const float *y, float *x)
 {
 	int i, j, k, l;
 	for (i = 0; i < d[0]; ++i)
@@ -847,7 +847,7 @@ static void conv_copy_3to1(int d[4], const float *y, float *x)
 			for (k = 0; k < d[2]; ++k) {
 				int ik = (i * d[2] + k) * d[3], ijk = ((i * d[1] + j) * d[2] + k) * d[3];
 				for (l = 0; l < d[3]; ++l)
-					x[ijk + l] = y[(ik + l) * d[1] + j];
+					x[ijk + l] += y[(ik + l) * d[1] + j];
 			}
 }
 
@@ -875,16 +875,15 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, p->d[3] * sizeof(float));
 	} else if (action == KAD_FORWARD) {
-		int n, c1;
+		int n, c1, c0;
 		if (w->d[3] * w->d[1] < batch_thres) {
-			int c0, k_size = w->d[2] * w->d[3];
 			float *t = p->child[0].t;
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
 				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
 					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
 						float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
-						float *wm  = &w->x[(c1 * w->d[1] + c0) * k_size];
+						float *wm  = &w->x[(c1 * w->d[1] + c0) * w->d[2] * w->d[3]];
 						float *out = &p->x[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
 						int i, j, k, l;
 						for (i = 0; i < p->d[2]; ++i) { // output row
@@ -926,7 +925,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		}
 	} else if (action == KAD_BACKWARD) {
 		int n, c1, c0;
-		int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1], k_size = w->d[2] * w->d[3];
+		int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
 		// backprop to the input data
 		if (p->child[0].p->to_back && w->d[3] * w->d[1] < batch_thres) {
 			float *t = p->child[0].t;
@@ -934,7 +933,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
 					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
 						float *gi = &q->g[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
-						float *wm = &w->x[(c1 * w->d[1] + c0) * k_size];
+						float *wm = &w->x[(c1 * w->d[1] + c0) * w->d[2] * w->d[3]];
 						float *go = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
 						int i, j, k, l;
 						for (i = 0; i < p->d[2]; ++i) {
@@ -971,7 +970,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 								kad_saxpy(m, pg[j], w1k, q1j);
 						} // ~i
 					} // ~k, c1, n
-			conv_copy_3to1(q->d, q1, q->g);
+			conv_add_3to1(q->d, q1, q->g);
 			free(w1); free(q1);
 		}
 		// backprop to the weight matrix
@@ -981,7 +980,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
 					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
 						float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
-						float *gw  = &w->g[(c1 * w->d[1] + c0) * k_size];
+						float *gw  = &w->g[(c1 * w->d[1] + c0) * w->d[2] * w->d[3]];
 						float *go  = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
 						int i, j, k, l;
 						for (i = 0; i < p->d[2]; ++i) { // output row
@@ -1017,7 +1016,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 								kad_saxpy(m, pg[j], q1j, w1k);
 						} // ~i
 					} // ~k, c1, n
-			conv_copy_3to1(w->d, w1, w->g);
+			conv_add_3to1(w->d, w1, w->g);
 			free(w1); free(q1);
 		}
 	}
