@@ -106,6 +106,8 @@ kad_node_t *kad_avg(int n, kad_node_t **x)
 	return s;
 }
 
+/////////// Convolution related functions ///////////
+
 typedef struct {
 	int c_stride, r_stride;
 	int c_pad, r_pad;
@@ -821,9 +823,9 @@ int kad_op_avg(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// Convolution operator ///////////
+/////////// Convolution ///////////
 
-static float *conv_move_1to3(int d[4], const float *x)
+static float *conv_move_1to3(int d[4], const float *x) // convert the NCHW shape to the NHWC shape
 {
 	int i, j, k, l, n = 1;
 	float *y;
@@ -839,7 +841,7 @@ static float *conv_move_1to3(int d[4], const float *x)
 	return y;
 }
 
-static void conv_add_3to1(int d[4], const float *y, float *x)
+static void conv_add_3to1(int d[4], const float *y, float *x) // convert the NHWC shape back to NCHW and add to another NCHW-shaped array
 {
 	int i, j, k, l;
 	for (i = 0; i < d[0]; ++i)
@@ -851,9 +853,14 @@ static void conv_add_3to1(int d[4], const float *y, float *x)
 			}
 }
 
-int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (nchw) shape
+/* Forward and backward passes are implemented with two different algorithms.
+ * The first is faster for small kernels with few input channels; otherwise the
+ * second algorithm is faster. Both algorithms should produce identical
+ * results, up to the precision of "float".
+ */
+int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (NCHW) shape
 {
-	static const int batch_thres = 16;
+	static const int batch_thres = 16; // use the first algoritm if (num_input_channels * kernel_width) is below this threshold
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
 	kad_node_t *q, *w;
 
@@ -870,13 +877,13 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		if (aux->c_stride <= aux->c_pad) return -1;
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = w->d[0];
-		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->r_pad) / aux->r_stride + 1; // TODO: test if can be divided by stride!
+		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->r_pad) / aux->r_stride + 1;
 		p->d[3] = (q->d[3] - w->d[3] + 2 * aux->c_pad) / aux->c_stride + 1;
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, p->d[3] * sizeof(float));
 	} else if (action == KAD_FORWARD) {
 		int n, c1, c0;
-		if (w->d[3] * w->d[1] < batch_thres) {
+		if (w->d[3] * w->d[1] < batch_thres) { // this is the first algorithm
 			float *t = p->child[0].t;
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
@@ -903,7 +910,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 							} // ~k
 						} // ~i
 					} // ~c0, c1, n
-		} else {
+		} else { // this is the second algorithm
 			float *q1, *w1;
 			int i, j, k, ii;
 			int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
@@ -926,7 +933,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} else if (action == KAD_BACKWARD) {
 		int n, c1, c0;
 		int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
-		// backprop to the input vector
+		// backprop to the input array
 		if (p->child[0].p->to_back && w->d[3] * w->d[1] < batch_thres) {
 			float *t = p->child[0].t;
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
@@ -1079,20 +1086,20 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_add,     // 1:  element-wise addition
 	kad_op_mul,     // 2:  element-wise multiplication
 	kad_op_cmul,    // 3:  column multiplication
-	kad_op_ceb,     // 4:  binary cross-entroy
+	kad_op_ceb,     // 4:  binary cross-entroy for sigmoid activation
 	kad_op_norm2,   // 5:  L2-norm
 	kad_op_sigm,    // 6:  sigmoid
 	kad_op_tanh,    // 7:  tanh
 	kad_op_relu,    // 8:  ReLU
 	0,
-	kad_op_avg,     // 10:  general average pooling (not for ConvNet)
+	kad_op_avg,     // 10: general average pooling (not for ConvNet)
 	kad_op_1minus,  // 11: 1-x
-	kad_op_cem,     // 12: multi-class cross-entropy
+	kad_op_cem,     // 12: multi-class cross-entropy for softmax activation
 	kad_op_softmax, // 13: softmax without temperature
 	kad_op_softmax, // 14: softmax with temperature
 	kad_op_dropout, // 15: dropout
 	kad_op_conv2d,  // 16: 2D convolution
-	kad_op_max2d    // 17: 2D max pooling
+	kad_op_max2d    // 17: 2D max pooling (for ConvNet)
 };
 
 /**************************
@@ -1108,7 +1115,7 @@ void kad_trap_fe(void)
 
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { "", "add", "mul", "cmul", "ceb", "norm2", "sigm", "tanh", "relu", "copy", "avg", "1minus", "cem", "softmax2", "softmax",
+	static const char *op[] = { 0, "add", "mul", "cmul", "ceb", "norm2", "sigm", "tanh", "relu", 0, "avg", "1minus", "cem", "softmax2", "softmax",
 								"dropout", "conv2d", "max2d" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;

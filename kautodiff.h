@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r221"
+#define KAD_VERSION "r222"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -38,7 +38,7 @@
 struct kad_node_t;
 typedef struct kad_node_t kad_node_t;
 
-/* A computational graph (DCG) is an acyclic directed graph. In the graph, an
+/* A computational graph is an acyclic directed graph. In the graph, an
  * external node represents a differentiable variable or a non-differentiable
  * parameter; an internal node represents an operator; an edge from node v to w
  * indicates v is an operand of w.
@@ -126,7 +126,7 @@ int kad_write(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_read(FILE *fp, int *_n_node);
 
 // debugging routines
-void kad_trap_fe(void);
+void kad_trap_fe(void); // abort on divide-by-zero and NaN
 void kad_print_graph(FILE *fp, int n, kad_node_t **v);
 void kad_check_grad(int n, kad_node_t **a, int from);
 
