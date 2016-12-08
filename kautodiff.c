@@ -823,7 +823,7 @@ int kad_op_avg(kad_node_t *p, int action)
 
 /////////// Convolution operator ///////////
 
-static float *conv_move_d1(int d[4], const float *x)
+static float *conv_move_1to3(int d[4], const float *x)
 {
 	int i, j, k, l, n = 1;
 	float *y;
@@ -839,12 +839,25 @@ static float *conv_move_d1(int d[4], const float *x)
 	return y;
 }
 
+static void conv_copy_3to1(int d[4], const float *y, float *x)
+{
+	int i, j, k, l;
+	for (i = 0; i < d[0]; ++i)
+		for (j = 0; j < d[1]; ++j)
+			for (k = 0; k < d[2]; ++k) {
+				int ik = (i * d[2] + k) * d[3], ijk = ((i * d[1] + j) * d[2] + k) * d[3];
+				for (l = 0; l < d[3]; ++l)
+					x[ijk + l] = y[(ik + l) * d[1] + j];
+			}
+}
+
 int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (nchw) shape
 {
+	static const int batch_thres = 16;
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
 	kad_node_t *q, *w;
 
-	assert(aux->c_pad == 0); // TODO: padding not implemented yet
+	assert(aux->r_pad == 0 && aux->c_pad == 0); // TODO: padding not implemented yet
 	assert(p->n_child == 2);
 	q = p->child[0].p, w = p->child[1].p;
 
@@ -862,9 +875,9 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, p->d[3] * sizeof(float));
 	} else if (action == KAD_FORWARD) {
-		int n, c1, c0;
-		if (w->d[3] * w->d[1] < 16) {
-			int k_size = w->d[2] * w->d[3];
+		int n, c1;
+		if (w->d[3] * w->d[1] < batch_thres) {
+			int c0, k_size = w->d[2] * w->d[3];
 			float *t = p->child[0].t;
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			for (n = 0; n < q->d[0]; ++n) // mini-batch
@@ -896,8 +909,8 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			int i, j, k, ii;
 			int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
 			memset(p->x, 0, kad_len(p) * sizeof(float));
-			q1 = conv_move_d1(q->d, q->x);
-			w1 = conv_move_d1(w->d, w->x);
+			q1 = conv_move_1to3(q->d, q->x);
+			w1 = conv_move_1to3(w->d, w->x);
 			for (n = 0; n < q->d[0]; ++n)
 				for (c1 = 0; c1 < w->d[0]; ++c1)
 					for (k = 0; k < w->d[2]; ++k) {
@@ -912,65 +925,102 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			free(w1); free(q1);
 		}
 	} else if (action == KAD_BACKWARD) {
-		float *t = p->child[0].t;
+		int n, c1, c0;
+		int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1], k_size = w->d[2] * w->d[3];
 		if (p->child[0].p->to_back) {
-			int n, c1, c0, k_size = w->d[2] * w->d[3];
-			for (n = 0; n < q->d[0]; ++n) // mini-batch
-				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
-					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
-						float *gi = &q->g[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
-						float *wm = &w->x[(c1 * w->d[1] + c0) * k_size];
-						float *go = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
-						int i, j, k, l;
-						for (i = 0; i < p->d[2]; ++i) {
-							int k_st = i? 0 : aux->r_pad;
-							int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
-							const float *s = &go[i * p->d[3]];
-							for (k = k_st; k < k_en; ++k) {
-								float *r = &gi[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
-								if (aux->c_stride > 1) {
-									for (l = 0; l < w->d[3]; ++l) {
-										float *rl = &r[l];
-										memset(t, 0, p->d[3] * sizeof(float));
-										kad_saxpy(p->d[3], wm[k * w->d[2] + l], s, t);
-										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) *rl += t[j];
+			if (w->d[3] * w->d[1] < batch_thres) {
+				float *t = p->child[0].t;
+				for (n = 0; n < q->d[0]; ++n) // mini-batch
+					for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
+						for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
+							float *gi = &q->g[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
+							float *wm = &w->x[(c1 * w->d[1] + c0) * k_size];
+							float *go = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
+							int i, j, k, l;
+							for (i = 0; i < p->d[2]; ++i) {
+								const float *s = &go[i * p->d[3]];
+								for (k = 0; k < w->d[2]; ++k) {
+									float *r = &gi[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
+									if (aux->c_stride > 1) {
+										for (l = 0; l < w->d[3]; ++l) {
+											float *rl = &r[l];
+											memset(t, 0, p->d[3] * sizeof(float));
+											kad_saxpy(p->d[3], wm[k * w->d[2] + l], s, t);
+											for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) *rl += t[j];
+										}
+									} else {
+										for (l = 0; l < w->d[3]; ++l)
+											kad_saxpy(p->d[3], wm[k * w->d[2] + l], s, &r[l]);
 									}
-								} else {
-									for (l = 0; l < w->d[3]; ++l)
-										kad_saxpy(p->d[3], wm[k * w->d[2] + l], s, &r[l]);
-								}
-							} // ~k
-						} // ~i
-					} // ~c0, c1, n
+								} // ~k
+							} // ~i
+						} // ~c0, c1, n
+			} else {
+				float *q1, *w1;
+				int i, j, k, ii;
+				q1 = (float*)calloc(kad_len(q), sizeof(float));
+				w1 = conv_move_1to3(w->d, w->x);
+				for (n = 0; n < q->d[0]; ++n)
+					for (c1 = 0; c1 < w->d[0]; ++c1)
+						for (k = 0; k < w->d[2]; ++k) {
+							const float *w1k = &w->x[(c1 * w->d[2] + k) * m];
+							for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
+								float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
+								const float *pg = &p->g[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
+								for (j = 0; j < p->d[3]; ++j, q1j += j_skip)
+									kad_saxpy(m, pg[j], w1k, q1j);
+							} // ~i
+						} // ~k, c1, n
+				conv_copy_3to1(q->d, q1, q->g);
+				free(w1); free(q1);
+			}
 		}
 		if (p->child[1].p->to_back) {
-			int n, c1, c0, k_size = w->d[2] * w->d[3];
-			for (n = 0; n < q->d[0]; ++n) // mini-batch
-				for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
-					for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
-						float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
-						float *gw  = &w->g[(c1 * w->d[1] + c0) * k_size];
-						float *go  = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
-						int i, j, k, l;
-						for (i = 0; i < p->d[2]; ++i) { // output row
-							int k_st = i? 0 : aux->r_pad;
-							int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
-							const float *s = &go[i * p->d[3]];
-							for (k = k_st; k < k_en; ++k) {
-								float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
-								if (aux->c_stride > 1) {
-									for (l = 0; l < w->d[3]; ++l) {
-										float *rl = &r[l];
-										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
-										gw[k * w->d[2] + l] += kad_sdot(p->d[3], s, t);
+			if (w->d[3] * w->d[1] < batch_thres) {
+				float *t = p->child[0].t;
+				for (n = 0; n < q->d[0]; ++n) // mini-batch
+					for (c1 = 0; c1 < w->d[0]; ++c1) // output channel
+						for (c0 = 0; c0 < w->d[1]; ++c0) { // input channel
+							float *in  = &q->x[(n  * q->d[1] + c0) * q->d[2] * q->d[3]];
+							float *gw  = &w->g[(c1 * w->d[1] + c0) * k_size];
+							float *go  = &p->g[(n  * p->d[1] + c1) * p->d[2] * p->d[3]];
+							int i, j, k, l;
+							for (i = 0; i < p->d[2]; ++i) { // output row
+								const float *s = &go[i * p->d[3]];
+								for (k = 0; k < w->d[2]; ++k) {
+									float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
+									if (aux->c_stride > 1) {
+										for (l = 0; l < w->d[3]; ++l) {
+											float *rl = &r[l];
+											for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
+											gw[k * w->d[2] + l] += kad_sdot(p->d[3], s, t);
+										}
+									} else {
+										for (l = 0; l < w->d[3]; ++l)
+											gw[k * w->d[2] + l] += kad_sdot(p->d[3], s, &r[l]);
 									}
-								} else {
-									for (l = 0; l < w->d[3]; ++l)
-										gw[k * w->d[2] + l] += kad_sdot(p->d[3], s, &r[l]);
-								}
-							} // ~k
-						} // ~i
-					} // ~c0, c1, n
+								} // ~k
+							} // ~i
+						} // ~c0, c1, n
+			} else {
+				float *q1, *w1;
+				int i, j, k, ii;
+				q1 = conv_move_1to3(q->d, q->x);
+				w1 = (float*)calloc(kad_len(w), sizeof(float));
+				for (n = 0; n < q->d[0]; ++n)
+					for (c1 = 0; c1 < w->d[0]; ++c1)
+						for (k = 0; k < w->d[2]; ++k) {
+							float *w1k = &w1[(c1 * w->d[2] + k) * m];
+							for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
+								const float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
+								const float *pg = &p->g[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
+								for (j = 0; j < p->d[3]; ++j, q1j += j_skip)
+									kad_saxpy(m, pg[j], q1j, w1k);
+							} // ~i
+						} // ~k, c1, n
+				conv_copy_3to1(w->d, w1, w->g);
+				free(w1); free(q1);
+			}
 		}
 	}
 	return 0;

@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r210"
+#define KAD_VERSION "r216"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -38,10 +38,10 @@
 struct kad_node_t;
 typedef struct kad_node_t kad_node_t;
 
-/* A differentiable computational graph (DCG) is an acyclic directed graph. In
- * a DCG, an external node represents a differentiable variable or a
- * non-differentiable parameter; an internal node represents an operator; an
- * edge from node v to w indicates v is an operand of w.
+/* A computational graph (DCG) is an acyclic directed graph. In the graph, an
+ * external node represents a differentiable variable or a non-differentiable
+ * parameter; an internal node represents an operator; an edge from node v to w
+ * indicates v is an operand of w.
  */
 
 // an edge between two nodes in the computational graph
@@ -63,7 +63,7 @@ struct kad_node_t {
 	float      *g;              // gradient; allocated for internal nodes
 	kad_edge_t *child;          // operands/child nodes
 	kad_node_t *pre;            // usually NULL; only used for RNN
-	void       *ptr;
+	void       *ptr;            // for special operators that need additional parameters (e.g. conv2d)
 };
 
 #define KAD_ALLOC      1
