@@ -868,17 +868,18 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 					for (i = 0; i < p->d[2]; ++i) { // output row
 						int k_st = i? 0 : aux->r_pad;
 						int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
+						float *s = &out[i * p->d[3]];
 						for (k = k_st; k < k_en; ++k) {
 							float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
 							if (aux->c_stride > 1) {
 								for (l = 0; l < w->d[3]; ++l) {
 									float *rl = &r[l];
 									for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
-									kad_saxpy(p->d[3], wm[k * w->d[2] + l], t, &out[i * p->d[3]]);
+									kad_saxpy(p->d[3], wm[k * w->d[2] + l], t, s);
 								}
 							} else {
 								for (l = 0; l < w->d[3]; ++l)
-									kad_saxpy(p->d[3], wm[k * w->d[2] + l], &r[l], &out[i * p->d[3]]);
+									kad_saxpy(p->d[3], wm[k * w->d[2] + l], &r[l], s);
 							}
 						} // ~k
 					} // ~i
@@ -897,18 +898,19 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 						for (i = 0; i < p->d[2]; ++i) {
 							int k_st = i? 0 : aux->r_pad;
 							int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
+							const float *s = &go[i * p->d[3]];
 							for (k = k_st; k < k_en; ++k) {
 								float *r = &gi[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
 								if (aux->c_stride > 1) {
 									for (l = 0; l < w->d[3]; ++l) {
 										float *rl = &r[l];
 										memset(t, 0, p->d[3] * sizeof(float));
-										kad_saxpy(p->d[3], wm[k * w->d[2] + l], &go[i * p->d[3]], t);
+										kad_saxpy(p->d[3], wm[k * w->d[2] + l], s, t);
 										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) *rl += t[j];
 									}
 								} else {
 									for (l = 0; l < w->d[3]; ++l)
-										kad_saxpy(p->d[3], wm[k * w->d[2] + l], &go[i * p->d[3]], &r[l]);
+										kad_saxpy(p->d[3], wm[k * w->d[2] + l], s, &r[l]);
 								}
 							} // ~k
 						} // ~i
@@ -926,17 +928,18 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 						for (i = 0; i < p->d[2]; ++i) { // output row
 							int k_st = i? 0 : aux->r_pad;
 							int k_en = i < p->d[2] - 1? w->d[2] : w->d[2] - aux->r_pad;
+							const float *s = &go[i * p->d[3]];
 							for (k = k_st; k < k_en; ++k) {
 								float *r = &in[(i * aux->r_stride - aux->r_pad + k) * q->d[3]];
 								if (aux->c_stride > 1) {
 									for (l = 0; l < w->d[3]; ++l) {
 										float *rl = &r[l];
 										for (j = 0; j < p->d[3]; ++j, rl += aux->c_stride) t[j] = *rl;
-										gw[k * w->d[2] + l] += kad_sdot(p->d[3], &go[i * p->d[3]], t);
+										gw[k * w->d[2] + l] += kad_sdot(p->d[3], s, t);
 									}
 								} else {
 									for (l = 0; l < w->d[3]; ++l)
-										gw[k * w->d[2] + l] += kad_sdot(p->d[3], &go[i * p->d[3]], &r[l]);
+										gw[k * w->d[2] + l] += kad_sdot(p->d[3], s, &r[l]);
 								}
 							} // ~k
 						} // ~i
