@@ -12,7 +12,7 @@ LIBS=		-lm -lz
 
 all:kautodiff.o kann.o kann_extra/kann_data.o $(EXE)
 
-examples/kann_data.o:examples/kann_data.c
+kann_extra/kann_data.o:kann_extra/kann_data.c
 		$(CC) -c $(CFLAGS) -DHAVE_ZLIB $< -o $@
 
 examples/mlp:examples/mlp.o kautodiff.o kann.o kann_extra/kann_data.o
@@ -31,7 +31,7 @@ clean:
 		rm -fr *.o */*.o a.out */a.out *.a *.dSYM */*.dSYM $(EXE)
 
 depend:
-		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(DFLAGS) -- *.c examples/*.c)
+		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(DFLAGS) -- *.c kann_extra/*.c examples/*.c)
 
 # DO NOT DELETE
 
