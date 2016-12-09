@@ -860,6 +860,20 @@ static void conv_add_3to1(int d[4], const float *y, float *x) // convert the NHW
  */
 int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (NCHW) shape
 {
+#define conv2d_loop2(_x, _w, _y, _code) do { \
+	int n, c1, i, j, k, ii, j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1]; \
+	for (n = 0; n < q->d[0]; ++n) \
+		for (c1 = 0; c1 < w->d[0]; ++c1) \
+			for (k = 0; k < w->d[2]; ++k) { \
+				float *_ww = &(_w)[(c1 * w->d[2] + k) * m]; \
+				for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) { \
+					float *_xx = &(_x)[(n * q->d[2] + ii) * q->d[3] * q->d[1]]; \
+					float *_yy = &(_y)[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]]; \
+					for (j = 0; j < p->d[3]; ++j, _xx += j_skip, ++_yy) _code; \
+				} \
+			} \
+	} while (0)
+
 	static const int batch_thres = 16; // use the first algoritm if (num_input_channels * kernel_width) is below this threshold
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
 	kad_node_t *q, *w;
@@ -912,27 +926,14 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 					} // ~c0, c1, n
 		} else { // this is the second algorithm
 			float *q1, *w1;
-			int i, j, k, ii;
-			int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			q1 = conv_move_1to3(q->d, q->x);
 			w1 = conv_move_1to3(w->d, w->x);
-			for (n = 0; n < q->d[0]; ++n)
-				for (c1 = 0; c1 < w->d[0]; ++c1)
-					for (k = 0; k < w->d[2]; ++k) {
-						const float *w1k = &w1[(c1 * w->d[2] + k) * m];
-						for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
-							const float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
-							float *px = &p->x[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
-							for (j = 0; j < p->d[3]; ++j, q1j += j_skip)
-								px[j] += kad_sdot(m, w1k, q1j);
-						} // ~i
-					} // ~k, c1, n
+			conv2d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 			free(w1); free(q1);
 		}
 	} else if (action == KAD_BACKWARD) {
 		int n, c1, c0;
-		int j_skip = aux->c_stride * q->d[1], m = w->d[3] * w->d[1];
 		// backprop to the input array
 		if (p->child[0].p->to_back && w->d[3] * w->d[1] < batch_thres) {
 			float *t = p->child[0].t;
@@ -963,20 +964,9 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 					} // ~c0, c1, n
 		} else if (p->child[0].p->to_back) {
 			float *q1, *w1;
-			int i, j, k, ii;
 			q1 = (float*)calloc(kad_len(q), sizeof(float));
 			w1 = conv_move_1to3(w->d, w->x);
-			for (n = 0; n < q->d[0]; ++n)
-				for (c1 = 0; c1 < w->d[0]; ++c1)
-					for (k = 0; k < w->d[2]; ++k) {
-						const float *w1k = &w1[(c1 * w->d[2] + k) * m];
-						for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
-							float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
-							const float *pg = &p->g[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
-							for (j = 0; j < p->d[3]; ++j, q1j += j_skip)
-								kad_saxpy(m, pg[j], w1k, q1j);
-						} // ~i
-					} // ~k, c1, n
+			conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
 			conv_add_3to1(q->d, q1, q->g);
 			free(w1); free(q1);
 		}
@@ -1009,20 +999,9 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 					} // ~c0, c1, n
 		} else if (p->child[1].p->to_back) {
 			float *q1, *w1;
-			int i, j, k, ii;
 			q1 = conv_move_1to3(q->d, q->x);
 			w1 = (float*)calloc(kad_len(w), sizeof(float));
-			for (n = 0; n < q->d[0]; ++n)
-				for (c1 = 0; c1 < w->d[0]; ++c1)
-					for (k = 0; k < w->d[2]; ++k) {
-						float *w1k = &w1[(c1 * w->d[2] + k) * m];
-						for (i = 0, ii = k; i < p->d[2]; ++i, ii += aux->r_stride) {
-							const float *q1j = &q1[(n * q->d[2] + ii) * q->d[3] * q->d[1]];
-							const float *pg = &p->g[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];
-							for (j = 0; j < p->d[3]; ++j, q1j += j_skip)
-								kad_saxpy(m, pg[j], q1j, w1k);
-						} // ~i
-					} // ~k, c1, n
+			conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
 			conv_add_3to1(w->d, w1, w->g);
 			free(w1); free(q1);
 		}
