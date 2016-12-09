@@ -773,10 +773,9 @@ int kad_op_relu(kad_node_t *p, int action)
 
 int kad_op_softmax(kad_node_t *p, int action)
 {
-	int i, j, n;
+	int i, j;
 	kad_node_t *q = p->child[0].p;
 	assert(q->n_d == 2);
-	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
 		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
