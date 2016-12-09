@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <zlib.h>
 #include "kann.h"
-#include "kseq.h"
+#include "kann_extra/kseq.h"
 KSTREAM_INIT(gzFile, gzread, 16384)
 
 #define MAX_CHAR 256

@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "models/kann_data.h"
+#include "kann_extra/kann_data.h"
 #include "kann.h"
 
 int main(int argc, char *argv[])
