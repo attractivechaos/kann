@@ -17,7 +17,7 @@ static kann_t *model_gen(int n_in, int n_out, int n_h_layers, int n_h_neurons, f
 
 int main(int argc, char *argv[])
 {
-	int i, j, c, n_h_neurons = 50, n_h_layers = 1, seed = 11;
+	int i, j, c, n_h_neurons = 64, n_h_layers = 1, seed = 11;
 	kann_data_t *in = 0;
 	kann_mopt_t mo;
 	kann_t *ann = 0;
@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
 	float h_dropout = 0.0f;
 
 	kann_mopt_init(&mo);
+	mo.max_epoch = 50;
 	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:R")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);

@@ -708,7 +708,28 @@ kann_min_t *kann_minimizer(const kann_mopt_t *o, int n)
 	return m;
 }
 
-static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y) // train or validate a minibatch
+static void kann_count_class_error(const kad_node_t *q, int *n_err, int *n_err_tot)
+{
+	int j, len, k;
+	kad_node_t *p = q->child[0].p, *r = q->child[1].p;
+	len = kad_len(p) / p->d[0];
+	for (j = k = 0; j < p->d[0]; ++j, k += len) {
+		float p_max = -1e30f, r_sum = 0.0f, r_min = 1.0f, r_max = 0.0f;
+		int i, p_max_i = -1, r_max_i = -1;
+		for (i = 0; i < len; ++i) {
+			if (p_max < p->x[k+i]) p_max = p->x[k+i], p_max_i = i;
+			if (r_max < r->x[k+i]) r_max = r->x[k+i], r_max_i = i;
+			if (r_min > r->x[k+i]) r_min = r->x[k+i];
+			r_sum += r->x[k+i];
+		}
+		if (r_sum == 1.0f && r_min >= 0.0f) {
+			++*n_err_tot;
+			if (p_max_i != r_max_i) ++*n_err;
+		}
+	}
+}
+
+static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y, int *n_err, int *n_err_tot) // train or validate a minibatch
 {
 	int i, i_cost = -1, n_cost = 0;
 	float cost;
@@ -720,6 +741,10 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	kann_bind_by_label(a, KANN_L_IN, x);
 	kann_bind_by_label(a, KANN_L_TRUTH, y);
 	cost = *kad_eval_from(a->n, a->v, i_cost);
+	if (a->v[i_cost]->op == 10) {
+		for (i = 0; i < a->v[i_cost]->n_child; ++i)
+			kann_count_class_error(a->v[i_cost]->child[i].p, n_err, n_err_tot);
+	} else kann_count_class_error(a->v[i_cost], n_err, n_err_tot);
 	if (m) {
 //		kad_check_grad(a->n, a->v, i_cost);
 		kad_grad(a->n, a->v, i_cost);
@@ -728,9 +753,9 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	return cost;
 }
 
-static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, void *data, int max_len, int max_mbs, kann_t *fnn_max, float **x, float **y)
+static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, void *data, int max_len, int max_mbs, kann_t *fnn_max, float **x, float **y, float *class_err)
 {
-	int n_in, n_out, tot = 0, action;
+	int n_in, n_out, tot = 0, n_err_tot = 0, n_err = 0, action;
 	float cost = 0.0f, *x1, *y1;
 
 	n_in = kann_n_in(a);
@@ -753,13 +778,13 @@ static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, v
 		}
 		if (k == 0) break;
 		fnn = len == max_len && fnn_max? fnn_max : kann_is_rnn(a)? kann_rnn_unroll(a, len) : a;
-		cost += kann_fnn_process_mini(fnn, min, k, x, y) * k;
+		cost += kann_fnn_process_mini(fnn, min, k, x, y, &n_err, &n_err_tot) * k;
 		tot += k;
 		if (fnn && fnn != fnn_max && fnn != a) kann_delete_unrolled(fnn);
 	}
 	free(y1); free(x1);
-	cost /= tot;
-	return cost;
+	if (class_err) *class_err = n_err_tot > 0? (float)n_err / n_err_tot : -1.0f;
+	return cost / tot;
 }
 
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
@@ -785,13 +810,16 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 	bak = (float*)calloc(n_par * 2 + kann_n_hyper(a), sizeof(float));
 	min = kann_minimizer(mo, n_par);
 	for (j = n_adj = streak = 0, min_cost = 1e30, min_j = -1; j < mo->max_epoch; ++j) {
-		float running_cost = 0.0f, validate_cost = 0.0f;
+		float running_cost = 0.0f, validate_cost = 0.0f, class_err = 0.0f;
 		rdr(data, KANN_RDR_BATCH_RESET, 0, 0, 0);
-		running_cost =  kann_process_batch(a, min, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
-		validate_cost = kann_process_batch(a,   0, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y);
+		running_cost =  kann_process_batch(a, min, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y, 0);
+		validate_cost = kann_process_batch(a,   0, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y, &class_err);
 		kann_min_batch_finish(min, a->t);
-		if (kann_verbose >= 3)
-			fprintf(stderr, "epoch: %d; running cost: %g; validation cost: %g\n", j+1, running_cost, validate_cost);
+		if (kann_verbose >= 3) {
+			fprintf(stderr, "epoch: %d; running cost: %g; validation cost: %g", j+1, running_cost, validate_cost);
+			if (class_err >= 0.0f) fprintf(stderr, " (class error: %.2f%%)", class_err * 100.0f);
+			fputc('\n', stderr);
+		}
 		if (j >= mo->epoch_lazy) {
 			if (validate_cost < min_cost) {
 				streak = 0;

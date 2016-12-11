@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r198"
+#define KANN_VERSION "r228"
 
 #define KANN_L_IN       1   // input
 #define KANN_L_OUT      2   // output
