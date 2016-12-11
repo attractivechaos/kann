@@ -1,7 +1,7 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
-EXE=		examples/mlp examples/textgen examples/rnn-bit2 examples/mnist-cnn
+EXE=		examples/mlp examples/textgen examples/rnn-bit examples/rnn-bit2 examples/mnist-cnn
 LIBS=		-lm -lz
 
 .SUFFIXES:.c .o
@@ -19,6 +19,9 @@ examples/mlp:examples/mlp.o kautodiff.o kann.o kann_extra/kann_data.o
 		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
 examples/textgen:examples/textgen.o kautodiff.o kann.o
+		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+
+examples/rnn-bit:examples/rnn-bit.o kautodiff.o kann.o
 		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
 
 examples/rnn-bit2:examples/rnn-bit2.o kautodiff.o kann.o
