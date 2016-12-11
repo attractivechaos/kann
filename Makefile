@@ -40,7 +40,9 @@ depend:
 
 kann.o: kann.h kautodiff.h
 kautodiff.o: kautodiff.h
+kann_extra/kann_data.o: kann_extra/kseq.h kann_extra/kann_data.h
 examples/mlp.o: kann.h kautodiff.h kann_extra/kann_data.h
 examples/mnist-cnn.o: kann_extra/kann_data.h kann.h kautodiff.h
+examples/rnn-bit.o: kann.h kautodiff.h
 examples/rnn-bit2.o: kann.h kautodiff.h
 examples/textgen.o: kann.h kautodiff.h kann_extra/kseq.h
