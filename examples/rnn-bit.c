@@ -40,7 +40,7 @@ static int data_reader(void *data, int action, int len, float *x, float *y) // c
 int main(int argc, char *argv[])
 {
 	reader_conf_t conf = { {10000,1000}, {0,0} };
-	int i, c, n_err, seed = 11, n_h_layers = 1, n_h_neurons = 64, len = 30;
+	int i, c, n_err, seed = 11, n_h_layers = 1, n_h_neurons = 64;
 	kann_t *ann;
 	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
 	kann_mopt_init(&mo);
 	mo.lr = 0.01f;
 	mo.max_epoch = 100;
+	mo.max_rnn_len = 30;
 	while ((c = getopt(argc, argv, "i:o:l:h:m:r:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
@@ -58,7 +59,6 @@ int main(int argc, char *argv[])
 	}
 
 	kann_srand(seed);
-	mo.max_rnn_len = len;
 	if (fn_in) { // then read the network from file
 		ann = kann_read(fn_in);
 	} else { // model generation
