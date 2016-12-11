@@ -19,12 +19,12 @@ array a scalar if *n\_d* equals 0, a vector if *n\_d* equals 1 and a matrix if
 ### Automatic differentiation and computational graph
 
 [Automatic differentiation][ad] is the backbone of several major deep learning
-frameworks such as [TensorFlow][tf] and [Theano][thano]. It efficiently
+frameworks such as [TensorFlow][tf] and [Theano][theano]. It efficiently
 computes the gradient of a function without symbolic derivation. Automatic
 differentiation is typically achieved with a graph which is sometimes called as
 a computational graph or a data flow graph (as in TensorFlow). Detailed
-description of automatic differentiation is beyond the scope of this note, so
-we will only show an example:
+description of automatic differentiation is beyond the scope of this note. We
+will only show an example here:
 
 ![](autodiff.png)
 
