@@ -3,9 +3,20 @@
 This document explains how KANN is implemented and some philosophies behind the
 design. Importantly, the methods described here are only one way to implement
 a deep learning framework from scratch. They are not necessarily the optimal
-way, especially given that I am only a fresh amateur in the domain of deep
-learning. Please take the words below with a grain of salt.
+way. Please take the words below with a grain of salt.
 
+
+## Table of Contents
+
+* [Basic Concepts](#basic-concepts)
+  - [N-dimensional array](#n-dimensional-array)
+  - [Automatic differentiation and computational graph](#automatic-differentiation-and-computational-graph)
+  - [Labeled computational graph](#labeled-computational-graph)
+  - [Network layers](#network-layers)
+  - [Conventions on the shapes of n-d arrays](#conventions-on-the-shapes-of-n-d-arrays)
+* [Implementing Recurrent Neural Network (RNN)](#implementing-recurrent-neural-network-rnn)
+  - [Computational graph of RNN](#computational-graph-of-rnn)
+  - [Unrolling RNN](#unrolling-rnn)
 
 
 ## Basic Concepts
