@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r227"
+#define KAD_VERSION "r240"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -98,6 +98,8 @@ kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperat
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad);
 kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad);
+kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);
+kad_node_t *kad_max1d(kad_node_t *x, kad_node_t *m, int stride, int pad);
 
 // operators taking one operand
 kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)
