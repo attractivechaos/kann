@@ -506,6 +506,8 @@ static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src) // set 
 	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
 }
 
+/////////// Arithmetic operations ///////////
+
 int kad_op_add(kad_node_t *p, int action)
 {
 	int i, n0, n1;
@@ -621,6 +623,8 @@ int kad_op_1minus(kad_node_t *p, int action)
 	}
 	return 0;
 }
+
+/////////// Miscellaneous ///////////
 
 int kad_op_dropout(kad_node_t *p, int action)
 {
