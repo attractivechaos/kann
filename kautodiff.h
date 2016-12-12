@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r241"
+#define KAD_VERSION "r242"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -96,6 +96,7 @@ kad_node_t *kad_ceb(kad_node_t *x, kad_node_t *y);   // f(x,y) = \sum_i -y_i*log
 kad_node_t *kad_cem(kad_node_t *x, kad_node_t *y);   // f(x,y) = - \sum_i -y_i*log(s(x_i))  (s() is softmax; cross-entropy for softmax; only x differentiable)
 kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperature
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
+kad_node_t *kad_subset(kad_node_t *x, int start, int end);
 kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad);
 kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad);
 kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);

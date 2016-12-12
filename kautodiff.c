@@ -158,6 +158,24 @@ static kad_node_t *kad_op_1d_core(int op, kad_node_t *x, kad_node_t *w, int stri
 kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad) { return kad_op_1d_core(18, x, w, stride, pad); }
 kad_node_t *kad_max1d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { return kad_op_1d_core(19, x, m, stride, pad); }
 
+/////////// Miscellaneous ///////////
+
+kad_node_t *kad_subset(kad_node_t *x, int start, int end)
+{
+	kad_node_t *s;
+	int *range;
+	range = (int*)malloc(2 * sizeof(int));
+	range[0] = start, range[1] = end;
+	s = kad_new_core(0, 20, 1);
+	s->child[0].p = x;
+	s->ptr = range;
+	if (kad_op_list[20](s, KAD_SYNC_DIM) < 0) {
+		free(range); free(s->child); free(s);
+		return 0;
+	}
+	return s;
+}
+
 /***********************
  * Graph linearization *
  ***********************/
@@ -650,6 +668,29 @@ int kad_op_dropout(kad_node_t *p, int action)
 		if (flag)
 			for (i = 0; i < n; ++i)
 				if (flag[i]) q->g[i] += p->g[i];
+	}
+	return 0;
+}
+
+int kad_op_subset(kad_node_t *p, int action)
+{
+	kad_node_t *q = p->child[0].p;
+	int *range, n;
+	assert(p->ptr);
+	range = (int*)p->ptr;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		if (q->n_d < 2 || range[0] >= range[1] || range[0] < 0 || range[1] > q->d[1]) return -1;
+		kad_sync_dim1(p, q);
+		p->d[1] = range[1] - range[0];
+	} else if (action == KAD_FORWARD) {
+		int i, d_rest = n / (q->d[0] * q->d[1]);
+		for (i = 0; i < q->d[0]; ++i)
+			memcpy(&p->x[i * p->d[1] * d_rest], &q->x[(i * q->d[1] + range[0]) * d_rest], (range[1] - range[0]) * d_rest * sizeof(float));
+	} else if (action == KAD_BACKWARD && q->to_back) {
+		int i, d_rest = n / (q->d[0] * q->d[1]);
+		for (i = 0; i < q->d[0]; ++i)
+			kad_saxpy((range[1] - range[0]) * d_rest, 1.0f, &p->g[i * p->d[1] * d_rest], &q->g[(i * q->d[1] + range[0]) * d_rest]);
 	}
 	return 0;
 }
@@ -1235,7 +1276,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_conv2d,  // 16: 2D convolution
 	kad_op_max2d,   // 17: 2D max pooling (for 2D ConvNet)
 	kad_op_conv1d,  // 18: 1D convolution
-	kad_op_max1d    // 19: 1D max pooling (for 1D ConvNet)
+	kad_op_max1d,   // 19: 1D max pooling (for 1D ConvNet)
+	kad_op_subset   // 20: subset the second dimension
 };
 
 /**************************
