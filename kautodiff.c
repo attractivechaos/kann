@@ -1196,7 +1196,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 				float *_ww = &(_w)[c1 * m]; \
 				float *_xx = &(_x)[n * q->d[1] * q->d[2]]; \
 				float *_yy = &(_y)[((n * p->d[1]) + c1) * p->d[2]]; \
-				for (j = 0; j < p->d[2]; ++j, _xx += j_skip, ++_y) _code; \
+				for (j = 0; j < p->d[2]; ++j, _xx += j_skip, ++_yy) _code; \
 			} /* ~c1, n */ \
 	} while (0)
 
@@ -1341,7 +1341,7 @@ void kad_trap_fe(void)
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ceb", "norm2", "sigm", "tanh", "relu", 0, "avg", "1minus", "cem", "softmax2", "softmax",
-								"dropout", "conv2d", "max2d" };
+								"dropout", "conv2d", "max2d", "conv1d", "max1d", "subset", "max" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
