@@ -197,18 +197,18 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad)
 
 /////////// Miscellaneous ///////////
 
-kad_node_t *kad_subset(kad_node_t *x, int start, int end)
+kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
 {
 	kad_node_t *s;
-	int32_t *range;
+	int32_t *aux;
 	if (end < start || start < 0) return 0;
-	range = (int32_t*)malloc(2 * 4);
-	range[0] = start, range[1] = end;
+	aux = (int32_t*)malloc(3 * 4);
+	aux[0] = dim, aux[1] = start, aux[2] = end;
 	s = kad_new_core(0, 20, 1);
 	s->child[0].p = x;
-	s->ptr = range, s->ptr_size = 2 * 4;
+	s->ptr = aux, s->ptr_size = 3 * 4;
 	if (kad_op_list[20](s, KAD_SYNC_DIM) < 0) {
-		free(range); free(s->child); free(s);
+		free(aux); free(s->child); free(s);
 		return 0;
 	}
 	return s;
@@ -712,25 +712,28 @@ int kad_op_dropout(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_subset(kad_node_t *p, int action)
+int kad_op_split(kad_node_t *p, int action)
 {
 	kad_node_t *q = p->child[0].p;
-	int *range, n;
+	int32_t *aux, n, *range;
+	int i, dim, d0, d1;
+
 	assert(p->ptr);
-	range = (int*)p->ptr;
+	aux = (int*)p->ptr, dim = aux[0], range = aux + 1;
+	if (dim < 0 || dim >= q->n_d) return -1;
 	n = kad_len(q);
+	for (i = 0, d0 = 1; i < dim; ++i) d0 *= q->d[i];
+	for (i = dim + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
 	if (action == KAD_SYNC_DIM) {
-		if (q->n_d < 2 || range[0] >= range[1] || range[0] < 0 || range[1] > q->d[1]) return -1;
+		if (range[0] >= range[1] || range[0] < 0 || range[1] > q->d[dim]) return -1;
 		kad_sync_dim1(p, q);
-		p->d[1] = range[1] - range[0];
+		p->d[dim] = range[1] - range[0];
 	} else if (action == KAD_FORWARD) {
-		int i, d_rest = n / (q->d[0] * q->d[1]);
-		for (i = 0; i < q->d[0]; ++i)
-			memcpy(&p->x[i * p->d[1] * d_rest], &q->x[(i * q->d[1] + range[0]) * d_rest], (range[1] - range[0]) * d_rest * sizeof(float));
+		for (i = 0; i < d0; ++i)
+			memcpy(&p->x[i * p->d[dim] * d1], &q->x[(i * q->d[dim] + range[0]) * d1], (range[1] - range[0]) * d1 * sizeof(float));
 	} else if (action == KAD_BACKWARD && q->to_back) {
-		int i, d_rest = n / (q->d[0] * q->d[1]);
-		for (i = 0; i < q->d[0]; ++i)
-			kad_saxpy((range[1] - range[0]) * d_rest, 1.0f, &p->g[i * p->d[1] * d_rest], &q->g[(i * q->d[1] + range[0]) * d_rest]);
+		for (i = 0; i < d0; ++i)
+			kad_saxpy((range[1] - range[0]) * d1, 1.0f, &p->g[i * p->d[dim] * d1], &q->g[(i * q->d[dim] + range[0]) * d1]);
 	}
 	return 0;
 }
@@ -1342,7 +1345,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_max2d,   // 17: 2D max pooling (for 2D ConvNet)
 	kad_op_conv1d,  // 18: 1D convolution
 	kad_op_max1d,   // 19: 1D max pooling (for 1D ConvNet)
-	kad_op_subset,  // 20: subset the second dimension
+	kad_op_split,   // 20: split data at a dimension
 	kad_op_max      // 21: general max pooling
 };
 
