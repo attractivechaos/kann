@@ -111,33 +111,50 @@ static kad_node_t *kad_op_pooling_core(int op, int n, kad_node_t **x)
 kad_node_t *kad_avg(int n, kad_node_t **x) { return kad_op_pooling_core(10, n, x); }
 kad_node_t *kad_max(int n, kad_node_t **x) { return kad_op_pooling_core(21, n, x); }
 
-/////////// Convolution related functions ///////////
+/////////// Convolution ///////////
 
 typedef struct {
 	int c_stride, r_stride;
 	int c_pad, r_pad;
+	int kernel_h, kernel_w;
 } kad_conv2d_t;
 
-static kad_node_t *kad_op_2d_core(int op, kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad)
+kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad)
 {
 	kad_node_t *s;
 	kad_conv2d_t *cnn;
 	assert(r_pad == 0 && c_pad == 0); // not implemented yet
-	s = kad_new_core(0, op, 2);
+	if (w->n_d != 4) return 0;
+	s = kad_new_core(0, 16, 2);
 	s->child[0].p = x, s->child[1].p = w;
 	cnn = (kad_conv2d_t*)calloc(1, sizeof(kad_conv2d_t));
-	cnn->r_stride = r_stride, cnn->r_pad = r_pad;
-	cnn->c_stride = c_stride, cnn->c_pad = c_pad;
-	s->ptr = cnn;
-	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
+	cnn->kernel_h = w->d[0], cnn->r_stride = r_stride, cnn->r_pad = r_pad;
+	cnn->kernel_w = w->d[1], cnn->c_stride = c_stride, cnn->c_pad = c_pad;
+	s->ptr = cnn, s->ptr_size = sizeof(kad_conv2d_t);
+	if (kad_op_list[16](s, KAD_SYNC_DIM) < 0) {
 		free(cnn); free(s->child); free(s);
 		return 0;
 	}
 	return s;
 }
 
-kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad) { return kad_op_2d_core(16, x, w, stride, stride, pad, pad); }
-kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { return kad_op_2d_core(17, x, m, stride, stride, pad, pad); }
+kad_node_t *kad_max2d(kad_node_t *x, int kernel_h, int kernel_w, int r_stride, int c_stride, int r_pad, int c_pad)
+{
+	kad_node_t *s;
+	kad_conv2d_t *cnn;
+	assert(r_pad == 0 && c_pad == 0); // not implemented yet
+	s = kad_new_core(0, 17, 1);
+	s->child[0].p = x;
+	cnn = (kad_conv2d_t*)calloc(1, sizeof(kad_conv2d_t));
+	cnn->kernel_h = kernel_h, cnn->r_stride = r_stride, cnn->r_pad = r_pad;
+	cnn->kernel_w = kernel_w, cnn->c_stride = c_stride, cnn->c_pad = c_pad;
+	s->ptr = cnn, s->ptr_size = sizeof(kad_conv2d_t);
+	if (kad_op_list[17](s, KAD_SYNC_DIM) < 0) {
+		free(cnn); free(s->child); free(s);
+		return 0;
+	}
+	return s;
+}
 
 typedef struct {
 	int stride, pad;
@@ -153,7 +170,7 @@ kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad)
 	s->child[0].p = x, s->child[1].p = w;
 	cnn = (kad_conv1d_t*)calloc(1, sizeof(kad_conv1d_t));
 	cnn->stride = stride, cnn->pad = pad, cnn->kernel_size = w->d[0];
-	s->ptr = cnn;
+	s->ptr = cnn, s->ptr_size = sizeof(kad_conv1d_t);
 	if (kad_op_list[18](s, KAD_SYNC_DIM) < 0) {
 		free(cnn); free(s->child); free(s);
 		return 0;
@@ -170,7 +187,7 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad)
 	s->child[0].p = x;
 	cnn = (kad_conv1d_t*)calloc(1, sizeof(kad_conv1d_t));
 	cnn->stride = stride, cnn->pad = pad, cnn->kernel_size = kernel_size;
-	s->ptr = cnn;
+	s->ptr = cnn, s->ptr_size = sizeof(kad_conv1d_t);
 	if (kad_op_list[19](s, KAD_SYNC_DIM) < 0) {
 		free(cnn); free(s->child); free(s);
 		return 0;
@@ -183,12 +200,13 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad)
 kad_node_t *kad_subset(kad_node_t *x, int start, int end)
 {
 	kad_node_t *s;
-	int *range;
-	range = (int*)malloc(2 * sizeof(int));
+	int32_t *range;
+	if (end < start || start < 0) return 0;
+	range = (int32_t*)malloc(2 * 4);
 	range[0] = start, range[1] = end;
 	s = kad_new_core(0, 20, 1);
 	s->child[0].p = x;
-	s->ptr = range;
+	s->ptr = range, s->ptr_size = 2 * 4;
 	if (kad_op_list[20](s, KAD_SYNC_DIM) < 0) {
 		free(range); free(s->child); free(s);
 		return 0;
@@ -380,8 +398,9 @@ static void kad_write1(FILE *fp, const kad_node_t *p)
 		for (j = 0; j < p->n_child; ++j)
 			fwrite(&p->child[j].p->tmp, 4, 1, fp);
 		fwrite(&pre, 4, 1, fp);
-		if (p->op == 16 || p->op == 17)
-			fwrite(p->ptr, sizeof(kad_conv2d_t), 1, fp);
+		fwrite(&p->ptr_size, 4, 1, fp);
+		if (p->ptr_size > 0 && p->ptr)
+			fwrite(p->ptr, p->ptr_size, 1, fp);
 	} else {
 		fwrite(&p->n_d, 1, 1, fp);
 		if (p->n_d) fwrite(p->d, 4, p->n_d, fp);
@@ -405,9 +424,10 @@ static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 		}
 		fread(&k, 4, 1, fp);
 		if (k >= 0) p->pre = node[k];
-		if (p->op == 16 || p->op == 17) { // read additional conv2d parameters
-			p->ptr = calloc(1, sizeof(kad_conv2d_t));
-			fread(p->ptr, sizeof(kad_conv2d_t), 1, fp);
+		fread(&p->ptr_size, 4, 1, fp);
+		if (p->ptr_size > 0) {
+			p->ptr = malloc(p->ptr_size);
+			fread(p->ptr, p->ptr_size, 1, fp);
 		}
 	} else {
 		fread(&p->n_d, 1, 1, fp);
@@ -1106,21 +1126,20 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 int kad_op_max2d(kad_node_t *p, int action)
 {
 	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
-	kad_node_t *q, *m;
+	kad_node_t *q;
 
 	assert(aux->c_pad == 0); // TODO: padding not implemented yet
-	assert(p->n_child == 2);
-	q = p->child[0].p, m = p->child[1].p;
+	q = p->child[0].p;
 	if (action == KAD_SYNC_DIM) {
-		if (q->n_d != 4 || m->n_d != 2) return -1;
-		if ((q->d[2] - m->d[0] + 2 * aux->r_pad) % aux->r_stride != 0) return -1;
-		if ((q->d[3] - m->d[1] + 2 * aux->c_pad) % aux->c_stride != 0) return -1;
+		if (q->n_d != 4) return -1;
+		if ((q->d[2] - aux->kernel_h + 2 * aux->r_pad) % aux->r_stride != 0) return -1;
+		if ((q->d[3] - aux->kernel_w + 2 * aux->c_pad) % aux->c_stride != 0) return -1;
 		if (aux->r_stride <= aux->r_pad) return -1;
 		if (aux->c_stride <= aux->c_pad) return -1;
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = q->d[1];
-		p->d[2] = (q->d[2] - m->d[0] + 2 * aux->r_pad) / aux->r_stride + 1;
-		p->d[3] = (q->d[3] - m->d[1] + 2 * aux->c_pad) / aux->c_stride + 1;
+		p->d[2] = (q->d[2] - aux->kernel_h + 2 * aux->r_pad) / aux->r_stride + 1;
+		p->d[3] = (q->d[3] - aux->kernel_w + 2 * aux->c_pad) / aux->c_stride + 1;
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
@@ -1133,11 +1152,11 @@ int kad_op_max2d(kad_node_t *p, int action)
 			int i, j, k, l, p_row = p->d[p->n_d - 2], p_col = p->d[p->n_d - 1];
 			for (i = 0; i < p_row; ++i) {
 				int k_st = i? 0 : aux->r_pad;
-				int k_en = i < p_row - 1? m->d[0] : m->d[0] - aux->r_pad;
+				int k_en = i < p_row - 1? aux->kernel_h : aux->kernel_h - aux->r_pad;
 				int u = (t * p_row + i) * p_col;
 				for (k = k_st; k < k_en; ++k) {
 					int v, v0 = (t * q->d[p->n_d - 2] + i * aux->r_stride - aux->r_pad + k) * q->d[p->n_d - 1];
-					for (l = 0; l < m->d[1]; ++l)
+					for (l = 0; l < aux->kernel_w; ++l)
 						for (j = 0, v = v0 + l; j < p_col; ++j, v += aux->c_stride)
 							if (p->x[u + j] < q->x[v])
 								p->x[u + j] = q->x[v], f[u + j] = v;

@@ -27,12 +27,12 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r244"
+#define KAD_VERSION "r245"
 
 #include <stdio.h>
 #include <stdint.h>
 
-#define KAD_MAX_DIM 4     // max dimension
+#define KAD_MAX_DIM 5     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
 
 struct kad_node_t;
@@ -59,6 +59,7 @@ struct kad_node_t {
 	int32_t     label;          // label for external uses
 	int32_t     tmp;            // temporary field; MUST BE zero before calling kad_compile()
 	int32_t     d[KAD_MAX_DIM]; // dimensions
+	int32_t     ptr_size;       // size of ptr below
 	float      *x;              // value; allocated for internal nodes
 	float      *g;              // gradient; allocated for internal nodes
 	kad_edge_t *child;          // operands/child nodes
@@ -97,8 +98,8 @@ kad_node_t *kad_cem(kad_node_t *x, kad_node_t *y);   // f(x,y) = - \sum_i -y_i*l
 kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperature
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 kad_node_t *kad_subset(kad_node_t *x, int start, int end);
-kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad);
-kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad);
+kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);
+kad_node_t *kad_max2d(kad_node_t *x, int kernel_h, int kernel_w, int r_stride, int c_stride, int r_pad, int c_pad);
 kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);
 kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad);
 
