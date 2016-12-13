@@ -473,7 +473,7 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 #ifdef __SSE__
 #include <xmmintrin.h>
 
-float kad_sdot(int n, const float *x, const float *y)
+static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot using SSE
 {
 	int i, n8 = n>>3<<3;
 	__m128 vs1, vs2;
@@ -496,7 +496,7 @@ float kad_sdot(int n, const float *x, const float *y)
 	s += t[0] + t[1] + t[2] + t[3];
 	return s;
 }
-void kad_saxpy(int n, float a, const float *x, float *y)
+static inline void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy using SSE
 {
 	int i, n8 = n>>3<<3;
 	__m128 va;
@@ -515,14 +515,14 @@ void kad_saxpy(int n, float a, const float *x, float *y)
 	for (; i < n; ++i) y[i] += a * x[i];
 }
 #else
-float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
+static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 {
 	int i;
 	float s = 0.;
 	for (i = 0; i < n; ++i) s += x[i] * y[i];
 	return s;
 }
-void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
+static inline void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
 {
 	int i;
 	for (i = 0; i < n; ++i) y[i] += a * x[i];
@@ -535,23 +535,32 @@ void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
 
-void kad_mat_cmul(int n_col, int n_a_row, const float *a, int n_b_row, const float *b, float *c) // C = A * B^T
+void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C) // simplified BLAS sgemm
 {
 	static const int x = 16;
-	int i, j;
-	memset(c, 0, n_a_row * n_b_row * sizeof(float));
-	for (i = 0; i < n_a_row; i += x) {
-		for (j = 0; j < n_b_row; j += x) {
-			int ii, ie = n_a_row < i + x? n_a_row : i + x;
-			int jj, je = n_b_row < j + x? n_b_row : j + x;
-			for (ii = i; ii < ie; ++ii) {
-				const float *aii = a + ii * n_col, *bjj;
-				float *cii = c + ii * n_b_row;
-				for (jj = j, bjj = b + j * n_col; jj < je; ++jj, bjj += n_col)
-					cii[jj] += kad_sdot(n_col, aii, bjj);
+	int i, j, k;
+	if (!trans_A && trans_B) {
+		for (i = 0; i < M; i += x) {
+			for (j = 0; j < N; j += x) {
+				int ii, ie = M < i + x? M : i + x;
+				int jj, je = N < j + x? N : j + x;
+				for (ii = i; ii < ie; ++ii) { // loop tiling
+					const float *aii = A + ii * K, *bjj;
+					float *cii = C + ii * N;
+					for (jj = j, bjj = B + j * K; jj < je; ++jj, bjj += K)
+						cii[jj] += kad_sdot(K, aii, bjj);
+				}
 			}
 		}
-	}
+	} else if (!trans_A && !trans_B) {
+		for (i = 0; i < M; ++i)
+			for (k = 0; k < K; ++k)
+				kad_saxpy(N, A[i*K+k], &B[k*N], &C[i*N]);
+	} else if (trans_A && !trans_B) {
+		for (k = 0; k < K; ++k)
+			for (i = 0; i < M; ++i)
+				kad_saxpy(N, A[k*M+i], &B[k*N], &C[i*N]);
+	} else abort(); // not implemented for (trans_A && trans_B)
 }
 
 /*************
@@ -619,7 +628,7 @@ int kad_op_mul(kad_node_t *p, int action)
 
 int kad_op_cmul(kad_node_t *p, int action)
 {
-	int i, j, n_a_row, n_b_row, n_col, n_a_col, n_b_col;
+	int n_a_row, n_b_row, n_col, n_a_col, n_b_col;
 	kad_node_t *q[2];
 
 	q[0] = p->child[0].p;
@@ -632,17 +641,14 @@ int kad_op_cmul(kad_node_t *p, int action)
 		if (n_a_col != n_b_col) return -1;
 		p->n_d = 2, p->d[0] = n_a_row, p->d[1] = n_b_row;
 	} else if (action == KAD_FORWARD) {
-		if (q[0]->x == 0 || q[1]->x == 0) memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
-		else kad_mat_cmul(n_col, n_a_row, q[0]->x, n_b_row, q[1]->x, p->x);
+		memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
+		if (q[0]->x && q[1]->x)
+			kad_sgemm_simple(0, 1, n_a_row, n_b_row, n_col, q[0]->x, q[1]->x, p->x); // Y = X * trans(W)
 	} else if (action == KAD_BACKWARD) {
 		if (q[0]->to_back && q[1]->x)
-			for (j = 0; j < n_b_row; ++j)
-				for (i = 0; i < n_a_row; ++i)
-					kad_saxpy(n_col, p->g[i * n_b_row + j], q[1]->x + j * n_col, q[0]->g + i * n_col);
+			kad_sgemm_simple(0, 0, n_a_row, n_col, n_b_row, p->g, q[1]->x, q[0]->g); // G_x = G_y * W
 		if (q[1]->to_back && q[0]->x)
-			for (i = 0; i < n_a_row; ++i)
-				for (j = 0; j < n_b_row; ++j)
-					kad_saxpy(n_col, p->g[i * n_b_row + j], q[0]->x + i * n_col, q[1]->g + j * n_col);
+			kad_sgemm_simple(1, 0, n_b_row, n_col, n_a_row, p->g, q[0]->x, q[1]->g); // G_w = trans(G_y) * X
 	}
 	return 0;
 }
