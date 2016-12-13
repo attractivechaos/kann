@@ -92,19 +92,24 @@ KAD_FUNC_OP1(kad_relu, 8)
 KAD_FUNC_OP1(kad_1minus, 11)
 KAD_FUNC_OP1(kad_softmax, 14)
 
-kad_node_t *kad_avg(int n, kad_node_t **x)
+/////////// Pooling ///////////
+
+static kad_node_t *kad_op_pooling_core(int op, int n, kad_node_t **x)
 {
 	int i;
 	kad_node_t *s;
-	s = kad_new_core(0, 10, n);
+	s = kad_new_core(0, op, n);
 	for (i = 0; i < n; ++i)
 		s->child[i].p = x[i];
-	if (kad_op_list[10](s, KAD_SYNC_DIM) < 0) {
+	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
 		free(s->child); free(s);
 		return 0;
 	}
 	return s;
 }
+
+kad_node_t *kad_avg(int n, kad_node_t **x) { return kad_op_pooling_core(10, n, x); }
+kad_node_t *kad_max(int n, kad_node_t **x) { return kad_op_pooling_core(21, n, x); }
 
 /////////// Convolution related functions ///////////
 
@@ -136,27 +141,42 @@ kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { retu
 
 typedef struct {
 	int stride, pad;
+	int kernel_size; // for max
 } kad_conv1d_t;
 
-static kad_node_t *kad_op_1d_core(int op, kad_node_t *x, kad_node_t *w, int stride, int pad)
+kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad)
 {
 	kad_node_t *s;
 	kad_conv1d_t *cnn;
 	assert(pad == 0); // not implemented yet
-	s = kad_new_core(0, op, 2);
+	s = kad_new_core(0, 18, 2);
 	s->child[0].p = x, s->child[1].p = w;
 	cnn = (kad_conv1d_t*)calloc(1, sizeof(kad_conv1d_t));
-	cnn->stride = stride, cnn->pad = pad;
+	cnn->stride = stride, cnn->pad = pad, cnn->kernel_size = w->d[0];
 	s->ptr = cnn;
-	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
+	if (kad_op_list[18](s, KAD_SYNC_DIM) < 0) {
 		free(cnn); free(s->child); free(s);
 		return 0;
 	}
 	return s;
 }
 
-kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad) { return kad_op_1d_core(18, x, w, stride, pad); }
-kad_node_t *kad_max1d(kad_node_t *x, kad_node_t *m, int stride, int pad)  { return kad_op_1d_core(19, x, m, stride, pad); }
+kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad)
+{
+	kad_node_t *s;
+	kad_conv1d_t *cnn;
+	assert(pad == 0); // not implemented yet
+	s = kad_new_core(0, 19, 1);
+	s->child[0].p = x;
+	cnn = (kad_conv1d_t*)calloc(1, sizeof(kad_conv1d_t));
+	cnn->stride = stride, cnn->pad = pad, cnn->kernel_size = kernel_size;
+	s->ptr = cnn;
+	if (kad_op_list[19](s, KAD_SYNC_DIM) < 0) {
+		free(cnn); free(s->child); free(s);
+		return 0;
+	}
+	return s;
+}
 
 /////////// Miscellaneous ///////////
 
@@ -891,6 +911,33 @@ int kad_op_avg(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_max(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		int *max_j;
+		for (i = 1; i < p->n_child; ++i)
+			if (kad_len(p->child[i].p) != n) return -1;
+		kad_sync_dim1(p, q);
+		max_j = (int*)calloc(n, sizeof(int));
+		p->child[0].t = (float*)max_j;
+	} else if (action == KAD_FORWARD) {
+		int j, *max_j = (int*)p->child[0].t;
+		memset(max_j, 0, n * sizeof(int));
+		memcpy(p->x, q->x, n * sizeof(float));
+		for (j = 1; j < p->n_child; ++j)
+			for (i = 0, q = p->child[j].p; i < n; ++i)
+				if (q->x[i] > p->x[i]) p->x[i] = q->x[i], max_j[i] = j;
+	} else if (action == KAD_BACKWARD) {
+		int *max_j = (int*)p->child[0].t;
+		for (i = 0; i < n; ++i)
+			p->child[max_j[i]].p->g[i] += p->g[i];
+	}
+	return 0;
+}
+
 /////////// 2D convolution ///////////
 
 static float *conv2d_move_1to3(int d[4], const float *x) // convert the NCHW shape to the NHWC shape
@@ -1218,18 +1265,17 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 int kad_op_max1d(kad_node_t *p, int action)
 {
 	kad_conv1d_t *aux = (kad_conv1d_t*)p->ptr;
-	kad_node_t *q, *m;
+	kad_node_t *q;
 
 	assert(aux->pad == 0); // TODO: padding not implemented yet
-	assert(p->n_child == 2);
-	q = p->child[0].p, m = p->child[1].p;
+	q = p->child[0].p;
 	if (action == KAD_SYNC_DIM) {
-		if (q->n_d != 3 || m->n_d != 2) return -1;
-		if ((q->d[2] - m->d[0] + 2 * aux->pad) % aux->stride != 0) return -1;
+		if (q->n_d != 3) return -1;
+		if ((q->d[2] - aux->kernel_size + 2 * aux->pad) % aux->stride != 0) return -1;
 		if (aux->stride <= aux->pad) return -1;
 		p->n_d = 3;
 		p->d[0] = q->d[0], p->d[1] = q->d[1];
-		p->d[2] = (q->d[2] - m->d[0] + 2 * aux->pad) / aux->stride + 1;
+		p->d[2] = (q->d[2] - aux->kernel_size + 2 * aux->pad) / aux->stride + 1;
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
@@ -1241,7 +1287,7 @@ int kad_op_max1d(kad_node_t *p, int action)
 		for (t = 0; t < rest; ++t) {
 			int j, l, p_width = p->d[p->n_d - 1];
 			int u = t * p_width, v, v0 = t * q->d[p->n_d - 1];
-			for (l = 0; l < m->d[1]; ++l)
+			for (l = 0; l < aux->kernel_size; ++l)
 				for (j = 0, v = v0 + l; j < p_width; ++j, v += aux->stride)
 					if (p->x[u + j] < q->x[v])
 						p->x[u + j] = q->x[v], f[u + j] = v;
@@ -1277,7 +1323,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_max2d,   // 17: 2D max pooling (for 2D ConvNet)
 	kad_op_conv1d,  // 18: 1D convolution
 	kad_op_max1d,   // 19: 1D max pooling (for 1D ConvNet)
-	kad_op_subset   // 20: subset the second dimension
+	kad_op_subset,  // 20: subset the second dimension
+	kad_op_max      // 21: general max pooling
 };
 
 /**************************

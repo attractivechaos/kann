@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r228"
+#define KANN_VERSION "r243"
 
 #define KANN_L_IN       1   // input
 #define KANN_L_OUT      2   // output
@@ -92,6 +92,9 @@ kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols,
 kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
+kad_node_t *kann_new_weight(int n_row, int n_col);
+kad_node_t *kann_new_bias(int n);
+
 // basic model allocation/deallocation
 void kann_set_hyper(kann_t *a, int label, float z);
 void kann_delete(kann_t *a);
@@ -127,6 +130,7 @@ void kann_srand(uint64_t seed);
 uint64_t kann_rand(void);
 double kann_drand(void);
 double kann_normal(void);
+void kann_rand_weight(int n_row, int n_col, float *w);
 
 #ifdef __cplusplus
 }

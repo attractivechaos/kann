@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r242"
+#define KAD_VERSION "r243"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -78,7 +78,7 @@ typedef double (*kad_drand_f)(void);
 extern kad_drand_f kad_drand; // random number generator, default to drand48()
 
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
-#define kad_is_pool(p) ((p)->op == 10)
+#define kad_is_pool(p) ((p)->op == 10 || (p)->op == 21)
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,7 +100,7 @@ kad_node_t *kad_subset(kad_node_t *x, int start, int end);
 kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride, int pad);
 kad_node_t *kad_max2d(kad_node_t *x, kad_node_t *m, int stride, int pad);
 kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);
-kad_node_t *kad_max1d(kad_node_t *x, kad_node_t *m, int stride, int pad);
+kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad);
 
 // operators taking one operand
 kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)
@@ -112,6 +112,7 @@ kad_node_t *kad_softmax(kad_node_t *x);// softmax without temperature (i.e. temp
 
 // operators taking an indefinite number of operands (mostly for pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (mean pooling)
+kad_node_t *kad_max(int n, kad_node_t **x);
 
 // compile graph and graph deallocation
 kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
