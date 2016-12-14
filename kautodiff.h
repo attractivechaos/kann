@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r255"
+#define KAD_VERSION "r256"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -80,6 +80,10 @@ extern kad_drand_f kad_drand; // random number generator, default to drand48()
 
 #define kad_is_var(p) ((p)->n_child == 0 && (p)->to_back)
 #define kad_is_pool(p) ((p)->op == 10 || (p)->op == 21)
+
+#define KAD_PAD_NONE  0
+#define KAD_PAD_AUTO  (-1)
+#define KAD_PAD_SAME  (-2)
 
 #ifdef __cplusplus
 extern "C" {
