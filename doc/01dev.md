@@ -57,7 +57,7 @@ In implementation, each node in a computational graph holds an n-d array. An
 important operation between two 2D arrays is matrix product. The following
 equation gives how to update gradients:
 
-![](img/matmul1.svg)
+![](img/matmul1.png)
 
 <!--
 {\bf C}={\bf A}\cdot{\bf B},
