@@ -10,17 +10,18 @@ int main(int argc, char *argv[])
 	kann_data_t *x, *y;
 	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
-	int c, n_h_fc = 128, n_h_flt = 32;
+	int c, seed = 131, n_h_fc = 128, n_h_flt = 32;
 	float dropout = 0.2f;
 
 	kann_mopt_init(&mo);
-	while ((c = getopt(argc, argv, "i:o:m:h:f:d:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:h:f:d:s:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
 		else if (c == 'h') n_h_fc = atoi(optarg);
 		else if (c == 'f') n_h_flt = atoi(optarg);
 		else if (c == 'd') dropout = atof(optarg);
+		else if (c == 's') seed = atoi(optarg);
 	}
 
 	if (argc - optind == 0 || (argc - optind == 1 && fn_in == 0)) {
@@ -29,6 +30,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	kad_trap_fe();
+	kann_srand(seed);
 	if (fn_in) {
 		ann = kann_read(fn_in);
 	} else {

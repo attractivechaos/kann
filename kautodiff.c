@@ -1005,7 +1005,6 @@ static void conv_rot180(int d0, int d1, float *x)
 		for (j = 0; j < d1>>1; ++j)
 			tmp = xi[j], xi[j] = xi[d1-1-j], xi[d1-1-j] = tmp; 
 	}
-			
 }
 
 #define process_row_for(_xx, _ww, _yy, _wn, _pn, _stride, _t) do { \
@@ -1116,33 +1115,37 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 	} else if (action == KAD_BACKWARD) {
 		float *t, *q1, *w1;
-		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
-		// backprop to the input array
-		if (p->child[0].p->to_back && w->d[3] * w->d[1] < batch_thres) {
-			t = (float*)malloc(p->d[3] * sizeof(float));
-			conv2d_loop1(q->g, w->x, p->g, t, process_row_back_x);
-			free(t);
-		} else if (p->child[0].p->to_back) {
-			q1 = (float*)calloc(kad_len(q), sizeof(float));
-			w1 = conv2d_move_1to3(w->d, w->x);
-			conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
-			conv2d_add_3to1(q->d, q1, q->g);
-			free(w1); free(q1);
+		if (p->child[0].p->to_back) { // backprop to the input array
+			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
+			if (w->d[3] * w->d[1] < batch_thres) {
+				t = (float*)malloc(p->d[3] * sizeof(float));
+				conv2d_loop1(q->g, w->x, p->g, t, process_row_back_x);
+				free(t);
+			} else {
+				q1 = (float*)calloc(kad_len(q), sizeof(float));
+				w1 = conv2d_move_1to3(w->d, w->x);
+				conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
+				conv2d_add_3to1(q->d, q1, q->g);
+				free(w1); free(q1);
+			}
+			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		}
-		// backprop to the weight matrix
-		if (p->child[1].p->to_back && w->d[3] * w->d[1] < batch_thres) {
-			t = (float*)malloc(p->d[3] * sizeof(float));
-			conv2d_loop1(q->x, w->g, p->g, t, process_row_back_w);
-			free(t);
-		} else if (p->child[1].p->to_back) {
-			float *q1, *w1;
-			q1 = conv2d_move_1to3(q->d, q->x);
-			w1 = (float*)calloc(kad_len(w), sizeof(float));
-			conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
-			conv2d_add_3to1(w->d, w1, w->g);
-			free(w1); free(q1);
+		if (p->child[1].p->to_back) { // backprop to the weight matrix
+			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
+			if (w->d[3] * w->d[1] < batch_thres) {
+				t = (float*)malloc(p->d[3] * sizeof(float));
+				conv2d_loop1(q->x, w->g, p->g, t, process_row_back_w);
+				free(t);
+			} else {
+				float *q1, *w1;
+				q1 = conv2d_move_1to3(q->d, q->x);
+				w1 = (float*)calloc(kad_len(w), sizeof(float));
+				conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
+				conv2d_add_3to1(w->d, w1, w->g);
+				free(w1); free(q1);
+			}
+			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
 		}
-		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 	}
 	return 0;
 }
@@ -1278,33 +1281,37 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 	} else if (action == KAD_BACKWARD) {
 		float *t, *q1, *w1;
-		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
-		// backprop to the input array
-		if (p->child[0].p->to_back && w->d[2] * w->d[1] < batch_thres) {
-			t = (float*)malloc(p->d[2] * sizeof(float));
-			conv1d_loop1(q->g, w->x, p->g, t, process_row_back_x);
-			free(t);
-		} else if (p->child[0].p->to_back) {
-			q1 = (float*)calloc(kad_len(q), sizeof(float));
-			w1 = conv1d_move_1to2(w->d, w->x);
-			conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
-			conv1d_add_2to1(q->d, q1, q->g);
-			free(w1); free(q1);
+		if (p->child[0].p->to_back) { // backprop to the input array
+			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
+			if (w->d[2] * w->d[1] < batch_thres) {
+				t = (float*)malloc(p->d[2] * sizeof(float));
+				conv1d_loop1(q->g, w->x, p->g, t, process_row_back_x);
+				free(t);
+			} else {
+				q1 = (float*)calloc(kad_len(q), sizeof(float));
+				w1 = conv1d_move_1to2(w->d, w->x);
+				conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
+				conv1d_add_2to1(q->d, q1, q->g);
+				free(w1); free(q1);
+			}
+			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		}
-		// backprop to the weight matrix
-		if (p->child[1].p->to_back && w->d[2] * w->d[1] < batch_thres) {
-			t = (float*)malloc(p->d[2] * sizeof(float));
-			conv1d_loop1(q->x, w->g, p->g, t, process_row_back_w);
-			free(t);
-		} else if (p->child[1].p->to_back) {
-			float *q1, *w1;
-			q1 = conv1d_move_1to2(q->d, q->x);
-			w1 = (float*)calloc(kad_len(w), sizeof(float));
-			conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
-			conv1d_add_2to1(w->d, w1, w->g);
-			free(w1); free(q1);
+		if (p->child[1].p->to_back) { // backprop to the weight matrix
+			conv_rot180(w->d[0] * w->d[1], w->d[2], w->g);
+			if (w->d[2] * w->d[1] < batch_thres) {
+				t = (float*)malloc(p->d[2] * sizeof(float));
+				conv1d_loop1(q->x, w->g, p->g, t, process_row_back_w);
+				free(t);
+			} else {
+				float *q1, *w1;
+				q1 = conv1d_move_1to2(q->d, q->x);
+				w1 = (float*)calloc(kad_len(w), sizeof(float));
+				conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
+				conv1d_add_2to1(w->d, w1, w->g);
+				free(w1); free(q1);
+			}
+			conv_rot180(w->d[0] * w->d[1], w->d[2], w->g);
 		}
-		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 	}
 	return 0;
 }
