@@ -1019,7 +1019,6 @@ static void conv2d_add_3to1(int d[4], const float *y, float *x) // convert the N
 }
 
 #define conv_out_size(in_size, aux) (((in_size) - (aux)->kernel_size + (aux)->pad[0] + (aux)->pad[1]) / (aux)->stride + 1)
-#define conv_alloc_padded(in_size, aux) ((aux)->pad[0] + (aux)->pad[1] > 0? (float*)calloc((in_size) + (aux)->pad[0] + (aux)->pad[1], sizeof(float)) : 0)
 
 #define process_row_for(_xx, _ww, _yy, _wn, _pn, _stride, _pad, _t) do { \
 	int j, l; \
@@ -1091,7 +1090,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 						float *_xx = &(_x)[(n * q->d[2] + ii) * q->d[3] * q->d[1]]; \
 						float *_yy = &(_y)[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]]; \
 						if (x_padded) { \
-							memcpy(x_padded + aux[1].pad[0], _xx, q->d[3] * sizeof(float)); \
+							memcpy(x_padded + aux[1].pad[0] * q->d[1], _xx, q->d[3] * q->d[1] * sizeof(float)); \
 							_xx = x_padded; \
 						} \
 						for (j = 0; j < p->d[3]; ++j, _xx += j_skip, ++_yy) _code; /* output and input column */ \
@@ -1105,12 +1104,15 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	int algo_switch = 0;
 
 	if (action == KAD_FORWARD || action == KAD_BACKWARD) { // allocate working space
-		x_padded = conv_alloc_padded(q->d[3], &aux[1]);
-		if (w->d[3] * w->d[1] >= 16) {
+		if (w->d[3] * w->d[1] < 16) {
+			t = (float*)malloc(p->d[3] * sizeof(float));
+			x_padded = aux[1].pad[0] + aux[1].pad[1] > 0? (float*)calloc(q->d[3] + aux[1].pad[0] + aux[1].pad[1], sizeof(float)) : 0;
+		} else {
 			q1 = (float*)malloc(kad_len(q) * sizeof(float));
 			w1 = (float*)malloc(kad_len(w) * sizeof(float));
+			x_padded = aux[1].pad[0] + aux[1].pad[1] > 0? (float*)calloc((q->d[3] + aux[1].pad[0] + aux[1].pad[1]) * q->d[1], sizeof(float)) : 0;
 			algo_switch = 1;
-		} else t = (float*)malloc(p->d[3] * sizeof(float));
+		}
 	}
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || w->n_d != 4) return -1;
@@ -1229,7 +1231,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 					float *_xx = &(_x)[(n  * q->d[1] + c0) * q->d[2]]; \
 					float *_yy = &(_y)[(c1 * p->d[1] + c1) * p->d[2]]; \
 					if (x_padded) { \
-						memcpy(x_padded + aux->pad[0], _xx, q->d[3] * sizeof(float)); \
+						memcpy(x_padded + aux->pad[0], _xx, q->d[2] * sizeof(float)); \
 						_xx = x_padded + aux->pad[0]; \
 					} \
 					_row_func(_xx, _ww, _yy, w->d[2], p->d[2], aux->stride, aux->pad[0], (_tmp)); \
@@ -1242,9 +1244,9 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 			for (c1 = 0; c1 < w->d[0]; ++c1) { /* output channel */ \
 				float *_ww = &(_w)[c1 * m]; \
 				float *_xx = &(_x)[n * q->d[1] * q->d[2]]; \
-				float *_yy = &(_y)[((n * p->d[1]) + c1) * p->d[2]]; \
+				float *_yy = &(_y)[(n * p->d[1] + c1) * p->d[2]]; \
 				if (x_padded) { \
-					memcpy(x_padded + aux->pad[0], _xx, q->d[3] * sizeof(float)); \
+					memcpy(x_padded + aux->pad[0] * q->d[1], _xx, q->d[2] * q->d[1] * sizeof(float)); \
 					_xx = x_padded; \
 				} \
 				for (j = 0; j < p->d[2]; ++j, _xx += j_skip, ++_yy) _code; \
@@ -1257,12 +1259,15 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 	int algo_switch = 0;
 
 	if (action == KAD_FORWARD || action == KAD_BACKWARD) { // allocate working space
-		x_padded = conv_alloc_padded(q->d[2], aux);
-		if (w->d[2] * w->d[1] >= 32) {
+		if (w->d[2] * w->d[1] < 32) {
+			t = (float*)malloc(p->d[2] * sizeof(float));
+			x_padded = aux->pad[0] + aux->pad[1] > 0? (float*)calloc(q->d[2] + aux->pad[0] + aux->pad[1], sizeof(float)) : 0;
+		} else {
 			q1 = (float*)malloc(kad_len(q) * sizeof(float));
 			w1 = (float*)malloc(kad_len(w) * sizeof(float));
+			x_padded = aux->pad[0] + aux->pad[1] > 0? (float*)calloc((q->d[2] + aux->pad[0] + aux->pad[1]) * q->d[1], sizeof(float)) : 0;
 			algo_switch = 1;
-		} else t = (float*)malloc(p->d[2] * sizeof(float));
+		}
 	}
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 3 || w->n_d != 3) return -1;
