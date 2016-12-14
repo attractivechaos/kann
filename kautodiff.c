@@ -997,6 +997,17 @@ static void conv2d_add_3to1(int d[4], const float *y, float *x) // convert the N
 			}
 }
 
+static void conv_rot180(int d0, int d1, float *x)
+{
+	int i, j;
+	for (i = 0; i < d0; ++i) {
+		float tmp, *xi = &x[i * d1];
+		for (j = 0; j < d1>>1; ++j)
+			tmp = xi[j], xi[j] = xi[d1-1-j], xi[d1-1-j] = tmp; 
+	}
+			
+}
+
 #define process_row_for(_xx, _ww, _yy, _wn, _pn, _stride, _t) do { \
 	int j, l; \
 	if (_stride > 1) { \
@@ -1087,6 +1098,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->r_pad) / aux->r_stride + 1;
 		p->d[3] = (q->d[3] - w->d[3] + 2 * aux->c_pad) / aux->c_stride + 1;
 	} else if (action == KAD_FORWARD) {
+		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		if (w->d[3] * w->d[1] < batch_thres) { // this is the first algorithm
 			float *t;
 			t = (float*)malloc(p->d[3] * sizeof(float));
@@ -1101,8 +1113,10 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			conv2d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 			free(w1); free(q1);
 		}
+		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 	} else if (action == KAD_BACKWARD) {
 		float *t, *q1, *w1;
+		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		// backprop to the input array
 		if (p->child[0].p->to_back && w->d[3] * w->d[1] < batch_thres) {
 			t = (float*)malloc(p->d[3] * sizeof(float));
@@ -1128,6 +1142,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			conv2d_add_3to1(w->d, w1, w->g);
 			free(w1); free(q1);
 		}
+		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 	}
 	return 0;
 }
@@ -1245,6 +1260,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 		p->d[0] = q->d[0], p->d[1] = w->d[0];
 		p->d[2] = (q->d[2] - w->d[2] + 2 * aux->pad) / aux->stride + 1;
 	} else if (action == KAD_FORWARD) {
+		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		if (w->d[2] * w->d[1] < batch_thres) { // this is the first algorithm
 			float *t;
 			t = (float*)malloc(p->d[2] * sizeof(float));
@@ -1259,8 +1275,10 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 			conv1d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 			free(w1); free(q1);
 		}
+		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 	} else if (action == KAD_BACKWARD) {
 		float *t, *q1, *w1;
+		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		// backprop to the input array
 		if (p->child[0].p->to_back && w->d[2] * w->d[1] < batch_thres) {
 			t = (float*)malloc(p->d[2] * sizeof(float));
@@ -1286,6 +1304,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 			conv1d_add_2to1(w->d, w1, w->g);
 			free(w1); free(q1);
 		}
+		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 	}
 	return 0;
 }

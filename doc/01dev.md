@@ -70,8 +70,8 @@ backpropagate gradients with:
 -->
 ![](images/matmul1.png)
 
-As we see here, gradients update is also a matrix product and thus can be
-calculated with the GEMM routine from [BLAS][blas]. KANN more often use matrix
+As we see here, gradients update also involes matrix product and thus can be
+calculated with the GEMM routine from [BLAS][blas]. KANN more often uses matrix
 product with the second matrix transposed (see
 [below](#conventions-on-the-shapes-of-n-d-arrays)). The backprop rule becomes:
 <!--
