@@ -127,19 +127,17 @@ static inline int conv_find_par(int in_size, int kernel_size, int stride, int pa
 }
 
 typedef struct {
-	int stride_r, top_pad,  bot_pad;
-	int stride_c, left_pad, right_pad;
-	int kernel_r, kernel_c; // for max pooling
-} kad_conv2d_t;
+	int kernel_size, stride, pad[2];
+} conv_conf_t;
 
-static inline kad_conv2d_t *conv2d_gen_aux(int in_row, int in_col, int kernel_r, int kernel_c, int stride_r, int stride_c, int top_pad, int left_pad)
+static inline conv_conf_t *conv2d_gen_aux(int in_row, int in_col, int kernel_r, int kernel_c, int stride_r, int stride_c, int top_pad, int left_pad)
 {
-	kad_conv2d_t *cnn;
-	cnn = (kad_conv2d_t*)calloc(1, sizeof(kad_conv2d_t));
-	cnn->kernel_r = kernel_r, cnn->stride_r = stride_r;
-	cnn->kernel_c = kernel_c, cnn->stride_c = stride_c;
-	conv_find_par(in_row, kernel_r, stride_r, top_pad,  &cnn->top_pad,  &cnn->bot_pad);
-	conv_find_par(in_col, kernel_c, stride_c, left_pad, &cnn->left_pad, &cnn->right_pad);
+	conv_conf_t *cnn;
+	cnn = (conv_conf_t*)calloc(2, sizeof(conv_conf_t));
+	cnn[0].kernel_size = kernel_r, cnn[0].stride = stride_r;
+	cnn[1].kernel_size = kernel_c, cnn[1].stride = stride_c;
+	conv_find_par(in_row, kernel_r, stride_r, top_pad,  &cnn[0].pad[0], &cnn[0].pad[1]);
+	conv_find_par(in_col, kernel_c, stride_c, left_pad, &cnn[1].pad[0], &cnn[1].pad[1]);
 	return cnn;
 }
 
@@ -150,7 +148,7 @@ kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride_r, int stride_c,
 	s = kad_new_core(0, 16, 2);
 	s->child[0].p = x, s->child[1].p = w;
 	s->ptr = conv2d_gen_aux(x->d[2], x->d[3], w->d[2], w->d[3], stride_r, stride_c, top_pad, left_pad);
-	s->ptr_size = sizeof(kad_conv2d_t);
+	s->ptr_size = sizeof(conv_conf_t) * 2;
 	if (kad_op_list[16](s, KAD_SYNC_DIM) < 0) {
 		free(s->ptr); free(s->child); free(s);
 		return 0;
@@ -165,7 +163,7 @@ kad_node_t *kad_max2d(kad_node_t *x, int kernel_r, int kernel_c, int stride_r, i
 	s = kad_new_core(0, 17, 1);
 	s->child[0].p = x;
 	s->ptr = conv2d_gen_aux(x->d[2], x->d[3], kernel_r, kernel_c, stride_r, stride_c, top_pad, left_pad);
-	s->ptr_size = sizeof(kad_conv2d_t);
+	s->ptr_size = sizeof(conv_conf_t) * 2;
 	if (kad_op_list[17](s, KAD_SYNC_DIM) < 0) {
 		free(s->ptr); free(s->child); free(s);
 		return 0;
@@ -173,17 +171,12 @@ kad_node_t *kad_max2d(kad_node_t *x, int kernel_r, int kernel_c, int stride_r, i
 	return s;
 }
 
-typedef struct {
-	int stride, left_pad, right_pad;
-	int kernel_size; // for max
-} kad_conv1d_t;
-
-static inline kad_conv1d_t *conv1d_gen_aux(int in_col, int kernel_c, int stride_c, int left_pad)
+static inline conv_conf_t *conv1d_gen_aux(int in_col, int kernel_c, int stride_c, int left_pad)
 {
-	kad_conv1d_t *cnn;
-	cnn = (kad_conv1d_t*)calloc(1, sizeof(kad_conv1d_t));
+	conv_conf_t *cnn;
+	cnn = (conv_conf_t*)calloc(1, sizeof(conv_conf_t));
 	cnn->kernel_size = kernel_c, cnn->stride = stride_c;
-	conv_find_par(in_col, kernel_c, stride_c, left_pad, &cnn->left_pad, &cnn->right_pad);
+	conv_find_par(in_col, kernel_c, stride_c, left_pad, &cnn->pad[0], &cnn->pad[1]);
 	return cnn;
 }
 
@@ -194,7 +187,7 @@ kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int left_pad)
 	s = kad_new_core(0, 18, 2);
 	s->child[0].p = x, s->child[1].p = w;
 	s->ptr = conv1d_gen_aux(x->d[2], w->d[2], stride, left_pad);
-	s->ptr_size = sizeof(kad_conv1d_t);
+	s->ptr_size = sizeof(conv_conf_t);
 	if (kad_op_list[18](s, KAD_SYNC_DIM) < 0) {
 		free(s->ptr); free(s->child); free(s);
 		return 0;
@@ -209,7 +202,7 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
 	s = kad_new_core(0, 19, 1);
 	s->child[0].p = x;
 	s->ptr = conv1d_gen_aux(x->d[2], kernel_size, stride, left_pad);
-	s->ptr_size = sizeof(kad_conv1d_t);
+	s->ptr_size = sizeof(conv_conf_t);
 	if (kad_op_list[19](s, KAD_SYNC_DIM) < 0) {
 		free(s->ptr); free(s->child); free(s);
 		return 0;
@@ -1029,6 +1022,9 @@ static void conv2d_add_3to1(int d[4], const float *y, float *x) // convert the N
 			}
 }
 
+#define conv_out_size(in_size, aux) (((in_size) - (aux)->kernel_size + (aux)->pad[0] + (aux)->pad[1]) / (aux)->stride + 1)
+#define conv_alloc_padded(in_size, aux) ((aux)->pad[0] + (aux)->pad[1] > 0? (float*)calloc((in_size) + (aux)->pad[0] + (aux)->pad[1], sizeof(float)) : 0)
+
 #define process_row_for(_xx, _ww, _yy, _wn, _pn, _stride, _pad, _t) do { \
 	int j, l; \
 	if (_stride > 1) { \
@@ -1077,29 +1073,29 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				for (c0 = 0; c0 < w->d[1]; ++c0) /* input channel */ \
 					for (k = 0; k < w->d[2]; ++k) { /* kernel row */ \
 						float *_ww = &(_w)[((c1 * w->d[1] + c0) * w->d[2] + k) * w->d[3]]; \
-						for (i = 0, ii = k - aux->top_pad; i < p->d[2] && ii >= 0 && ii < q->d[2]; ++i, ii += aux->stride_r) { /* output row */ \
+						for (i = 0, ii = k - aux[0].pad[0]; i < p->d[2] && ii >= 0 && ii < q->d[2]; ++i, ii += aux[0].stride) { /* output row */ \
 							float *_xx = &(_x)[((n * q->d[1] + c0) * q->d[2] + ii) * q->d[3]]; \
 							float *_yy = &(_y)[((n * p->d[1] + c1) * p->d[2] + i)  * p->d[3]]; \
 							if (x_padded) { \
-								memcpy(x_padded + aux->left_pad, _xx, q->d[3] * sizeof(float)); \
-								_xx = x_padded + aux->left_pad; \
+								memcpy(x_padded + aux[1].pad[0], _xx, q->d[3] * sizeof(float)); \
+								_xx = x_padded + aux[1].pad[0]; \
 							} \
-							_row_func(_xx, _ww, _yy, w->d[3], p->d[3], aux->stride_c, aux->left_pad, (_tmp)); \
+							_row_func(_xx, _ww, _yy, w->d[3], p->d[3], aux[1].stride, aux[1].pad[0], (_tmp)); \
 						} /* ~i */ \
 					} /* ~k, c0, c1, n */ \
 	} while (0)
 
 #define conv2d_loop2(_x, _w, _y, _code) do { /* for the NHWC shape */ \
-		int n, c1, i, j, k, ii, j_skip = aux->stride_c * q->d[1], m = w->d[3] * w->d[1]; \
+		int n, c1, i, j, k, ii, j_skip = aux[1].stride * q->d[1], m = w->d[3] * w->d[1]; \
 		for (n = 0; n < q->d[0]; ++n) /* mini-batch */ \
 			for (c1 = 0; c1 < w->d[0]; ++c1) /* output channel */ \
 				for (k = 0; k < w->d[2]; ++k) { /* kernel row */ \
 					float *_ww = &(_w)[(c1 * w->d[2] + k) * m]; \
-					for (i = 0, ii = k - aux->top_pad; i < p->d[2] && ii >= 0 && ii < q->d[2]; ++i, ii += aux->stride_r) { /* output and input row */ \
+					for (i = 0, ii = k - aux[0].pad[0]; i < p->d[2] && ii >= 0 && ii < q->d[2]; ++i, ii += aux[0].stride) { /* output and input row */ \
 						float *_xx = &(_x)[(n * q->d[2] + ii) * q->d[3] * q->d[1]]; \
 						float *_yy = &(_y)[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]]; \
 						if (x_padded) { \
-							memcpy(x_padded + aux->left_pad, _xx, q->d[3] * sizeof(float)); \
+							memcpy(x_padded + aux[1].pad[0], _xx, q->d[3] * sizeof(float)); \
 							_xx = x_padded; \
 						} \
 						for (j = 0; j < p->d[3]; ++j, _xx += j_skip, ++_yy) _code; /* output and input column */ \
@@ -1108,54 +1104,41 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} while (0)
 
 	static const int batch_thres = 16; // use the first algoritm if (num_input_channels * kernel_cidth) is below this threshold
-	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
-	kad_node_t *q, *w;
-
-	assert(p->n_child == 2);
-	q = p->child[0].p, w = p->child[1].p;
+	conv_conf_t *aux = (conv_conf_t*)p->ptr;
+	kad_node_t *q = q = p->child[0].p, *w = p->child[1].p;
+	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
 
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || w->n_d != 4) return -1;
 		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
 		p->n_d = 4;
-		p->d[0] = q->d[0], p->d[1] = w->d[0];
-		p->d[2] = (q->d[2] - w->d[2] + aux->top_pad  + aux->bot_pad)   / aux->stride_r + 1;
-		p->d[3] = (q->d[3] - w->d[3] + aux->left_pad + aux->right_pad) / aux->stride_c + 1;
+		p->d[0] = q->d[0], p->d[1] = w->d[0], p->d[2] = conv_out_size(q->d[2], &aux[0]), p->d[3] = conv_out_size(q->d[3], &aux[1]);
 	} else if (action == KAD_FORWARD) {
-		float *t, *q1, *w1, *x_padded = 0;
-		if (aux->left_pad + aux->right_pad > 0)
-			x_padded = (float*)calloc(q->d[3] + aux->left_pad + aux->right_pad, sizeof(float));
+		x_padded = conv_alloc_padded(q->d[3], &aux[1]);
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		if (w->d[3] * w->d[1] < batch_thres) { // this is the first algorithm
 			t = (float*)malloc(p->d[3] * sizeof(float));
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			conv2d_loop1(q->x, w->x, p->x, t, process_row_for);
-			free(t);
 		} else { // this is the second algorithm
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			q1 = conv2d_move_1to3(q->d, q->x);
 			w1 = conv2d_move_1to3(w->d, w->x);
 			conv2d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
-			free(w1); free(q1);
 		}
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
-		free(x_padded);
 	} else if (action == KAD_BACKWARD) {
-		float *t, *q1, *w1, *x_padded = 0;
-		if (aux->left_pad + aux->right_pad > 0)
-			x_padded = (float*)calloc(q->d[3] + aux->left_pad + aux->right_pad, sizeof(float));
+		x_padded = conv_alloc_padded(q->d[3], &aux[1]);
 		if (p->child[0].p->to_back) { // backprop to the input array
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 			if (w->d[3] * w->d[1] < batch_thres) {
 				t = (float*)malloc(p->d[3] * sizeof(float));
 				conv2d_loop1(q->g, w->x, p->g, t, process_row_back_x);
-				free(t);
 			} else {
 				q1 = (float*)calloc(kad_len(q), sizeof(float));
 				w1 = conv2d_move_1to3(w->d, w->x);
 				conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
 				conv2d_add_3to1(q->d, q1, q->g);
-				free(w1); free(q1);
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		}
@@ -1166,7 +1149,6 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				conv2d_loop1(q->x, w->g, p->g, t, process_row_back_w);
 				free(t);
 			} else {
-				float *q1, *w1;
 				q1 = conv2d_move_1to3(q->d, q->x);
 				w1 = (float*)calloc(kad_len(w), sizeof(float));
 				conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
@@ -1175,23 +1157,19 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
 		}
-		free(x_padded);
 	}
+	free(t); free(q1); free(w1); free(x_padded);
 	return 0;
 }
 
 int kad_op_max2d(kad_node_t *p, int action)
 {
-	kad_conv2d_t *aux = (kad_conv2d_t*)p->ptr;
-	kad_node_t *q;
-
-	q = p->child[0].p;
+	conv_conf_t *aux = (conv_conf_t*)p->ptr;
+	kad_node_t *q = p->child[0].p;
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4) return -1;
 		p->n_d = 4;
-		p->d[0] = q->d[0], p->d[1] = q->d[1];
-		p->d[2] = (q->d[2] - aux->kernel_r + aux->top_pad  + aux->bot_pad)   / aux->stride_r + 1;
-		p->d[3] = (q->d[3] - aux->kernel_c + aux->left_pad + aux->right_pad) / aux->stride_c + 1;
+		p->d[0] = q->d[0], p->d[1] = q->d[1], p->d[2] = conv_out_size(q->d[2], &aux[0]), p->d[3] = conv_out_size(q->d[3], &aux[1]);
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
@@ -1204,13 +1182,13 @@ int kad_op_max2d(kad_node_t *p, int action)
 			int i, j, k, l, p_row = p->d[p->n_d - 2], p_col = p->d[p->n_d - 1];
 			for (i = 0; i < p_row; ++i) {
 				int u = (t * p_row + i) * p_col;
-				for (k = 0; k < aux->kernel_r; ++k) {
-					int v, v0, v_end, ii = i * aux->stride_r + k - aux->top_pad;
+				for (k = 0; k < aux[0].kernel_size; ++k) {
+					int v, v0, v_end, ii = i * aux[0].stride + k - aux[0].pad[0];
 					if (ii < 0 || ii >= q->d[p->n_d - 2]) continue;
 					v0 = (t * q->d[p->n_d - 2] + ii) * q->d[p->n_d - 1];
 					v_end = v0 + q->d[p->n_d - 1];
-					for (l = 0; l < aux->kernel_c; ++l)
-						for (j = 0, v = v0 + (l > aux->left_pad? l - aux->left_pad : 0); j < p_col && v < v_end; ++j, v += aux->stride_c)
+					for (l = 0; l < aux[1].kernel_size; ++l)
+						for (j = 0, v = v0 + (l > aux[1].pad[0]? l - aux[1].pad[0] : 0); j < p_col && v < v_end; ++j, v += aux[1].stride)
 							if (p->x[u + j] < q->x[v])
 								p->x[u + j] = q->x[v], f[u + j] = v;
 				} // ~k
@@ -1258,10 +1236,10 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 					float *_xx = &(_x)[(n  * q->d[1] + c0) * q->d[2]]; \
 					float *_yy = &(_y)[(c1 * p->d[1] + c1) * p->d[2]]; \
 					if (x_padded) { \
-						memcpy(x_padded + aux->left_pad, _xx, q->d[3] * sizeof(float)); \
-						_xx = x_padded + aux->left_pad; \
+						memcpy(x_padded + aux->pad[0], _xx, q->d[3] * sizeof(float)); \
+						_xx = x_padded + aux->pad[0]; \
 					} \
-					_row_func(_xx, _ww, _yy, w->d[2], p->d[2], aux->stride, aux->left_pad, (_tmp)); \
+					_row_func(_xx, _ww, _yy, w->d[2], p->d[2], aux->stride, aux->pad[0], (_tmp)); \
 				} /* ~c0, c1, n */ \
 	} while (0)
 
@@ -1273,7 +1251,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 				float *_xx = &(_x)[n * q->d[1] * q->d[2]]; \
 				float *_yy = &(_y)[((n * p->d[1]) + c1) * p->d[2]]; \
 				if (x_padded) { \
-					memcpy(x_padded + aux->left_pad, _xx, q->d[3] * sizeof(float)); \
+					memcpy(x_padded + aux->pad[0], _xx, q->d[3] * sizeof(float)); \
 					_xx = x_padded; \
 				} \
 				for (j = 0; j < p->d[2]; ++j, _xx += j_skip, ++_yy) _code; \
@@ -1281,53 +1259,42 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 	} while (0)
 
 	static const int batch_thres = 32; // use the first algoritm if (num_input_channels * kernel_cidth) is below this threshold
-	kad_conv1d_t *aux = (kad_conv1d_t*)p->ptr;
-	kad_node_t *q, *w;
-
-	assert(p->n_child == 2);
-	q = p->child[0].p, w = p->child[1].p;
+	conv_conf_t *aux = (conv_conf_t*)p->ptr;
+	kad_node_t *q = p->child[0].p, *w = p->child[1].p;
+	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
 
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 3 || w->n_d != 3) return -1;
 		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
 		p->n_d = 3;
-		p->d[0] = q->d[0], p->d[1] = w->d[0];
-		p->d[2] = (q->d[2] - w->d[2] + aux->left_pad + aux->right_pad) / aux->stride + 1;
+		p->d[0] = q->d[0], p->d[1] = w->d[0], p->d[2] = conv_out_size(q->d[2], aux);
 	} else if (action == KAD_FORWARD) {
-		float *t, *q1, *w1, *x_padded = 0;
-		if (aux->left_pad + aux->right_pad > 0)
-			x_padded = (float*)calloc(q->d[2] + aux->left_pad + aux->right_pad, sizeof(float));
+		x_padded = conv_alloc_padded(q->d[2], aux);
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		if (w->d[2] * w->d[1] < batch_thres) { // this is the first algorithm
 			t = (float*)malloc(p->d[2] * sizeof(float));
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			conv1d_loop1(q->x, w->x, p->x, t, process_row_for);
-			free(t);
 		} else { // this is the second algorithm
 			memset(p->x, 0, kad_len(p) * sizeof(float));
 			q1 = conv1d_move_1to2(q->d, q->x);
 			w1 = conv1d_move_1to2(w->d, w->x);
 			conv1d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
-			free(w1); free(q1);
 		}
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
-		free(x_padded);
 	} else if (action == KAD_BACKWARD) {
-		float *t, *q1, *w1, *x_padded = 0;
-		if (aux->left_pad + aux->right_pad > 0)
-			x_padded = (float*)calloc(q->d[2] + aux->left_pad + aux->right_pad, sizeof(float));
+		float *t, *q1, *w1, *x_padded;
+		x_padded = conv_alloc_padded(q->d[2], aux);
 		if (p->child[0].p->to_back) { // backprop to the input array
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 			if (w->d[2] * w->d[1] < batch_thres) {
 				t = (float*)malloc(p->d[2] * sizeof(float));
 				conv1d_loop1(q->g, w->x, p->g, t, process_row_back_x);
-				free(t);
 			} else {
 				q1 = (float*)calloc(kad_len(q), sizeof(float));
 				w1 = conv1d_move_1to2(w->d, w->x);
 				conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
 				conv1d_add_2to1(q->d, q1, q->g);
-				free(w1); free(q1);
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		}
@@ -1336,33 +1303,27 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 			if (w->d[2] * w->d[1] < batch_thres) {
 				t = (float*)malloc(p->d[2] * sizeof(float));
 				conv1d_loop1(q->x, w->g, p->g, t, process_row_back_w);
-				free(t);
 			} else {
-				float *q1, *w1;
 				q1 = conv1d_move_1to2(q->d, q->x);
 				w1 = (float*)calloc(kad_len(w), sizeof(float));
 				conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
 				conv1d_add_2to1(w->d, w1, w->g);
-				free(w1); free(q1);
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->g);
 		}
-		free(x_padded);
 	}
+	free(t); free(q1); free(w1); free(x_padded);
 	return 0;
 }
 
 int kad_op_max1d(kad_node_t *p, int action)
 {
-	kad_conv1d_t *aux = (kad_conv1d_t*)p->ptr;
-	kad_node_t *q;
-
-	q = p->child[0].p;
+	conv_conf_t *aux = (conv_conf_t*)p->ptr;
+	kad_node_t *q = p->child[0].p;
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 3) return -1;
 		p->n_d = 3;
-		p->d[0] = q->d[0], p->d[1] = q->d[1];
-		p->d[2] = (q->d[2] - aux->kernel_size + aux->left_pad + aux->stride - 1) / aux->stride + 1;
+		p->d[0] = q->d[0], p->d[1] = q->d[1], p->d[2] = conv_out_size(q->d[2], aux);
 	} else if (action == KAD_ALLOC) {
 		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
@@ -1375,7 +1336,7 @@ int kad_op_max1d(kad_node_t *p, int action)
 			int j, l, p_width = p->d[p->n_d - 1];
 			int u = t * p_width, v, v0 = t * q->d[p->n_d - 1], v_end = v0 + q->d[p->n_d - 1];
 			for (l = 0; l < aux->kernel_size; ++l)
-				for (j = 0, v = v0 + (l > aux->left_pad? l - aux->left_pad : 0); j < p_width && v < v_end; ++j, v += aux->stride)
+				for (j = 0, v = v0 + (l > aux->pad[0]? l - aux->pad[0] : 0); j < p_width && v < v_end; ++j, v += aux->stride)
 					if (p->x[u + j] < q->x[v])
 						p->x[u + j] = q->x[v], f[u + j] = v;
 		}
