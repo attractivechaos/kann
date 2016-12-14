@@ -11,6 +11,7 @@ way. Please take the words below with a grain of salt.
 * [Basic Concepts](#basic-concepts)
   - [N-dimensional array](#n-dimensional-array)
   - [Automatic differentiation and computational graph](#automatic-differentiation-and-computational-graph)
+  - [Backpropagating matrix products](#backpropagating-matrix-products)
   - [Network layers](#network-layers)
   - [Conventions on the shapes of n-d arrays](#conventions-on-the-shapes-of-n-d-arrays)
 * [Implementing Recurrent Neural Network (RNN)](#implementing-recurrent-neural-network-rnn)
@@ -72,7 +73,7 @@ backpropagate gradients with:
 As we see here, gradients update is also a matrix product and thus can be
 calculated with the GEMM routine from [BLAS][blas]. KANN more often use matrix
 product with the second matrix transposed (see
-[below](#conventions-on-the-shapes-of-n-d-arrays))). The backprop rule becomes:
+[below](#conventions-on-the-shapes-of-n-d-arrays)). The backprop rule becomes:
 <!--
 {\bf Y}={\bf X}\cdot{\bf W}^\intercal,
 \hspace{1em}\frac{\partial F}{\partial {\bf X}}\gets\frac{\partial F}{\partial {\bf Y}}\cdot {\bf W},
