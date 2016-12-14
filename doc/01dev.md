@@ -11,7 +11,6 @@ way. Please take the words below with a grain of salt.
 * [Basic Concepts](#basic-concepts)
   - [N-dimensional array](#n-dimensional-array)
   - [Automatic differentiation and computational graph](#automatic-differentiation-and-computational-graph)
-  - [Labeled computational graph](#labeled-computational-graph)
   - [Network layers](#network-layers)
   - [Conventions on the shapes of n-d arrays](#conventions-on-the-shapes-of-n-d-arrays)
 * [Implementing Recurrent Neural Network (RNN)](#implementing-recurrent-neural-network-rnn)
@@ -49,27 +48,7 @@ a computational graph or a data flow graph (as in TensorFlow). Detailed
 description of automatic differentiation is beyond the scope of this note. We
 will only show an example here:
 
-![](autodiff.png)
-
-### Backpropagating matrix products
-
-In implementation, each node in a computational graph holds an n-d array. An
-important operation between two 2D arrays is matrix product. The following
-equation gives how to update gradients:
-
-![](img/matmul1.png)
-
-<!--
-{\bf C}={\bf A}\cdot{\bf B},
-\hspace{1em}\frac{\partial F}{\partial {\bf A}}\gets\frac{\partial F}{\partial {\bf C}}\cdot {\bf B}^\intercal,
-\hspace{1em}\frac{\partial F}{\partial {\bf B}}\gets{\bf A}^\intercal\cdot\frac{\partial F}{\partial {\bf C}}
-
-{\bf Y}={\bf X}\cdot{\bf W}^\intercal,
-\hspace{1em}\frac{\partial F}{\partial {\bf X}}\gets\frac{\partial F}{\partial {\bf Y}}\cdot {\bf W},
-\hspace{1em}\frac{\partial F}{\partial {\bf W}}\gets\left(\frac{\partial F}{\partial {\bf Y}}\right)^\intercal\cdot{\bf X}
--->
-
-### Labeled computational graph
+![](images/autodiff.png)
 
 A generic computational graph only distinguishes differentiable variables and
 non-differentiable parameters or constants. It does not have a concept of
@@ -77,13 +56,37 @@ input, truth output, cost, hyperparameter and so on. KANN gives a node a
 specific meaning by putting one label on the node. A KANN model is a labeled
 computational graph.
 
+### Backpropagating matrix products
+
+In implementation, each node in a computational graph holds an n-d array. An
+important operation between two 2D arrays is [matrix product][matmul]. If we
+let the shape of the gradient take the same shape as the variable, we can
+backpropagate gradients with:
+<!--
+{\bf C}={\bf A}\cdot{\bf B},
+\hspace{1em}\frac{\partial F}{\partial {\bf A}}\gets\frac{\partial F}{\partial {\bf C}}\cdot {\bf B}^\intercal,
+\hspace{1em}\frac{\partial F}{\partial {\bf B}}\gets{\bf A}^\intercal\cdot\frac{\partial F}{\partial {\bf C}}
+-->
+![](images/matmul1.png)
+
+As we see here, gradients update is also a matrix product and thus can be
+calculated with the GEMM routine from [BLAS][blas]. KANN more often use matrix
+product with the second matrix transposed (see
+[below](#conventions-on-the-shapes-of-n-d-arrays))). The backprop rule becomes:
+<!--
+{\bf Y}={\bf X}\cdot{\bf W}^\intercal,
+\hspace{1em}\frac{\partial F}{\partial {\bf X}}\gets\frac{\partial F}{\partial {\bf Y}}\cdot {\bf W},
+\hspace{1em}\frac{\partial F}{\partial {\bf W}}\gets\left(\frac{\partial F}{\partial {\bf Y}}\right)^\intercal\cdot{\bf X}
+-->
+![](images/matmul2.png)
+
 ### Network layers
 
 In the context of computational graph, a layer is a well-defined reusable
 subgraph. The following figure shows the computational graph of a [multilayer
 perceptron][mlp] with one hidden layer:
 
-![](mlp.png)
+![](images/mlp.png)
 
 In this figure, each dotted red box represents a dense (aka fully connected)
 layer that has one input (in green) and one output (in blue). In KANN, a layer
@@ -123,9 +126,9 @@ history of computation, both approaches are equally easy to implement in KANN.
 ### Computational graph of RNN
 
 The following figure shows the computational graph of a vanilla RNN where
-"Dense layer" is a red dotted box in the [MLP figure](mlp.png).
+"Dense layer" is a red dotted box in the [MLP figure](images/mlp.png).
 
-![](rnn.png)
+![](images/rnn.png)
 
 This graph differs from typical feedforward graphs in two aspects: the presence
 of the backward link (in green) and a pooling node (in blue). The backward link
@@ -145,7 +148,7 @@ dotted box becomes more complex.
 
 The following figure shows an FNN by unrolling the RNN twice:
 
-![](rnn-unroll.png)
+![](images/rnn-unroll.png)
 
 The green edge represents the backward link in the previous figure. This FNN
 takes (*x1*,*x2*) as input and (*y1*,*y2*) as truth output.
@@ -170,3 +173,5 @@ computed.
 [ad]: https://en.wikipedia.org/wiki/Automatic_differentiation
 [mlp]: https://en.wikipedia.org/wiki/Multilayer_perceptron
 [rnnjs]: https://github.com/karpathy/recurrentjs
+[matmul]: https://en.wikipedia.org/wiki/Matrix_multiplication
+[blas]: https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
