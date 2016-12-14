@@ -51,7 +51,23 @@ will only show an example here:
 
 ![](autodiff.png)
 
-Files [kautodiff.*](../kautodiff.h) implement automatic differentiation.
+### Backpropagating matrix products
+
+In implementation, each node in a computational graph holds an n-d array. An
+important operation between two 2D arrays is matrix product. The following
+equation gives how to update gradients:
+
+![](images/matmul1.svg)
+
+<!--
+{\bf C}={\bf A}\cdot{\bf B},
+\hspace{1em}\frac{\partial F}{\partial {\bf A}}\gets\frac{\partial F}{\partial {\bf C}}\cdot {\bf B}^\intercal,
+\hspace{1em}\frac{\partial F}{\partial {\bf B}}\gets{\bf A}^\intercal\cdot\frac{\partial F}{\partial {\bf C}}
+
+{\bf Y}={\bf X}\cdot{\bf W}^\intercal,
+\hspace{1em}\frac{\partial F}{\partial {\bf X}}\gets\frac{\partial F}{\partial {\bf Y}}\cdot {\bf W},
+\hspace{1em}\frac{\partial F}{\partial {\bf W}}\gets\left(\frac{\partial F}{\partial {\bf Y}}\right)^\intercal\cdot{\bf X}
+-->
 
 ### Labeled computational graph
 
