@@ -994,12 +994,9 @@ static void conv_rot180(int d0, int d1, float *x) // rotate/reverse a weight mar
 	}
 }
 
-static float *conv2d_move_1to3(int d[4], const float *x) // convert the NCHW shape to the NHWC shape
+static void conv2d_move_1to3(int d[4], const float *x, float *y) // convert the NCHW shape to the NHWC shape
 {
-	int i, j, k, l, n = 1;
-	float *y;
-	for (i = 0; i < 4; ++i) n *= d[i];
-	y = (float*)malloc(n * sizeof(float));
+	int i, j, k, l;
 	for (i = 0; i < d[0]; ++i)
 		for (j = 0; j < d[1]; ++j)
 			for (k = 0; k < d[2]; ++k) {
@@ -1007,7 +1004,6 @@ static float *conv2d_move_1to3(int d[4], const float *x) // convert the NCHW sha
 				for (l = 0; l < d[3]; ++l)
 					y[(ik + l) * d[1] + j] = x[ijk + l];
 			}
-	return y;
 }
 
 static void conv2d_add_3to1(int d[4], const float *y, float *x) // convert the NHWC shape back to NCHW and add to another NCHW-shaped array
@@ -1103,40 +1099,43 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 				} /* ~k, c1, n */ \
 	} while (0)
 
-	static const int batch_thres = 16; // use the first algoritm if (num_input_channels * kernel_cidth) is below this threshold
 	conv_conf_t *aux = (conv_conf_t*)p->ptr;
 	kad_node_t *q = q = p->child[0].p, *w = p->child[1].p;
 	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
+	int algo_switch = 0;
 
+	if (action == KAD_FORWARD || action == KAD_BACKWARD) { // allocate working space
+		x_padded = conv_alloc_padded(q->d[3], &aux[1]);
+		if (w->d[3] * w->d[1] >= 16) {
+			q1 = (float*)malloc(kad_len(q) * sizeof(float));
+			w1 = (float*)malloc(kad_len(w) * sizeof(float));
+			algo_switch = 1;
+		} else t = (float*)malloc(p->d[3] * sizeof(float));
+	}
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || w->n_d != 4) return -1;
 		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = w->d[0], p->d[2] = conv_out_size(q->d[2], &aux[0]), p->d[3] = conv_out_size(q->d[3], &aux[1]);
 	} else if (action == KAD_FORWARD) {
-		x_padded = conv_alloc_padded(q->d[3], &aux[1]);
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
-		if (w->d[3] * w->d[1] < batch_thres) { // this is the first algorithm
-			t = (float*)malloc(p->d[3] * sizeof(float));
-			memset(p->x, 0, kad_len(p) * sizeof(float));
+		memset(p->x, 0, kad_len(p) * sizeof(float));
+		if (!algo_switch) { // this is the first algorithm
 			conv2d_loop1(q->x, w->x, p->x, t, process_row_for);
 		} else { // this is the second algorithm
-			memset(p->x, 0, kad_len(p) * sizeof(float));
-			q1 = conv2d_move_1to3(q->d, q->x);
-			w1 = conv2d_move_1to3(w->d, w->x);
+			conv2d_move_1to3(q->d, q->x, q1);
+			conv2d_move_1to3(w->d, w->x, w1);
 			conv2d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 		}
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 	} else if (action == KAD_BACKWARD) {
-		x_padded = conv_alloc_padded(q->d[3], &aux[1]);
 		if (p->child[0].p->to_back) { // backprop to the input array
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
-			if (w->d[3] * w->d[1] < batch_thres) {
-				t = (float*)malloc(p->d[3] * sizeof(float));
+			if (!algo_switch) {
 				conv2d_loop1(q->g, w->x, p->g, t, process_row_back_x);
 			} else {
-				q1 = (float*)calloc(kad_len(q), sizeof(float));
-				w1 = conv2d_move_1to3(w->d, w->x);
+				memset(q1, 0, kad_len(q) * sizeof(float));
+				conv2d_move_1to3(w->d, w->x, w1);
 				conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
 				conv2d_add_3to1(q->d, q1, q->g);
 			}
@@ -1144,16 +1143,13 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 		}
 		if (p->child[1].p->to_back) { // backprop to the weight matrix
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
-			if (w->d[3] * w->d[1] < batch_thres) {
-				t = (float*)malloc(p->d[3] * sizeof(float));
+			if (!algo_switch) {
 				conv2d_loop1(q->x, w->g, p->g, t, process_row_back_w);
-				free(t);
 			} else {
-				q1 = conv2d_move_1to3(q->d, q->x);
-				w1 = (float*)calloc(kad_len(w), sizeof(float));
+				conv2d_move_1to3(q->d, q->x, q1);
+				memset(w1, 0, kad_len(w) * sizeof(float));
 				conv2d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
 				conv2d_add_3to1(w->d, w1, w->g);
-				free(w1); free(q1);
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
 		}
@@ -1204,16 +1200,13 @@ int kad_op_max2d(kad_node_t *p, int action)
 
 /////////// 1D convolution ///////////
 
-static float *conv1d_move_1to2(int d[3], const float *x)
+static void conv1d_move_1to2(int d[3], const float *x, float *y)
 {
-	float *y;
 	int i, j, k;
-	y = (float*)malloc(d[0] * d[1] * d[2] * sizeof(float));
 	for (k = 0; k < d[0]; ++k)
 		for (j = 0; j < d[1]; ++j)
 			for (i = 0; i < d[2]; ++i)
 				y[(k * d[2] + i) * d[1] + j] = x[(k * d[1] + j) * d[2] + i];
-	return y;
 }
 
 static void conv1d_add_2to1(int d[3], const float *y, float *x)
@@ -1258,41 +1251,43 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 			} /* ~c1, n */ \
 	} while (0)
 
-	static const int batch_thres = 32; // use the first algoritm if (num_input_channels * kernel_cidth) is below this threshold
 	conv_conf_t *aux = (conv_conf_t*)p->ptr;
 	kad_node_t *q = p->child[0].p, *w = p->child[1].p;
 	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
+	int algo_switch = 0;
 
+	if (action == KAD_FORWARD || action == KAD_BACKWARD) { // allocate working space
+		x_padded = conv_alloc_padded(q->d[2], aux);
+		if (w->d[2] * w->d[1] >= 32) {
+			q1 = (float*)malloc(kad_len(q) * sizeof(float));
+			w1 = (float*)malloc(kad_len(w) * sizeof(float));
+			algo_switch = 1;
+		} else t = (float*)malloc(p->d[2] * sizeof(float));
+	}
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 3 || w->n_d != 3) return -1;
 		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
 		p->n_d = 3;
 		p->d[0] = q->d[0], p->d[1] = w->d[0], p->d[2] = conv_out_size(q->d[2], aux);
 	} else if (action == KAD_FORWARD) {
-		x_padded = conv_alloc_padded(q->d[2], aux);
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
-		if (w->d[2] * w->d[1] < batch_thres) { // this is the first algorithm
-			t = (float*)malloc(p->d[2] * sizeof(float));
-			memset(p->x, 0, kad_len(p) * sizeof(float));
+		memset(p->x, 0, kad_len(p) * sizeof(float));
+		if (!algo_switch) { // this is the first algorithm
 			conv1d_loop1(q->x, w->x, p->x, t, process_row_for);
 		} else { // this is the second algorithm
-			memset(p->x, 0, kad_len(p) * sizeof(float));
-			q1 = conv1d_move_1to2(q->d, q->x);
-			w1 = conv1d_move_1to2(w->d, w->x);
+			conv1d_move_1to2(q->d, q->x, q1);
+			conv1d_move_1to2(w->d, w->x, w1);
 			conv1d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 		}
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 	} else if (action == KAD_BACKWARD) {
-		float *t, *q1, *w1, *x_padded;
-		x_padded = conv_alloc_padded(q->d[2], aux);
 		if (p->child[0].p->to_back) { // backprop to the input array
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
-			if (w->d[2] * w->d[1] < batch_thres) {
-				t = (float*)malloc(p->d[2] * sizeof(float));
+			if (!algo_switch) {
 				conv1d_loop1(q->g, w->x, p->g, t, process_row_back_x);
 			} else {
-				q1 = (float*)calloc(kad_len(q), sizeof(float));
-				w1 = conv1d_move_1to2(w->d, w->x);
+				memset(q1, 0, kad_len(q) * sizeof(float));
+				conv1d_move_1to2(w->d, w->x, w1);
 				conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _ww, _xx));
 				conv1d_add_2to1(q->d, q1, q->g);
 			}
@@ -1300,12 +1295,11 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 		}
 		if (p->child[1].p->to_back) { // backprop to the weight matrix
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->g);
-			if (w->d[2] * w->d[1] < batch_thres) {
-				t = (float*)malloc(p->d[2] * sizeof(float));
+			if (!algo_switch) {
 				conv1d_loop1(q->x, w->g, p->g, t, process_row_back_w);
 			} else {
-				q1 = conv1d_move_1to2(q->d, q->x);
-				w1 = (float*)calloc(kad_len(w), sizeof(float));
+				conv1d_move_1to2(q->d, q->x, q1);
+				memset(w1, 0, kad_len(w) * sizeof(float));
 				conv1d_loop2(q1, w1, p->g, kad_saxpy(m, *_yy, _xx, _ww));
 				conv1d_add_2to1(w->d, w1, w->g);
 			}
