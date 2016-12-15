@@ -14,6 +14,9 @@ way. Please take the words below with a grain of salt.
   - [Backpropagating matrix products](#backpropagating-matrix-products)
   - [Network layers](#network-layers)
   - [Conventions on the shapes of n-d arrays](#conventions-on-the-shapes-of-n-d-arrays)
+* [Implementing Convolution](#implementing-convolution)
+  - [Definition of convolution](#definition-of-convolution)
+  - [Implementing the convolution operation](#implementing-the-convolution-operation)
 * [Implementing Recurrent Neural Network (RNN)](#implementing-recurrent-neural-network-rnn)
   - [Computational graph of RNN](#computational-graph-of-rnn)
   - [Unrolling RNN](#unrolling-rnn)
@@ -128,7 +131,7 @@ to the original mathematical definition of convolution. To call their APIs and
 to load their pretrained weight matrices, we prefer to rorate the weight matrix
 as well. This is the convention.
 
-### Implementing convolution
+### Implementing the convolution operation
 
 Loosely speaking, there are three ways to implement the convolution operation.
 The first way is direct computation. It takes little working space but is
