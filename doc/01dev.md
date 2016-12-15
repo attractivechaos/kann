@@ -42,12 +42,11 @@ take n-d array as a synonym of *tensor*, though according to
 ### Automatic differentiation and computational graph
 
 [Automatic differentiation][ad] is the backbone of several major deep learning
-frameworks such as [TensorFlow][tf] and [Theano][theano]. It efficiently
-computes the gradient of a function without symbolic derivation. Automatic
-differentiation is typically achieved with a graph which is sometimes called as
-a computational graph or a data flow graph (as in TensorFlow). Detailed
-description of automatic differentiation is beyond the scope of this note. We
-will only show an example here:
+frameworks. It efficiently computes the gradient of a function without symbolic
+derivation. Automatic differentiation is typically achieved with a graph which
+is loosely called as a computational graph or a data flow graph (as in
+TensorFlow). Detailed description of automatic differentiation is beyond the
+scope of this note. We will only show an example here:
 
 ![](images/autodiff.png)
 
@@ -56,6 +55,11 @@ non-differentiable parameters or constants. It does not have a concept of
 input, truth output, cost, hyperparameter and so on. KANN gives a node a
 specific meaning by putting one label on the node. A KANN model is a labeled
 computational graph.
+
+The example here demonstrates the so-called symbol-to-number differentiation.
+[TensorFlow][tf] and [Theano][theano] use symbol-to-symbol differentiation
+by augmenting the computational graph with derivative nodes. We refer to the
+[Deep Learning book][dlbook] for details.
 
 ### Backpropagating matrix products
 
@@ -176,3 +180,4 @@ computed.
 [rnnjs]: https://github.com/karpathy/recurrentjs
 [matmul]: https://en.wikipedia.org/wiki/Matrix_multiplication
 [blas]: https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
+[dlbook]: http://www.deeplearningbook.org
