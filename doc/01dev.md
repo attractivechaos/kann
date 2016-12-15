@@ -117,6 +117,48 @@ KANN follows the same convention.
 
 
 
+## Implementing Convolution
+
+### Definition of convolution
+
+We often see two ways to define convolution in the context of deep learning:
+with or without the weight matrix rotated. Both ways work in practice. However,
+major frameworks and libraries all rotate the weight matrix as this is closer
+to the original mathematical definition of convolution. To call their APIs and
+to load their pretrained weight matrices, we prefer to rorate the weight matrix
+as well. This is the convention.
+
+### Implementing convolution
+
+Loosely speaking, there are three ways to implement the convolution operation.
+The first way is direct computation. It takes little working space but is
+usually slow especially for small kernels. In major frameworks, the most common
+way seems to convert convolution to a matrix multiplication problem by
+duplicating and expanding the input and weight matricies. A good visual
+explanation can be found in the [cuDNN paper][cudnn]. A C++ implementation of
+the core routine `im2col` can be found [in the Caffe source code][im2col].
+This second approach is much faster than a naive direct implementation. A
+drawback is it may require significant more working space for large kernels.
+Finally, as convolution is closely related to Fourier transformation, the
+convolution operation can also be implemented with Fast Fourier Transformation
+(FFT). [NNPACK][nnpack] gives an efficient CPU-only implementation.
+
+KANN uses direct computation with an optimized inner loop. On a machine we use,
+it is eight times faster than a naive implementation, but 80% slower than
+a CPU-only Theano implementation which is based on matrix product. KANN
+provides a reasonbly fast, though not very fast, implementation that is still
+simple and does not require a lot of working space.
+
+As a side note, the performance of CPU-only Theano and TensorFlow may vary
+greatly depending on how they are installed. We found a [Conda][conda]
+installation is usually the easiest and most efficient. The Theano website
+[provides instructions][theano-install] on optimized installation which also
+works well if we have the root privilege. At our hand, a `pip` installation
+without efficient BLAS preinstalled is fairly slow, potentially because Theano
+is calling BLAS routines through NumPy.
+
+
+
 ## Implementing Recurrent Neural Network (RNN)
 
 There are usually two ways to implement an RNN. First, we may unroll the RNN to
@@ -181,3 +223,8 @@ computed.
 [matmul]: https://en.wikipedia.org/wiki/Matrix_multiplication
 [blas]: https://en.wikipedia.org/wiki/Basic_Linear_Algebra_Subprograms
 [dlbook]: http://www.deeplearningbook.org
+[cudnn]: https://arxiv.org/abs/1410.0759
+[im2col]: https://github.com/BVLC/caffe/blob/master/src/caffe/util/im2col.cpp
+[nnpack]: https://github.com/Maratyszcza/NNPACK
+[conda]: http://conda.pydata.org/docs/using/pkgs.html
+[theano-install]: http://deeplearning.net/software/theano/install_ubuntu.html
