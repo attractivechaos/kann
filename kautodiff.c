@@ -562,8 +562,8 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 {
 	static const int x = 16;
 	int i, j, k;
-	if (!trans_A && trans_B)
-		for (i = 0; i < M; i += x) {
+	if (!trans_A && trans_B) {
+		for (i = 0; i < M; i += x)
 			for (j = 0; j < N; j += x) {
 				int ii, ie = M < i + x? M : i + x;
 				int jj, je = N < j + x? N : j + x;
