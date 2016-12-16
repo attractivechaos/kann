@@ -79,6 +79,7 @@ KAD_FUNC_OP2(kad_add, 1)
 KAD_FUNC_OP2(kad_mul, 2)
 KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_ceb, 4)
+KAD_FUNC_OP2(kad_matmul, 9)
 KAD_FUNC_OP2(kad_cem, 12)
 KAD_FUNC_OP2(kad_softmax2, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
@@ -661,9 +662,36 @@ int kad_op_cmul(kad_node_t *p, int action)
 			kad_sgemm_simple(0, 1, n_a_row, n_b_row, n_col, q[0]->x, q[1]->x, p->x); // Y = X * trans(W)
 	} else if (action == KAD_BACKWARD) {
 		if (q[0]->to_back && q[1]->x)
-			kad_sgemm_simple(0, 0, n_a_row, n_col, n_b_row, p->g, q[1]->x, q[0]->g); // G_x = G_y * W
+			kad_sgemm_simple(0, 0, n_a_row, n_col, n_b_row, p->g, q[1]->x, q[0]->g); // G_x <- G_y * W
 		if (q[1]->to_back && q[0]->x)
-			kad_sgemm_simple(1, 0, n_b_row, n_col, n_a_row, p->g, q[0]->x, q[1]->g); // G_w = trans(G_y) * X
+			kad_sgemm_simple(1, 0, n_b_row, n_col, n_a_row, p->g, q[0]->x, q[1]->g); // G_w <- trans(G_y) * X
+	}
+	return 0;
+}
+
+int kad_op_matmul(kad_node_t *p, int action)
+{
+	int n_a_row, n_b_row, n_a_col, n_b_col;
+	kad_node_t *q[2];
+
+	q[0] = p->child[0].p;
+	q[1] = p->child[1].p;
+	n_a_row = q[0]->n_d == 1? 1 : q[0]->d[0];
+	n_b_row = q[1]->n_d == 1? 1 : q[1]->d[0];
+	n_a_col = kad_len(q[0]) / n_a_row;
+	n_b_col = kad_len(q[1]) / n_b_row;
+	if (action == KAD_SYNC_DIM) {
+		if (n_a_col != n_b_row) return -1;
+		p->n_d = 2, p->d[0] = n_a_row, p->d[1] = n_b_col;
+	} else if (action == KAD_FORWARD) {
+		memset(p->x, 0, n_a_row * n_b_col * sizeof(float));
+		if (q[0]->x && q[1]->x)
+			kad_sgemm_simple(0, 0, n_a_row, n_b_col, n_a_col, q[0]->x, q[1]->x, p->x); // Y = X * W
+	} else if (action == KAD_BACKWARD) {
+		if (q[0]->to_back && q[1]->x)
+			kad_sgemm_simple(0, 1, n_a_row, n_a_col, n_b_row, p->g, q[1]->x, q[0]->g); // G_x <- G_y * trans(W)
+		if (q[1]->to_back && q[0]->x)
+			kad_sgemm_simple(1, 0, n_b_row, n_b_col, n_a_row, q[0]->x, p->g, q[1]->g); // G_y <- trans(A) * G_y
 	}
 	return 0;
 }
@@ -1359,7 +1387,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_sigm,    // 6:  sigmoid
 	kad_op_tanh,    // 7:  tanh
 	kad_op_relu,    // 8:  ReLU
-	0,
+	kad_op_matul,   // 9:  matrix multiplication
 	kad_op_avg,     // 10: general average pooling (not for ConvNet)
 	kad_op_1minus,  // 11: 1-x
 	kad_op_cem,     // 12: multi-class cross-entropy for softmax activation
