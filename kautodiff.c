@@ -689,7 +689,7 @@ int kad_op_matmul(kad_node_t *p, int action)
 			kad_sgemm_simple(0, 0, n_a_row, n_b_col, n_a_col, q[0]->x, q[1]->x, p->x); // Y = X * W
 	} else if (action == KAD_BACKWARD) {
 		if (q[0]->to_back && q[1]->x)
-			kad_sgemm_simple(0, 1, n_a_row, n_a_col, n_b_row, p->g, q[1]->x, q[0]->g); // G_x <- G_y * trans(W)
+			kad_sgemm_simple(0, 1, n_a_row, n_a_col, n_b_col, p->g, q[1]->x, q[0]->g); // G_x <- G_y * trans(W)
 		if (q[1]->to_back && q[0]->x)
 			kad_sgemm_simple(1, 0, n_b_row, n_b_col, n_a_row, q[0]->x, p->g, q[1]->g); // G_y <- trans(A) * G_y
 	}
@@ -1387,7 +1387,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_sigm,    // 6:  sigmoid
 	kad_op_tanh,    // 7:  tanh
 	kad_op_relu,    // 8:  ReLU
-	kad_op_matul,   // 9:  matrix multiplication
+	kad_op_matmul,  // 9:  matrix multiplication
 	kad_op_avg,     // 10: general average pooling (not for ConvNet)
 	kad_op_1minus,  // 11: 1-x
 	kad_op_cem,     // 12: multi-class cross-entropy for softmax activation
