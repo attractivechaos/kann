@@ -1,14 +1,21 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
+INCLUDES=	-I.
 EXE=		examples/mlp examples/textgen examples/rnn-bit examples/rnn-bit2 examples/mnist-cnn
 LIBS=		-lm -lz
+
+ifdef CBLAS
+	CPPFLAGS+=-DHAVE_CBLAS
+	INCLUDES+=-I$(CBLAS)/include
+	LIBS+=-L$(CBLAS)/lib -lopenblas
+endif
 
 .SUFFIXES:.c .o
 .PHONY:all clean depend
 
 .c.o:
-		$(CC) -c $(CFLAGS) -I. $(CPPFLAGS) $< -o $@
+		$(CC) -c $(CFLAGS) $(INCLUDES) $(CPPFLAGS) $< -o $@
 
 all:kautodiff.o kann.o kann_extra/kann_data.o $(EXE)
 
@@ -16,19 +23,19 @@ kann_extra/kann_data.o:kann_extra/kann_data.c
 		$(CC) -c $(CFLAGS) -DHAVE_ZLIB $< -o $@
 
 examples/mlp:examples/mlp.o kautodiff.o kann.o kann_extra/kann_data.o
-		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 examples/textgen:examples/textgen.o kautodiff.o kann.o
-		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 examples/rnn-bit:examples/rnn-bit.o kautodiff.o kann.o
-		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 examples/rnn-bit2:examples/rnn-bit2.o kautodiff.o kann.o
-		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 examples/mnist-cnn:examples/mnist-cnn.o kautodiff.o kann.o kann_extra/kann_data.o
-		$(CC) $(CFLAGS) -o $@ -I. $^ $(LIBS)
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 clean:
 		rm -fr *.o */*.o a.out */a.out *.a *.dSYM */*.dSYM $(EXE)

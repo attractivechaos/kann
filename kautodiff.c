@@ -551,11 +551,18 @@ void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
 
+#ifdef HAVE_CBLAS
+#include <cblas.h>
+void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C)
+{
+	cblas_sgemm(CblasRowMajor, trans_A? CblasTrans : CblasNoTrans, trans_B? CblasTrans : CblasNoTrans, M, N, K, 1.0f, A, trans_A? M : K, B, trans_B? K : N, 1.0f, C, N);
+}
+#else
 void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C) // simplified BLAS sgemm
 {
 	static const int x = 16;
 	int i, j, k;
-	if (!trans_A && trans_B) {
+	if (!trans_A && trans_B)
 		for (i = 0; i < M; i += x) {
 			for (j = 0; j < N; j += x) {
 				int ii, ie = M < i + x? M : i + x;
@@ -567,7 +574,6 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 						cii[jj] += kad_sdot(K, aii, bjj);
 				}
 			}
-		}
 	} else if (!trans_A && !trans_B) {
 		for (i = 0; i < M; ++i)
 			for (k = 0; k < K; ++k)
@@ -578,6 +584,7 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 				kad_saxpy(N, A[k*M+i], &B[k*N], &C[i*N]);
 	} else abort(); // not implemented for (trans_A && trans_B)
 }
+#endif
 
 /*************
  * Operators *
