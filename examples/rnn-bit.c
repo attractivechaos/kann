@@ -49,13 +49,14 @@ int main(int argc, char *argv[])
 	mo.lr = 0.01f;
 	mo.max_epoch = 100;
 	mo.max_rnn_len = 30;
-	while ((c = getopt(argc, argv, "i:o:l:h:m:r:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'l') n_h_layers = atoi(optarg);
-		else if (c == 'h') n_h_neurons = atoi(optarg);
+		else if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'm') mo.max_epoch = atoi(optarg);
 		else if (c == 'r') mo.lr = atof(optarg);
+		else if (c == 's') seed = atoi(optarg);
 	}
 
 	kann_srand(seed);
