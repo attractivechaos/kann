@@ -13,10 +13,10 @@ way. Please take the words below with a grain of salt.
   - [Automatic differentiation and computational graph](#automatic-differentiation-and-computational-graph)
   - [Backpropagating matrix products](#backpropagating-matrix-products)
   - [Network layers](#network-layers)
-  - [Conventions on the shapes of n-d arrays](#conventions-on-the-shapes-of-n-d-arrays)
 * [Implementing Convolution](#implementing-convolution)
   - [Definition of convolution](#definition-of-convolution)
   - [Implementing the convolution operation](#implementing-the-convolution-operation)
+  - [The shape of n-d arrays](#the-shape-of-n-d-arrays)
 * [Implementing Recurrent Neural Network (RNN)](#implementing-recurrent-neural-network-rnn)
   - [Computational graph of RNN](#computational-graph-of-rnn)
   - [Unrolling RNN](#unrolling-rnn)
@@ -38,9 +38,9 @@ typedef struct {
 ```
 The dimensions are also called the *shape* of the array. Conventionally, we
 call the n-d array a scalar if *n\_d* equals 0, a vector if *n\_d* equals 1 and
-a matrix if *n\_d* equals 2. As a side note, deep learning frameworks often
-take n-d array as a synonym of *tensor*, though according to
-[wiki][tensor-wiki], this seems imprecise.
+a matrix if *n\_d* equals 2. We note that deep learning frameworks often take
+n-d array as a synonym of *tensor*, though according to [wiki][tensor-wiki],
+this seems imprecise.
 
 ### Automatic differentiation and computational graph
 
@@ -79,8 +79,7 @@ backpropagate gradients with:
 
 As we see here, gradients update also involes matrix product and thus can be
 calculated with the GEMM routine from [BLAS][blas]. KANN more often uses matrix
-product with the second matrix transposed (see
-[below](#conventions-on-the-shapes-of-n-d-arrays)). The backprop rule becomes:
+product with the second matrix transposed. The backprop rule becomes:
 <!--
 {\bf Y}={\bf X}\cdot{\bf W}^\intercal,
 \hspace{1em}\frac{\partial F}{\partial {\bf X}}\gets\frac{\partial F}{\partial {\bf Y}}\cdot {\bf W},
@@ -98,25 +97,7 @@ perceptron][mlp] with one hidden layer:
 
 In this figure, each dotted red box represents a dense (aka fully connected)
 layer that has one input (in green) and one output (in blue). In KANN, a layer
-works exactly this way. Layer subgraphs are defined by the `kann_layer_*()`
-functions in [kann.*](../kann.h).
-
-### Conventions on the shapes of n-d arrays
-
-In KANN and many other deep learning libraries, the first dimension of input
-nodes, output nodes and most internal nodes is the size of a mini-batch. 
-Weight matrices have the number of output values as the first dimension and the
-number of input values as the second dimension. Due to such shapes, we are
-unable to compute the standard matrix product of weight *W* and input *x* due
-to dimension mismatch. We do not know how other libraries resolve this issue.
-In KANN, we have a cmul(*x*,*W*) operator instead which computes
-mul(*x*,T(*W*)), where T() is matrix transpose and mul() the standard matrix
-product. The first dimension of cmul(*x*,*W*) is the same as *x*.
-
-For 2D convolution, most libraries use the (batch-size,in-channel,height,width)
-shape (aka the NCHW shape) for input as default and the
-(out-channel,in-channel,kernel-height,kernel-width) shape for weight matrices.
-KANN follows the same convention.
+works exactly this way.
 
 
 
@@ -130,6 +111,15 @@ major frameworks and libraries all rotate the weight matrix as this is closer
 to the original mathematical definition of convolution. To call their APIs and
 to load their pretrained weight matrices, we prefer to rorate the weight matrix
 as well. This is the convention.
+
+### The shape of n-d arrays
+
+For 2D convolution, cuDNN and Theano take images in shape of
+(batch-size,in-channel,height,width) and convolution weights in shape of
+(out-channel,in-channel,kernel-height,kernel-width). KANN follows the cuDNN and
+Theano convention. Caffe and TensorFlow are different. They take images in
+shape of (batch-size,height,weight,in-channel) and weights in
+(kernel-height,kernel-width,in-channel,out-channel).
 
 ### Implementing the convolution operation
 
