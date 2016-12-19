@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	for (i = 0; i < ann->n; ++i) {
 		kad_node_t *p = ann->v[i];
 		if (p->pre) {
-			assert(p0 == 0);
+			assert(p0 == 0); // TODO: this means the program would not work with LSTM as it has two recurrent points. It can be relexed with more code
 			p0 = p->pre;
 		}
 	}

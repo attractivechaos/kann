@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r268"
+#define KAD_VERSION "r277"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -55,7 +55,7 @@ struct kad_node_t {
 	uint8_t     n_d;            // number of dimensions; no larger than KAD_MAX_DIM
 	uint8_t     to_back;        // whether to do back propogation (boolean)
 	uint16_t    op;             // operator; kad_op_list[op] is the actual function
-	uint32_t    n_child;        // number of operands/child nodes
+	int32_t     n_child;        // number of operands/child nodes
 	int32_t     label;          // label for external uses
 	int32_t     tmp;            // temporary field; MUST BE zero before calling kad_compile()
 	int32_t     d[KAD_MAX_DIM]; // dimensions

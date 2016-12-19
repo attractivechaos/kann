@@ -1134,7 +1134,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	} while (0)
 
 	conv_conf_t *aux = (conv_conf_t*)p->ptr;
-	kad_node_t *q = q = p->child[0].p, *w = p->child[1].p;
+	kad_node_t *q = p->child[0].p, *w = p->child[1].p;
 	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
 	int algo_switch = 0;
 
