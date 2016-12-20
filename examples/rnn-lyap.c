@@ -19,9 +19,9 @@ float norm_vec(int n, float *t)
 
 int main(int argc, char *argv[])
 {
-	int i, j, c, l, n = 1000, burn_in = 100;
+	int i, j, c, l, n = 10000, burn_in = 1000;
 	kad_node_t *p0 = 0;
-	float eps = 1e-6, *t, *x, *h0, *h1;
+	float eps = 1e-4, *t, *x, *h0, *h1;
 	double lyap = 0.0, lyap_prod = 1.0, lyap_t = 0.0;
 	kann_t *ann;
 	
