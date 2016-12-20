@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r280"
+#define KANN_VERSION "r282"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -101,6 +101,7 @@ int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 
 // unroll an RNN to an FNN
+int kann_is_rnn(const kann_t *a);
 kann_t *kann_rnn_unroll(kann_t *a, int len);
 void kann_delete_unrolled(kann_t *a);
 
