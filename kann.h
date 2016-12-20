@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r282"
+#define KANN_VERSION "r284"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -91,10 +91,11 @@ kad_node_t *kann_new_bias(int n);
 kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_row, int k_col);
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
-// basic model allocation/deallocation
+// basic model operations
 void kann_set_by_flag(kann_t *a, int flag, float z);
 int kann_bind_by_flag(kann_t *a, int flag, float **x);
 void kann_delete(kann_t *a);
+float kann_grad(kann_t *a);
 
 // number of input and output variables
 int kann_n_in(const kann_t *a);

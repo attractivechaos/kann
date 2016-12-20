@@ -586,14 +586,31 @@ static void kann_count_class_error(const kad_node_t *q, int *n_err, int *n_err_t
 	}
 }
 
-static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y, int *n_err, int *n_err_tot) // train or validate a minibatch
+static inline int kann_get_cost_node(kann_t *a)
 {
 	int i, i_cost = -1, n_cost = 0;
-	float cost;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->ext_flag & KANN_F_COST)
+		if ((a->v[i]->ext_flag & KANN_F_COST) && a->v[i]->n_d == 0)
 			i_cost = i, ++n_cost;
 	assert(n_cost == 1);
+	return i_cost;
+}
+
+float kann_grad(kann_t *a)
+{
+	int i_cost;
+	float cost;
+	i_cost = kann_get_cost_node(a);
+	cost = *kad_eval_at(a->n, a->v, i_cost);
+	kad_grad(a->n, a->v, i_cost);
+	return cost;
+}
+
+static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, float **y, int *n_err, int *n_err_tot) // train or validate a minibatch
+{
+	int i, i_cost;
+	float cost;
+	i_cost = kann_get_cost_node(a);
 	kann_set_batch_size(a, bs);
 	kann_bind_by_flag(a, KANN_F_IN, x);
 	kann_bind_by_flag(a, KANN_F_TRUTH, y);
