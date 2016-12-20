@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r284"
+#define KANN_VERSION "r285"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -116,6 +116,7 @@ const float *kann_apply1(kann_t *a, float *x);
 void kann_rnn_start(kann_t *a);
 void kann_rnn_end(kann_t *a);
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
+void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 
 // model I/O
 void kann_write_core(FILE *fp, kann_t *ann);
