@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 		for (i = 0; i < MAX_CHAR; ++i)
 			if (map[i] >= 0) revmap[map[i]] = i;
 		n_char = kann_n_in(ann);
-		kann_set_hyper(ann, KANN_H_TEMP, temp);
+		kann_set_by_flag(ann, KANN_F_TEMP, temp);
 		kann_rnn_start(ann);
 		c = revmap[(int)(n_char * kann_drand())];
 		for (i = 0; i < 1000; ++i) {

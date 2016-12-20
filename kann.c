@@ -9,7 +9,6 @@ int kann_verbose = 3;
 /*
   @@RNG: pseudo-random number generator
   @@LAYER: layers and model generation
-  @@UNROLL: unrolling an RNN
   @@MISC: miscellaneous routines
   @@MIN: minimizer
   @@TRAIN: model training
@@ -191,7 +190,7 @@ kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len)
 kad_node_t *kann_layer_input(int n1)
 {
 	kad_node_t *t;
-	t = kad_par(0, 2, 1, n1), t->label = KANN_L_IN;
+	t = kad_feed(0, 2, 1, n1), t->ext_flag |= KANN_F_IN;
 	return t;
 }
 
@@ -208,7 +207,7 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 {
 	kad_node_t *s;
-	s = kad_par(0, 0), s->label = KANN_H_DROPOUT;
+	s = kad_const(0, 0), s->ext_flag |= KANN_F_DROPOUT;
 	s->x = (float*)calloc(1, sizeof(float));
 	*s->x = r;
 	return kad_dropout(t, s);
@@ -307,188 +306,51 @@ kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols,
 	return kad_conv2d(in, w, stride, stride, pad, pad);
 }
 
-void kann_collate_x(kann_t *a)
-{
-	int i, j, k, l, n_par;
-	n_par = kann_n_par(a);
-	a->t = (float*)realloc(a->t, n_par * sizeof(float));
-	a->g = (float*)realloc(a->g, n_par * sizeof(float));
-	a->c = (float*)realloc(a->c, kann_n_hyper(a) * sizeof(float));
-	memset(a->g, 0, n_par * sizeof(float));
-	for (i = j = k = 0; i < a->n; ++i) {
-		kad_node_t *v = a->v[i];
-		if (kad_is_var(v)) {
-			l = kad_len(v);
-			memcpy(&a->t[j], v->x, l * sizeof(float));
-			free(v->x);
-			v->x = &a->t[j];
-			v->g = &a->g[j];
-			j += l;
-		} else if (kann_is_hyper(v)) {
-			l = kad_len(v);
-			memcpy(&a->c[k], v->x, l * sizeof(float));
-			free(v->x);
-			v->x = &a->c[k];
-			k += l;
-		}
-	}
-}
-
-void kann_sync_x(kann_t *a)
-{
-	int i, j, k;
-	for (i = j = k = 0; i < a->n; ++i) {
-		kad_node_t *v = a->v[i];
-		if (kad_is_var(v)) {
-			v->x = &a->t[j];
-			v->g = &a->g[j];
-			j += kad_len(v);
-		} else if (kann_is_hyper(v)) {
-			v->x = &a->c[k];
-			k += kad_len(v);
-		}
-	}
-}
-
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 {
 	kann_t *a = 0;
 	kad_node_t *cost = 0, *truth = 0;
-	int i, is_rnn = 0, has_pool = 0;
+	int i, is_rnn = 0, has_pivot = 0;
 
 	assert(type == KANN_C_CEB || type == KANN_C_CEM);
-	truth = kad_par(0, 2, 1, n_out), truth->label = KANN_L_TRUTH;
+	truth = kad_feed(0, 2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	t = kann_layer_linear(t, n_out);
 	if (type == KANN_C_CEB) {
 		cost = kad_ceb(t, truth);
 		t = kad_sigm(t);
 	} else if (type == KANN_C_CEM) {
 		kad_node_t *temp;
-		temp = kad_par(0, 0), temp->label = KANN_H_TEMP;
+		temp = kad_const(0, 0), temp->ext_flag |= KANN_F_TEMP;
 		temp->x = (float*)calloc(1, sizeof(float));
 		*temp->x = 1.0f;
 		cost = kad_cem(t, truth);
 		t = kad_softmax2(t, temp);
 	}
-	t->label = KANN_L_OUT, cost->label = KANN_L_COST;
+	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
 
 	a = (kann_t*)calloc(1, sizeof(kann_t));
 	a->v = kad_compile(&a->n, 2, t, cost);
 	for (i = 0; i < a->n; ++i) {
 		if (a->v[i]->pre) is_rnn = 1;
-		if (kann_is_rnn_pool(a->v[i])) has_pool = 1;
+		if (kad_is_pivot(a->v[i])) has_pivot = 1;
 	}
-	if (is_rnn && !has_pool) { // add a pooling node if we have an RNN but without such a node
-		cost->label = 0;
-		cost = kad_avg(1, &cost), cost->label = KANN_L_COST;
+	if (is_rnn && !has_pivot) { // add a pooling node if we have an RNN but without such a node
+		cost->ext_flag &= ~KANN_F_COST;
+		cost = kad_avg(1, &cost), cost->ext_flag |= KANN_F_COST;
 		free(a->v);
 		a->v = kad_compile(&a->n, 2, t, cost);
 	}
-	kann_collate_x(a);
+	kad_ext_collate(a->n, a->v, &a->x, &a->g, &a->c);
 	kad_drand = kann_drand;
 	return a;
-}
-
-/**********************************
- *** @@UNROLL: unrolling an RNN ***
- **********************************/
-
-static inline kad_node_t *kad_dup1(const kad_node_t *p)
-{
-	kad_node_t *q;
-	q = (kad_node_t*)malloc(sizeof(kad_node_t));
-	memcpy(q, p, sizeof(kad_node_t));
-	q->pre = 0, q->tmp = 0;
-	if (q->n_child) {
-		q->x = q->g = 0;
-		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
-	}
-	return q;
-}
-
-static kad_node_t **kann_unroll_helper(int n_v, kad_node_t **v, int len, int *new_n)
-{
-	int i, j, k, l, k0;
-	short *flag;
-	kad_node_t **w, **alt;
-
-	// set flags
-	flag = (short*)calloc(n_v, sizeof(short));
-	for (i = 0; i < n_v; ++i) {
-		v[i]->tmp = i;
-		if (kad_is_var(v[i]) || kann_is_hyper(v[i])) flag[i] |= 1;
-		if (v[i]->pre) flag[v[i]->pre->tmp] |= 2;
-		if (kann_is_rnn_pool(v[i])) {
-			assert(v[i]->n_child == 1);
-			flag[v[i]->child[0].p->tmp] |= 4; // parent is a pooling node
-			flag[i] |= 8;
-		}
-		for (j = 0; j < v[i]->n_child; ++j)
-			if (flag[v[i]->child[j].p->tmp]&8) flag[i] |= 8; // a node that can't be unrolled
-	}
-
-	// unroll unrollable nodes
-	w = (kad_node_t**)calloc(n_v * len, sizeof(kad_node_t*));
-	alt = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
-	for (l = k = 0; l < len; ++l) {
-		for (i = 0; i < n_v; ++i) {
-			if (flag[i]&8) continue;
-			if (l > 0 && (flag[i]&3)) continue;
-			w[k] = kad_dup1(v[i]);
-			if (w[k]->n_child) {
-				w[k]->x = w[k]->g = 0;
-				for (j = 0; j < w[k]->n_child; ++j)
-					w[k]->child[j].p = alt[v[i]->child[j].p->tmp];
-			}
-			w[k]->tmp = (flag[i]&4)? i : -1;
-			if (v[i]->pre) alt[v[i]->pre->tmp] = w[k];
-			alt[i] = w[k++];
-		}
-	}
-	k0 = k;
-
-	// unroll the rest of nodes
-	for (i = 0; i < n_v; ++i) {
-		if (!(flag[i]&8)) continue;
-		assert(v[i]->pre == 0);
-		w[k] = kad_dup1(v[i]);
-		if (kann_is_rnn_pool(v[i])) {
-			w[k]->n_child = len, w[k]->tmp = 0;
-			w[k]->child = (kad_edge_t*)realloc(w[k]->child, len * sizeof(kad_edge_t));
-			memset(w[k]->child, 0, len * sizeof(kad_edge_t));
-		} else if (w[k]->n_child) {
-			w[k]->x = w[k]->g = 0;
-			for (j = 0; j < w[k]->n_child; ++j)
-				w[k]->child[j].p = alt[v[i]->child[j].p->tmp];
-		}
-		alt[i] = w[k++];
-	}
-
-	// pool
-	for (i = 0; i < n_v; ++i)
-		if (kann_is_rnn_pool(v[i]))
-			alt[v[i]->child[0].p->tmp] = alt[i];
-	for (i = 0; i < k0; ++i) {
-		if (w[i]->tmp >= 0) {
-			kad_node_t *q = alt[w[i]->tmp];
-			q->child[q->tmp++].p = w[i];
-		}
-		w[i]->tmp = 0;
-	}
-	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
-
-	free(alt); free(flag);
-	kad_allocate_internal(k, w);
-	*new_n = k;
-	return w;
 }
 
 kann_t *kann_rnn_unroll(kann_t *a, int len)
 {
 	kann_t *b;
 	b = (kann_t*)calloc(1, sizeof(kann_t));
-	b->t = a->t, b->g = a->g, b->c = a->c; // these arrays are shared
-	b->v = kann_unroll_helper(a->n, a->v, len, &b->n);
+	b->x = a->x, b->g = a->g, b->c = a->c; // these arrays are shared
+	b->v = kad_unroll(a->n, a->v, len, &b->n);
 	return b;
 }
 
@@ -504,15 +366,15 @@ void kann_delete_unrolled(kann_t *a)
 
 void kann_delete(kann_t *a)
 {
-	free(a->t); free(a->g); free(a->c);
+	free(a->x); free(a->g); free(a->c);
 	kann_delete_unrolled(a);
 }
 
-void kann_set_hyper(kann_t *a, int label, float z)
+void kann_set_by_flag(kann_t *a, int flag, float z)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == label && a->v[i]->n_d == 0)
+		if ((a->v[i]->ext_flag & flag) && a->v[i]->n_d == 0)
 			*a->v[i]->x = z;
 }
 
@@ -520,7 +382,7 @@ static void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == KANN_L_IN || a->v[i]->label == KANN_L_TRUTH)
+		if ((a->v[i]->ext_flag & KANN_F_IN) || (a->v[i]->ext_flag & KANN_F_TRUTH))
 			a->v[i]->d[0] = B;
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *p = a->v[i];
@@ -532,35 +394,26 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
-static int kann_bind_by_label(kann_t *a, int label, float **x)
+int kann_bind_by_flag(kann_t *a, int flag, float **x)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
-		if (a->v[i]->n_child == 0 && !a->v[i]->to_back && a->v[i]->label == label)
+		if (kad_is_feed(a->v[i]) && (a->v[i]->ext_flag & flag))
 			a->v[i]->x = x[k++];
 	return k;
 }
 
-static inline int kann_n_by_label(const kann_t *a, int label)
+static inline int kann_n_by_flag(const kann_t *a, int flag)
 {
 	int i, n = 0;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == label)
+		if (a->v[i]->ext_flag & flag)
 			n += a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : 1; // the first dimension is batch size
 	return n;
 }
 
-int kann_n_in(const kann_t *a) { return kann_n_by_label(a, KANN_L_IN); }
-int kann_n_out(const kann_t *a) { return kann_n_by_label(a, KANN_L_OUT); }
-
-int kann_n_hyper(const kann_t *a)
-{
-	int i, n = 0;
-	for (i = 0; i < a->n; ++i)
-		if (kann_is_hyper(a->v[i]))
-			n += kad_len(a->v[i]);
-	return n;
-}
+int kann_n_in(const kann_t *a) { return kann_n_by_flag(a, KANN_F_IN); }
+int kann_n_out(const kann_t *a) { return kann_n_by_flag(a, KANN_F_OUT); }
 
 int kann_is_rnn(const kann_t *a)
 {
@@ -740,13 +593,13 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	int i, i_cost = -1, n_cost = 0;
 	float cost;
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == KANN_L_COST)
+		if (a->v[i]->ext_flag & KANN_F_COST)
 			i_cost = i, ++n_cost;
 	assert(n_cost == 1);
 	kann_set_batch_size(a, bs);
-	kann_bind_by_label(a, KANN_L_IN, x);
-	kann_bind_by_label(a, KANN_L_TRUTH, y);
-	cost = *kad_eval_from(a->n, a->v, i_cost);
+	kann_bind_by_flag(a, KANN_F_IN, x);
+	kann_bind_by_flag(a, KANN_F_TRUTH, y);
+	cost = *kad_eval_at(a->n, a->v, i_cost);
 	if (a->v[i_cost]->op == 10) {
 		for (i = 0; i < a->v[i_cost]->n_child; ++i)
 			kann_count_class_error(a->v[i_cost]->child[i].p, n_err, n_err_tot);
@@ -754,7 +607,7 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	if (m) {
 //		kad_check_grad(a->n, a->v, i_cost);
 		kad_grad(a->n, a->v, i_cost);
-		kann_min_mini_update(m, a->g, a->t);
+		kann_min_mini_update(m, a->g, a->x);
 	}
 	return cost;
 }
@@ -796,13 +649,14 @@ static float kann_process_batch(kann_t *a, kann_min_t *min, kann_reader_f rdr, v
 void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 {
 	float **x, **y, min_cost, *bak;
-	int i, j, n_in, n_out, n_par, max_rnn_len, min_j, n_adj, streak;
+	int i, j, n_in, n_out, n_var, n_const, max_rnn_len, min_j, n_adj, streak;
 	kann_min_t *min;
 	kann_t *fnn_max = 0;
 
 	n_in = kann_n_in(a);
 	n_out = kann_n_out(a);
-	n_par = kann_n_par(a);
+	n_var = kad_n_var(a->n, a->v);
+	n_const = kad_n_const(a->n, a->v);
 	max_rnn_len = kann_is_rnn(a)? mo->max_rnn_len : 1;
 	if (max_rnn_len > 1) fnn_max = kann_rnn_unroll(a, max_rnn_len);
 
@@ -813,14 +667,14 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 		y[i] = (float*)calloc(mo->max_mbs * n_out, sizeof(float));
 	}
 
-	bak = (float*)calloc(n_par * 2 + kann_n_hyper(a), sizeof(float));
-	min = kann_minimizer(mo, n_par);
+	bak = (float*)calloc(n_var * 2 + n_const, sizeof(float));
+	min = kann_minimizer(mo, n_var);
 	for (j = n_adj = streak = 0, min_cost = 1e30, min_j = -1; j < mo->max_epoch; ++j) {
 		float running_cost = 0.0f, validate_cost = 0.0f, class_err = 0.0f;
 		rdr(data, KANN_RDR_BATCH_RESET, 0, 0, 0);
 		running_cost =  kann_process_batch(a, min, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y, 0);
 		validate_cost = kann_process_batch(a,   0, rdr, data, max_rnn_len, mo->max_mbs, 0, x, y, &class_err);
-		kann_min_batch_finish(min, a->t);
+		kann_min_batch_finish(min, a->x);
 		if (kann_verbose >= 3) {
 			fprintf(stderr, "epoch: %d; running cost: %g; validation cost: %g", j+1, running_cost, validate_cost);
 			if (class_err >= 0.0f) fprintf(stderr, " (class error: %.2f%%)", class_err * 100.0f);
@@ -830,14 +684,14 @@ void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data)
 			if (validate_cost < min_cost) {
 				streak = 0;
 				min_j = j, min_cost = validate_cost;
-				memcpy(bak, a->t, n_par * sizeof(float));
-				memcpy(bak + n_par, a->g, n_par * sizeof(float));
-				memcpy(bak + n_par * 2, a->c, kann_n_hyper(a) * sizeof(float));
+				memcpy(bak, a->x, n_var * sizeof(float));
+				memcpy(bak + n_var, a->g, n_var * sizeof(float));
+				memcpy(bak + n_var * 2, a->c, n_const * sizeof(float));
 			} else if (++streak >= mo->epoch_lazy) {
 				streak = 0;
-				memcpy(a->t, bak, n_par * sizeof(float));
-				memcpy(a->g, bak + n_par, n_par * sizeof(float));
-				memcpy(a->c, bak + n_par * 2, kann_n_hyper(a) * sizeof(float));
+				memcpy(a->x, bak, n_var * sizeof(float));
+				memcpy(a->g, bak + n_var, n_var * sizeof(float));
+				memcpy(a->c, bak + n_var * 2, n_const * sizeof(float));
 				if (++n_adj >= 2) break;
 				kann_min_set_lr(min, .1f * mo->lr);
 			}
@@ -863,10 +717,10 @@ const float *kann_apply1(kann_t *a, float *x)
 {
 	int i;
 	kann_set_batch_size(a, 1);
-	kann_bind_by_label(a, KANN_L_IN, &x);
-	kad_eval_by_label(a->n, a->v, KANN_L_OUT);
+	kann_bind_by_flag(a, KANN_F_IN, &x);
+	kad_eval_flag(a->n, a->v, KANN_F_OUT);
 	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->label == KANN_L_OUT)
+		if (a->v[i]->ext_flag & KANN_F_OUT)
 			return a->v[i]->x;
 	return 0;
 }
@@ -887,7 +741,7 @@ void kann_rnn_start(kann_t *a)
 
 void kann_rnn_end(kann_t *a)
 {
-	kann_sync_x(a);
+	kad_ext_sync(a->n, a->v, a->x, a->g, a->x);
 }
 
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x)
@@ -974,8 +828,8 @@ void kann_write_core(FILE *fp, kann_t *ann)
 	kann_set_batch_size(ann, 1);
 	fwrite(KANN_MAGIC, 1, 4, fp);
 	kad_write(fp, ann->n, ann->v);
-	fwrite(ann->t, sizeof(float), kann_n_par(ann), fp);
-	fwrite(ann->c, sizeof(float), kann_n_hyper(ann), fp);
+	fwrite(ann->x, sizeof(float), kad_n_var(ann->n, ann->v), fp);
+	fwrite(ann->c, sizeof(float), kad_n_const(ann->n, ann->v), fp);
 }
 
 void kann_write(const char *fn, kann_t *ann)
@@ -990,7 +844,7 @@ kann_t *kann_read_core(FILE *fp)
 {
 	char magic[4];
 	kann_t *ann;
-	int n_par, n_hyper;
+	int n_var, n_const;
 
 	fread(magic, 1, 4, fp);
 	if (strncmp(magic, KANN_MAGIC, 4) != 0) {
@@ -999,14 +853,14 @@ kann_t *kann_read_core(FILE *fp)
 	}
 	ann = (kann_t*)calloc(1, sizeof(kann_t));
 	ann->v = kad_read(fp, &ann->n);
-	n_par = kann_n_par(ann);
-	n_hyper = kann_n_hyper(ann);
-	ann->t = (float*)malloc(n_par * sizeof(float));
-	ann->g = (float*)calloc(n_par, sizeof(float));
-	ann->c = (float*)malloc(n_hyper * sizeof(float));
-	fread(ann->t, sizeof(float), n_par, fp);
-	fread(ann->c, sizeof(float), n_hyper, fp);
-	kann_sync_x(ann);
+	n_var = kad_n_var(ann->n, ann->v);
+	n_const = kad_n_const(ann->n, ann->v);
+	ann->x = (float*)malloc(n_var * sizeof(float));
+	ann->g = (float*)calloc(n_var, sizeof(float));
+	ann->c = (float*)malloc(n_const * sizeof(float));
+	fread(ann->x, sizeof(float), n_var, fp);
+	fread(ann->c, sizeof(float), n_const, fp);
+	kad_ext_sync(ann->n, ann->v, ann->x, ann->g, ann->c);
 	return ann;
 }
 

@@ -27,16 +27,14 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r245"
+#define KANN_VERSION "r279"
 
-#define KANN_L_IN       1   // input
-#define KANN_L_OUT      2   // output
-#define KANN_L_TRUTH    3   // truth output
-#define KANN_L_COST     4   // final cost
-
-#define KANN_H_TEMP     11  // temperature for softmax
-#define KANN_H_DROPOUT  12  // dropout ratio
-#define KANN_H_L2REG    13  // coefficient for L2 regulation
+#define KANN_F_IN       0x1   // input
+#define KANN_F_OUT      0x2   // output
+#define KANN_F_TRUTH    0x4   // truth output
+#define KANN_F_COST     0x8   // final cost
+#define KANN_F_TEMP     0x10  // temperature for softmax
+#define KANN_F_DROPOUT  0x20  // dropout ratio
 
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
@@ -57,7 +55,7 @@
 typedef struct {
 	int n;
 	kad_node_t **v;
-	float *t, *g, *c;
+	float *x, *g, *c;
 } kann_t;
 
 typedef struct {
@@ -73,7 +71,6 @@ typedef struct {
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
 
 #define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
-#define kann_is_hyper(p) ((p)->label == KANN_H_TEMP || (p)->label == KANN_H_DROPOUT || (p)->label == KANN_H_L2REG)
 
 extern int kann_verbose;
 
@@ -97,13 +94,13 @@ kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_ro
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
 // basic model allocation/deallocation
-void kann_set_hyper(kann_t *a, int label, float z);
+void kann_set_by_flag(kann_t *a, int flag, float z);
+int kann_bind_by_flag(kann_t *a, int flag, float **x);
 void kann_delete(kann_t *a);
 
 // number of input and output variables
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
-int kann_n_hyper(const kann_t *a);
 
 // unroll an RNN to an FNN
 kann_t *kann_rnn_unroll(kann_t *a, int len);

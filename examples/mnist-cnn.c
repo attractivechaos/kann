@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 		ann = kann_read(fn_in);
 	} else {
 		kad_node_t *t;
-		t = kad_par(0, 4, 1, 1, 28, 28), t->label = KANN_L_IN;
+		t = kad_feed(0, 4, 1, 1, 28, 28), t->ext_flag |= KANN_F_IN;
 		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, KAD_PAD_AUTO));
 		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, KAD_PAD_AUTO));
 		t = kad_max2d(t, 2, 2, 2, 2, KAD_PAD_AUTO, KAD_PAD_AUTO);
@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 		kann_data_free(y);
 	} else { // applying
 		int i, j, n_out;
-		kann_set_hyper(ann, KANN_H_DROPOUT, 0.0f);
+		kann_set_by_flag(ann, KANN_F_DROPOUT, 0.0f);
 		n_out = kann_n_out(ann);
 		assert(n_out == 10);
 		for (i = 0; i < x->n_row; ++i) {
