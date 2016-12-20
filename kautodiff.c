@@ -585,7 +585,7 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 {
 	int i, j, k, l, k0;
 	short *flag;
-	kad_node_t **w, **alt;
+	kad_node_t **w, **alt, **aux;
 
 	// set flags
 	flag = (short*)calloc(n_v, sizeof(short));
@@ -604,6 +604,7 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 	// unroll unrollable nodes
 	w = (kad_node_t**)calloc(n_v * len, sizeof(kad_node_t*));
 	alt = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
+	aux = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
 	for (l = k = 0; l < len; ++l) {
 		for (i = 0; i < n_v; ++i) {
 			if (flag[i]&8) continue;
@@ -615,10 +616,15 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 					w[k]->child[j].p = alt[v[i]->child[j].p->tmp];
 			}
 			w[k]->tmp = (flag[i]&4)? i : -1;
-			if (v[i]->pre) alt[v[i]->pre->tmp] = w[k];
+			if (l == 0 && (flag[i]&2)) aux[i] = w[k];
+			if (v[i]->pre) {
+				alt[v[i]->pre->tmp] = w[k];
+				if (l == len - 1) w[k]->pre = aux[v[i]->pre->tmp]; // this forms a cycle!
+			}
 			alt[i] = w[k++];
 		}
 	}
+	free(aux);
 	k0 = k;
 
 	// unroll the rest of nodes
@@ -1601,7 +1607,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
 		kad_node_t *p = v[i];
-		fprintf(stderr, "%d\t%x:%x:%d\t", i, p->flag, p->ext_flag, p->ext_label);
+		fprintf(fp, "%d\t%x:%x\t%d\t", i, p->flag, p->ext_flag, p->ext_label);
 		if (p->pre) fprintf(fp, "%d\t", p->pre->tmp);
 		else fprintf(fp, ".\t");
 		fputs("[", fp);

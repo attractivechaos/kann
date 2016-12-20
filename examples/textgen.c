@@ -208,7 +208,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 100, model = 0, batch_size = 11000, map[MAX_CHAR];
+	int i, c, seed = 11, no_space = 0, n_h_layers = 1, n_h_neurons = 128, model = 0, batch_size = 11000, map[MAX_CHAR];
 	float h_dropout = 0.0f, temp = 0.5f;
 	kann_t *ann = 0;
 	kann_mopt_t mo;
