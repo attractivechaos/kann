@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r279"
+#define KANN_VERSION "r280"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -69,8 +69,6 @@ typedef struct {
 } kann_mopt_t;
 
 typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
-
-#define kann_n_par(a) (kad_n_var((a)->n, (a)->v))
 
 extern int kann_verbose;
 

@@ -395,7 +395,7 @@ void kad_ext_collate(int n, kad_node_t **a, float **_x, float **_g, float **_c)
 		kad_node_t *v = a[i];
 		if (kad_is_var(v)) {
 			l = kad_len(v);
-			memcpy(&x, v->x, l * sizeof(float));
+			memcpy(&x[j], v->x, l * sizeof(float));
 			free(v->x);
 			v->x = &x[j];
 			v->g = &g[j];
@@ -488,6 +488,7 @@ static void kad_write1(FILE *fp, const kad_node_t *p)
 {
 	fwrite(&p->ext_label, 4, 1, fp);
 	fwrite(&p->ext_flag, 4, 1, fp);
+	fwrite(&p->flag, 1, 1, fp);
 	fwrite(&p->n_child, 4, 1, fp);
 	if (p->n_child) {
 		int32_t j, pre = p->pre? p->pre->tmp : -1;
@@ -501,7 +502,6 @@ static void kad_write1(FILE *fp, const kad_node_t *p)
 	} else {
 		fwrite(&p->n_d, 1, 1, fp);
 		if (p->n_d) fwrite(p->d, 4, p->n_d, fp);
-		fwrite(&p->flag, 1, 1, fp);
 	}
 }
 
@@ -511,6 +511,7 @@ static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
 	fread(&p->ext_label, 4, 1, fp);
 	fread(&p->ext_flag, 4, 1, fp);
+	fread(&p->flag, 1, 1, fp);
 	fread(&p->n_child, 4, 1, fp);
 	if (p->n_child) {
 		int32_t j, k;
@@ -530,7 +531,6 @@ static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 	} else {
 		fread(&p->n_d, 1, 1, fp);
 		if (p->n_d) fread(p->d, 4, p->n_d, fp);
-		fread(&p->flag, 1, 1, fp);
 	}
 	return p;
 }
@@ -594,7 +594,6 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 		if (kad_is_var(v[i]) || kad_is_const(v[i])) flag[i] |= 1; // external nodes that should not be duplicated
 		if (v[i]->pre) flag[v[i]->pre->tmp] |= 2;
 		if (kad_is_pivot(v[i])) {
-			assert(v[i]->n_child == 1);
 			flag[v[i]->child[0].p->tmp] |= 4; // parent is a pooling node
 			flag[i] |= 8;
 		}
@@ -985,7 +984,6 @@ int kad_op_ceb(kad_node_t *p, int action)
 		if (n0 != n1) return -1;
 		p->n_d = 0;
 	} else if (action == KAD_ALLOC) {
-		assert(kad_is_back(e[0]->p));
 		if (kad_is_back(e[0]->p))
 			e[0]->t = (float*)realloc(e[0]->t, n0 * sizeof(float));
 	} else if (action == KAD_FORWARD) {
@@ -1603,7 +1601,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
 		kad_node_t *p = v[i];
-		fprintf(stderr, "%d\t%d\t", i, p->ext_label);
+		fprintf(stderr, "%d\t%x:%x:%d\t", i, p->flag, p->ext_flag, p->ext_label);
 		if (p->pre) fprintf(fp, "%d\t", p->pre->tmp);
 		else fprintf(fp, ".\t");
 		fputs("[", fp);
@@ -1619,7 +1617,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 				fprintf(fp, "$%d", p->child[j].p->tmp);
 			}
 			fprintf(fp, ")");
-		} else fprintf(fp, "%s", kad_is_back(p)? "var" : "par");
+		} else fprintf(fp, "%s", kad_is_feed(p)? "feed" : kad_is_var(p)? "var" : kad_is_const(p)? "const" : "N/A");
 		fputc('\n', fp);
 	}
 	for (i = 0; i < n; ++i) v[i]->tmp = 0;

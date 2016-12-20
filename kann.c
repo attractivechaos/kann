@@ -150,8 +150,6 @@ void kann_rand_weight(int n_row, int n_col, float *w)
  *** @@LAYER: layers and model generation ***
  **********************************************/
 
-#define kann_is_rnn_pool(p) (kad_is_pool(p) && (p)->n_child == 1)
-
 kad_node_t *kann_new_weight(int n_row, int n_col)
 {
 	kad_node_t *w;
