@@ -376,7 +376,7 @@ static void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
-		if ((a->v[i]->ext_flag & (KANN_F_IN|KANN_F_TRUTH)) && a->v[i]->d[0] != B)
+		if ((a->v[i]->ext_flag & (KANN_F_IN|KANN_F_TRUTH)) && (a->v[i]->d[0] != B || a->v[i]->x == 0))
 			break;
 	if (i == a->n) return; // no need to realloc
 	for (i = 0; i < a->n; ++i)
