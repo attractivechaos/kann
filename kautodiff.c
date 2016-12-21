@@ -94,6 +94,7 @@ KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_ce_sigm, 4)
 KAD_FUNC_OP2(kad_matmul, 9)
 KAD_FUNC_OP2(kad_ce_softmax, 12)
+KAD_FUNC_OP2(kad_ce_multi, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
@@ -1009,7 +1010,7 @@ int kad_op_ce_sigm(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_ce_softmax(kad_node_t *p, int action)
+int kad_op_ce_softmax(kad_node_t *p, int action) // TODO: cleanup the code; kad_op_ce_multi() is cleaner
 {
 	kad_edge_t *e[2];
 	int i, j, n0, n1;
@@ -1048,6 +1049,39 @@ int kad_op_ce_softmax(kad_node_t *p, int action)
 	} else if (action == KAD_BACKWARD) {
 		if (kad_is_back(e[0]->p))
 			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
+	}
+	return 0;
+}
+
+int kad_op_ce_multi(kad_node_t *p, int action)
+{
+	static const float tiny = 1e-9;
+	kad_node_t *y1, *y0;
+	int i, j, n1;
+
+	assert(y0->n_d >= 2);
+	y0 = p->child[1]->p, y1 = p->child[0]->p; // y0 is the truth
+	n1 = kad_len(y0) / y0->d[0];
+	if (action == KAD_SYNC_DIM) {
+		if (kad_len(y0) != kad_len(y1) || y0->d[0] != y1->d[0]) return -1;
+		p->n_d = 0;
+	} else if (action == KAD_FORWARD) {
+		double cost = 0.0;
+		for (j = 0; j < y0->d[0]; ++j) {
+			float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+			for (i = 0; i < n1; ++i)
+				if (x0[i] > 0.0f)
+					cost += x0[i] * log((x1[i] > tiny? x1[i] : tiny) / x0[i]);
+		}
+		p->x[0] = cost / y0->d[0];
+	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
+		float t = 1.0f / y0->d[0];
+		for (j = 0; j < y0->d[0]; ++j) {
+			float *g = &p->g[j * n1], *h = y1->g[j * n1];
+			float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+			for (i = 0; i < n1; ++i)
+				h[i] += g[i] * x0[i] / (x1[i] > tiny? x1[i] : tiny) * t;
+		}
 	}
 	return 0;
 }
@@ -1577,7 +1611,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_add,        // 1:  element-wise addition
 	kad_op_mul,        // 2:  element-wise multiplication
 	kad_op_cmul,       // 3:  column multiplication
-	kad_op_ce_sigm,    // 4:  binary cross-entroy for sigmoid activation
+	kad_op_ce_sigm,    // 4:  binary cross-entroy combined with sigmoid activation
 	kad_op_norm2,      // 5:  L2-norm
 	kad_op_sigm,       // 6:  sigmoid
 	kad_op_tanh,       // 7:  tanh
@@ -1585,8 +1619,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_matmul,     // 9:  matrix multiplication
 	kad_op_avg,        // 10: general average pooling (not for ConvNet)
 	kad_op_1minus,     // 11: 1-x
-	kad_op_ce_softmax, // 12: multi-class cross-entropy for softmax activation
-	0,
+	kad_op_ce_softmax, // 12: multi-class cross-entropy combined with softmax activation
+	kad_op_ce_multi,   // 13: multi-class cross-entropy only
 	kad_op_softmax,    // 14: softmax
 	kad_op_dropout,    // 15: dropout
 	kad_op_conv2d,     // 16: 2D convolution
@@ -1610,7 +1644,7 @@ void kad_trap_fe(void)
 
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { 0, "add", "mul", "cmul", "ce_sigm", "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "ce_softmax", 0, "softmax",
+	static const char *op[] = { 0, "add", "mul", "cmul", "ce_sigm", "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "ce_softmax", "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
