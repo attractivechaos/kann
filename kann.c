@@ -300,13 +300,34 @@ kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols,
 	return kad_conv2d(in, w, stride, stride, pad, pad);
 }
 
+kann_t *kann_gen(kad_node_t *cost)
+{
+	kann_t *a;
+	int i, has_pivot = 0, has_recur = 0;
+
+	if (cost->n_d != 0) return 0;
+	cost->ext_flag |= KANN_F_COST;
+	a = (kann_t*)calloc(1, sizeof(kann_t));
+	a->v = kad_compile(&a->n, 1, cost);
+	for (i = 0; i < a->n; ++i) {
+		if (a->v[i]->pre) has_recur = 1;
+		if (kad_is_pivot(a->v[i])) has_pivot = 1;
+	}
+	if (has_recur && !has_pivot) { // an RNN that doesn't have a pivot; then add a pivot on top of cost
+		cost->ext_flag &= ~KANN_F_COST;
+		cost = kad_avg(1, &cost), cost->ext_flag |= KANN_F_COST;
+		free(a->v);
+		a->v = kad_compile(&a->n, 1, cost);
+	}
+	kad_ext_collate(a->n, a->v, &a->x, &a->g, &a->c);
+	return a;
+}
+
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 {
-	kann_t *a = 0;
 	kad_node_t *cost = 0, *truth = 0;
-	int i, is_rnn = 0, has_pivot = 0;
-
 	assert(type == KANN_C_CEB || type == KANN_C_CEM);
+	kad_drand = kann_drand;
 	truth = kad_feed(0, 2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	t = kann_layer_linear(t, n_out);
 	if (type == KANN_C_CEB) {
@@ -321,22 +342,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 		cost = kad_ce_multi(t, truth);
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
-
-	a = (kann_t*)calloc(1, sizeof(kann_t));
-	a->v = kad_compile(&a->n, 1, cost);
-	for (i = 0; i < a->n; ++i) {
-		if (a->v[i]->pre) is_rnn = 1;
-		if (kad_is_pivot(a->v[i])) has_pivot = 1;
-	}
-	if (is_rnn && !has_pivot) { // add a pooling node if we have an RNN but without such a node
-		cost->ext_flag &= ~KANN_F_COST;
-		cost = kad_avg(1, &cost), cost->ext_flag |= KANN_F_COST;
-		free(a->v);
-		a->v = kad_compile(&a->n, 1, cost);
-	}
-	kad_ext_collate(a->n, a->v, &a->x, &a->g, &a->c);
-	kad_drand = kann_drand;
-	return a;
+	return kann_gen(cost);
 }
 
 kann_t *kann_rnn_unroll(kann_t *a, int len)
