@@ -1026,8 +1026,10 @@ int kad_op_cem(kad_node_t *p, int action)
 		e[0]->t = (float*)realloc(e[0]->t, n0 * sizeof(float));
 	} else if (action == KAD_FORWARD) {
 		double cost;
+		float max = -FLT_MAX;
 		int r = e[0]->p->d[0], c = e[0]->p->d[1];
-		for (i = 0; i < n0; ++i) e[0]->t[i] = expf(e[0]->p->x[i]); // FIXME: numerical stability!
+		for (i = 0; i < n0; ++i) max = max > e[0]->p->x[i]? max : e[0]->p->x[i];
+		for (i = 0; i < n0; ++i) e[0]->t[i] = expf(e[0]->p->x[i] - max);
 		for (j = 0, cost = 0.0; j < r; ++j) {
 			const float *x, *y;
 			float *p, lsx, sx = 0.0f, sy = 0.0f;
@@ -1038,11 +1040,10 @@ int kad_op_cem(kad_node_t *p, int action)
 				sx += p[i], sy += y[i];
 			assert(sx > 0.0 && sy > 0.0);
 			lsx = logf(sx);
-			sx = 1.0f / sx, sy = 1.0f / sy;
 			for (i = 0; i < c; ++i) {
-				float yi = y[i] * sy;
+				float yi = y[i] / sy;
 				if (yi != 0.0f) cost += yi * (logf(yi) - (x[i] - lsx));
-				p[i] = (p[i] * sx - yi) / r;
+				p[i] = (p[i] / sx - yi) / r;
 			}
 		}
 		p->x[0] = cost / r;
@@ -1128,11 +1129,12 @@ int kad_op_softmax(kad_node_t *p, int action)
 	} else if (action == KAD_FORWARD) {
 		float t1 = p->n_child >= 2 && p->child[1].p->x? 1.0f / *p->child[1].p->x : 1.0f;
 		for (j = 0; j < p->d[0]; ++j) {
-			float *x0, *x, s;
+			float *x0, *x, s, max = -FLT_MAX;
 			x0 = q->x + j * p->d[1];
 			x = p->x + j * p->d[1];
+			for (i = 0; i < p->d[1]; ++i) max = max > x0[i]? max : x0[i];
 			for (i = 0, s = 0.0f; i < p->d[1]; ++i)
-				s += (x[i] = expf(x0[i] * t1));
+				s += (x[i] = expf((x0[i] - max) * t1));
 			s = 1.0f / s;
 			for (i = 0; i < p->d[1]; ++i) x[i] *= s;
 		}
@@ -1595,7 +1597,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 void kad_trap_fe(void)
 {
 #ifdef __SSE__
-	_MM_SET_EXCEPTION_MASK(_MM_GET_EXCEPTION_MASK() & ~(_MM_MASK_INVALID | _MM_MASK_DIV_ZERO));
+	_MM_SET_EXCEPTION_MASK(_MM_GET_EXCEPTION_MASK() & ~(_MM_MASK_INVALID | _MM_MASK_DIV_ZERO | _MM_MASK_OVERFLOW));
 #endif
 }
 

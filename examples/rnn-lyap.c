@@ -19,16 +19,17 @@ float norm_vec(int n, float *t)
 
 int main(int argc, char *argv[])
 {
-	int i, j, c, l, n = 10000, burn_in = 1000;
+	int i, j, c, l, n = 10000, burn_in = 1000, print_val = 0;
 	kad_node_t *p0 = 0;
 	float eps = 1e-4, *t, *x, *h0, *h1;
 	double lyap = 0.0, lyap_prod = 1.0, lyap_t = 0.0;
 	kann_t *ann;
 	
-	while ((c = getopt(argc, argv, "n:b:e:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:b:e:p")) >= 0) {
 		if (c == 'n') n = atoi(optarg);
 		else if (c == 'b') burn_in = atoi(optarg);
 		else if (c == 'e') eps = atof(optarg);
+		else if (c == 'p') print_val = 1;
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: rnn-lyap [options] <in.knm>\n");
@@ -82,12 +83,17 @@ int main(int argc, char *argv[])
 				lyap += log(lyap_prod);
 				lyap_prod = 1.0;
 			}
+			if (print_val) {
+				printf("R\t%d\t%g", j - burn_in, norm);
+				for (i = 0; i < l; ++i) printf("\t%g", h0[i]);
+				printf("\n");
+			}
 		}
 	}
 	lyap = (lyap + log(lyap_prod)) / lyap_t;
 	kann_rnn_end(ann);
 	free(x);
-	printf("%f\n", lyap);
+	printf("L\t%f\n", lyap);
 
 	free(h1); free(h0); free(t);
 	kann_delete(ann);
