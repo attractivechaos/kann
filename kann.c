@@ -376,7 +376,11 @@ static void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
-		if ((a->v[i]->ext_flag & KANN_F_IN) || (a->v[i]->ext_flag & KANN_F_TRUTH))
+		if ((a->v[i]->ext_flag & (KANN_F_IN|KANN_F_TRUTH)) && a->v[i]->d[0] != B)
+			break;
+	if (i == a->n) return; // no need to realloc
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->ext_flag & (KANN_F_IN|KANN_F_TRUTH))
 			a->v[i]->d[0] = B;
 	for (i = 0; i < a->n; ++i) {
 		kad_node_t *p = a->v[i];
@@ -752,7 +756,7 @@ void kann_rnn_start(kann_t *a)
 
 void kann_rnn_end(kann_t *a)
 {
-	kad_ext_sync(a->n, a->v, a->x, a->g, a->x);
+	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
 }
 
 float *kann_rnn_apply_seq1(kann_t *a, int len, float *x)
