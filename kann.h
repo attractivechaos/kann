@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r285"
+#define KANN_VERSION "r286"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -129,7 +129,7 @@ void kann_srand(uint64_t seed);
 uint64_t kann_rand(void);
 double kann_drand(void);
 double kann_normal(void);
-void kann_rand_weight(int n_row, int n_col, float *w);
+void kann_normal_array(float sigma, int n, float *x);
 
 #ifdef __cplusplus
 }

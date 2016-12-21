@@ -132,17 +132,13 @@ void kann_shuffle(int n, float **x, float **y, char **rname)
 	free(s);
 }
 
-void kann_rand_weight(int n_row, int n_col, float *w)
+void kann_normal_array(float sigma, int n, float *x)
 {
-	int i, j;
-	double s;
+	int i;
+	double s = 1.0 / sigma;
 	kann_rand_t *r = &kann_rng;
-
-	s = 1.0 / sqrt(n_col);
 	while (__sync_lock_test_and_set(&r->lock, 1));
-	for (i = 0; i < n_row; ++i)
-		for (j = 0; j < n_col; ++j)
-			w[i*n_col+j] = kann_normal_unsafe(r) * s;
+	for (i = 0; i < n; ++i) x[i] = kann_normal_unsafe(r) * s;
 	__sync_lock_release(&r->lock);
 }
 
@@ -155,7 +151,7 @@ kad_node_t *kann_new_weight(int n_row, int n_col)
 	kad_node_t *w;
 	w = kad_var(0, 0, 2, n_row, n_col);
 	w->x = (float*)malloc(n_row * n_col * sizeof(float));
-	kann_rand_weight(n_row, n_col, w->x);
+	kann_normal_array(sqrt(n_col), n_row * n_col, w->x);
 	return w;
 }
 
@@ -172,7 +168,7 @@ kad_node_t *kann_new_weight_conv2d(int n_out, int n_in, int k_row, int k_col)
 	kad_node_t *w;
 	w = kad_var(0, 0, 4, n_out, n_in, k_row, k_col);
 	w->x = (float*)malloc(kad_len(w) * sizeof(float));
-	kann_rand_weight(n_out, n_in * k_row * k_col, w->x);
+	kann_normal_array(sqrt(n_in * k_row * k_col), n_out * n_in * k_row * k_col, w->x);
 	return w;
 }
 
@@ -181,7 +177,7 @@ kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len)
 	kad_node_t *w;
 	w = kad_var(0, 0, 3, n_out, n_in, kernel_len);
 	w->x = (float*)malloc(kad_len(w) * sizeof(float));
-	kann_rand_weight(n_out, n_in * kernel_len, w->x);
+	kann_normal_array(sqrt(n_in * kernel_len), n_out * n_in * kernel_len, w->x);
 	return w;
 }
 
