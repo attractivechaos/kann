@@ -1005,8 +1005,10 @@ int kad_op_ce_bin(kad_node_t *p, int action)
 		p->x[0] = cost / n;
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = p->g[0] / n;
-		for (i = 0; i < n; ++i)
-			y1->g[i] += t * (y1->x[i] - y0->x[i]) / ((y1->x[i] > tiny? y1->x[i] : tiny) * (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
+		for (i = 0; i < n; ++i) {
+			y1->g[i] -= t * y0->x[i] / (y1->x[i] > tiny? y1->x[i] : tiny);
+			y1->g[i] += t * (1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny);
+		}
 	}
 	return 0;
 }
