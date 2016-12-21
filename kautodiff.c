@@ -96,6 +96,7 @@ KAD_FUNC_OP2(kad_matmul, 9)
 KAD_FUNC_OP2(kad_ce_softmax, 12)
 KAD_FUNC_OP2(kad_ce_multi, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
+KAD_FUNC_OP2(kad_ce_bin, 22)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
@@ -1060,9 +1061,37 @@ int kad_op_ce_softmax(kad_node_t *p, int action) // TODO: cleanup the code; kad_
 	return 0;
 }
 
+int kad_op_ce_bin(kad_node_t *p, int action)
+{
+	static const float tiny = 1e-9f;
+	kad_node_t *y1 = p->child[0].p; // test
+	kad_node_t *y0 = p->child[1].p; // truth
+	int i, n;
+
+	n = kad_len(y0);
+	if (action == KAD_SYNC_DIM) {
+		if (n != kad_len(y1)) return -1;
+		p->n_d = 0;
+	} else if (action == KAD_FORWARD) {
+		double cost = 0.0;
+		for (i = 0; i < n; ++i) {
+			if (y0->x[i] > 0.0f)
+				cost += y0->x[i] * log(y0->x[i] / (y1->x[i] > tiny? y1->x[i] : tiny));
+			if (1.0f - y0->x[i] > 0.0f)
+				cost += (1.0f - y0->x[i]) * log((1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
+		}
+		p->x[0] = cost / n;
+	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
+		float t = p->g[0] / n;
+		for (i = 0; i < n; ++i)
+			y1->g[i] += t * (y1->x[i] - y0->x[i]) / ((y1->x[i] > tiny? y1->x[i] : tiny) * (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
+	}
+	return 0;
+}
+
 int kad_op_ce_multi(kad_node_t *p, int action)
 {
-	static const float tiny = 1e-9;
+	static const float tiny = 1e-9f;
 	kad_node_t *y1 = p->child[0].p; // test
 	kad_node_t *y0 = p->child[1].p; // truth
 	int i, j, n1;
@@ -1082,11 +1111,11 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 		}
 		p->x[0] = cost / y0->d[0];
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
-		float t = 1.0f / y0->d[0];
+		float t = p->g[0] / y0->d[0];
 		for (j = 0; j < y0->d[0]; ++j) {
 			float *g = &y1->g[j * n1], *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
 			for (i = 0; i < n1; ++i)
-				g[i] -= p->g[0] * x0[i] / (x1[i] > tiny? x1[i] : tiny) * t;
+				g[i] -= t * x0[i] / (x1[i] > tiny? x1[i] : tiny);
 		}
 	}
 	return 0;
@@ -1105,11 +1134,9 @@ int kad_op_sigm(kad_node_t *p, int action)
 		for (i = 0; i < n; ++i)
 			p->x[i] = 1.0f / (1.0f + expf(-q->x[i]));
 	} else if (action == KAD_BACKWARD) {
-		if (kad_is_back(q)) {
-			float s = 1.0f / n;
+		if (kad_is_back(q))
 			for (i = 0; i < n; ++i)
-				q->g[i] += s * p->g[i] * (p->x[i] * (1.0f - p->x[i]));
-		}
+				q->g[i] += p->g[i] * (p->x[i] * (1.0f - p->x[i]));
 	}
 	return 0;
 }
@@ -1634,7 +1661,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_conv1d,     // 18: 1D convolution
 	kad_op_max1d,      // 19: 1D max pooling (for 1D ConvNet)
 	kad_op_split,      // 20: split data at a dimension
-	kad_op_max         // 21: general max pooling
+	kad_op_max,        // 21: general max pooling
+	kad_op_ce_bin      // 22: binary cross-entropy only
 };
 
 /**************************
@@ -1651,7 +1679,7 @@ void kad_trap_fe(void)
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_sigm", "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "ce_softmax", "ce_multi", "softmax",
-								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max" };
+								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max", "ce_bin" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
