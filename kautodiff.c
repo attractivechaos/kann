@@ -292,31 +292,38 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 	int i;
 	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
 
-	// generate kad_node_t::tmp
-	for (i = 0; i < n_roots; ++i) kv_push(kad_node_p, stack, roots[i]);
+	// generate kad_node_t::tmp, the count of the parent nodes; shifted by 1; lowest bit to detect fake roots
+	for (i = 0; i < n_roots; ++i) {
+		roots[i]->tmp = 1; // mark the root
+		kv_push(kad_node_p, stack, roots[i]);
+	}
 	while (stack.n) {
 		kad_node_t *p = kv_pop(stack);
 		for (i = 0; i < p->n_child; ++i) {
 			kad_node_t *q = p->child[i].p;
 			if (q->tmp == 0) kv_push(kad_node_p, stack, q);
-			++q->tmp;
+			q->tmp += 1<<1;
 		}
 	}
-	for (i = 0; i < n_roots; ++i) // check if roots are really roots
-		assert(roots[i]->tmp == 0);
 
 	// topological sorting (Kahn's algorithm)
-	for (i = 0; i < n_roots; ++i) kv_push(kad_node_p, stack, roots[i]);
+	for (i = 0; i < n_roots; ++i)
+		if (roots[i]->tmp>>1 == 0) // if roots[i]->tmp>>1 != 0, it is not a real root
+			kv_push(kad_node_p, stack, roots[i]);
 	while (stack.n) {
 		kad_node_t *p = kv_pop(stack);
 		kv_push(kad_node_p, a, p);
-		for (i = 0; i < p->n_child; ++i)
-			if (--p->child[i].p->tmp == 0)
+		for (i = 0; i < p->n_child; ++i) {
+			p->child[i].p->tmp -= 1<<1;
+			if (p->child[i].p->tmp>>1 == 0)
 				kv_push(kad_node_p, stack, p->child[i].p);
+		}
 	}
 	free(stack.a);
-	for (i = 0; i < a.n; ++i) // check cycles; no cycles if constructed with kad_add() etc
-		assert(a.a[i]->tmp == 0);
+	for (i = 0; i < a.n; ++i) { // check cycles; no cycles if constructed with kad_add() etc
+		assert(a.a[i]->tmp>>1 == 0);
+		a.a[i]->tmp = 0;
+	}
 
 	// post-processing: reverse, mark back flag and allocate memory for internal nodes
 	for (i = 0; i < a.n>>1; ++i) { // reverse a.a[]
@@ -1071,16 +1078,15 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 			float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
 			for (i = 0; i < n1; ++i)
 				if (x0[i] > 0.0f)
-					cost += x0[i] * log((x1[i] > tiny? x1[i] : tiny) / x0[i]);
+					cost += x0[i] * log(x0[i] / (x1[i] > tiny? x1[i] : tiny));
 		}
 		p->x[0] = cost / y0->d[0];
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = 1.0f / y0->d[0];
 		for (j = 0; j < y0->d[0]; ++j) {
-			float *g = &p->g[j * n1], *h = &y1->g[j * n1];
-			float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+			float *g = &y1->g[j * n1], *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
 			for (i = 0; i < n1; ++i)
-				h[i] += g[i] * x0[i] / (x1[i] > tiny? x1[i] : tiny) * t;
+				g[i] -= p->g[0] * x0[i] / (x1[i] > tiny? x1[i] : tiny) * t;
 		}
 	}
 	return 0;
