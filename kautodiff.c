@@ -91,9 +91,7 @@ static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 KAD_FUNC_OP2(kad_add, 1)
 KAD_FUNC_OP2(kad_mul, 2)
 KAD_FUNC_OP2(kad_cmul, 3)
-KAD_FUNC_OP2(kad_ce_sigm, 4)
 KAD_FUNC_OP2(kad_matmul, 9)
-KAD_FUNC_OP2(kad_ce_softmax, 12)
 KAD_FUNC_OP2(kad_ce_multi, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
 KAD_FUNC_OP2(kad_ce_bin, 22)
@@ -985,82 +983,6 @@ int kad_op_split(kad_node_t *p, int action)
 
 /////////// Binary and multi-class cross-entropy ///////////
 
-int kad_op_ce_sigm(kad_node_t *p, int action)
-{
-	static const float tiny = 1e-9f;
-	kad_edge_t *e[2];
-	int i, n0, n1;
-
-	e[0] = &p->child[0], e[1] = &p->child[1];
-	n0 = kad_len(e[0]->p);
-	n1 = kad_len(e[1]->p);
-	if (action == KAD_SYNC_DIM) {
-		if (n0 != n1) return -1;
-		p->n_d = 0;
-	} else if (action == KAD_ALLOC) {
-		if (kad_is_back(e[0]->p))
-			e[0]->t = (float*)realloc(e[0]->t, n0 * sizeof(float));
-	} else if (action == KAD_FORWARD) {
-		const float *x, *y;
-		double s;
-		x = e[0]->p->x, y = e[1]->p->x;
-		for (i = 0, s = 0.0; i < n0; ++i) {
-			float t, y1 = 1.0f - y[i];
-			t = 1.0f / (1.0f + expf(-x[i]));
-			if (kad_is_back(e[0]->p)) e[0]->t[i] = (t - y[i]) / n0;
-			s -= (y[i] == 0.0f? 0.0f : y[i] * logf(t / y[i] + tiny)) + (y1 == 0.0f? 0.0f : y1 * logf((1.0f - t) / y1 + tiny));
-		}
-		p->x[0] = s / n0;
-	} else if (action == KAD_BACKWARD) {
-		if (kad_is_back(e[0]->p))
-			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
-	}
-	return 0;
-}
-
-int kad_op_ce_softmax(kad_node_t *p, int action) // TODO: cleanup the code; kad_op_ce_multi() is cleaner
-{
-	kad_edge_t *e[2];
-	int i, j, n0, n1;
-
-	e[0] = &p->child[0], e[1] = &p->child[1];
-	assert(e[0]->p->n_d == 2);
-	n0 = kad_len(e[0]->p);
-	n1 = kad_len(e[1]->p);
-	if (action == KAD_SYNC_DIM) {
-		if (n0 != n1) return -1;
-		p->n_d = 0;
-	} else if (action == KAD_ALLOC) {
-		e[0]->t = (float*)realloc(e[0]->t, n0 * sizeof(float));
-	} else if (action == KAD_FORWARD) {
-		double cost;
-		float max = -FLT_MAX;
-		int r = e[0]->p->d[0], c = e[0]->p->d[1];
-		for (i = 0; i < n0; ++i) max = max > e[0]->p->x[i]? max : e[0]->p->x[i];
-		for (i = 0; i < n0; ++i) e[0]->t[i] = expf(e[0]->p->x[i] - max);
-		for (j = 0, cost = 0.0; j < r; ++j) {
-			const float *x, *y;
-			float *p, lsx, sx = 0.0f, sy = 0.0f;
-			x = e[0]->p->x + j * c;
-			y = e[1]->p->x + j * c;
-			p = e[0]->t + j * c;
-			for (i = 0; i < c; ++i)
-				sx += p[i], sy += y[i];
-			lsx = logf(sx) + max;
-			for (i = 0; i < c; ++i) {
-				float yi = y[i] / sy;
-				if (yi != 0.0f) cost += yi * (logf(yi) - (x[i] - lsx));
-				p[i] = (p[i] / sx - yi) / r;
-			}
-		}
-		p->x[0] = cost / r;
-	} else if (action == KAD_BACKWARD) {
-		if (kad_is_back(e[0]->p))
-			kad_saxpy(n0, p->g[0], e[0]->t, e[0]->p->g);
-	}
-	return 0;
-}
-
 int kad_op_ce_bin(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
@@ -1644,7 +1566,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_add,        // 1:  element-wise addition
 	kad_op_mul,        // 2:  element-wise multiplication
 	kad_op_cmul,       // 3:  column multiplication
-	kad_op_ce_sigm,    // 4:  binary cross-entroy combined with sigmoid activation
+	0,
 	kad_op_norm2,      // 5:  L2-norm
 	kad_op_sigm,       // 6:  sigmoid
 	kad_op_tanh,       // 7:  tanh
@@ -1652,8 +1574,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_matmul,     // 9:  matrix multiplication
 	kad_op_avg,        // 10: general average pooling (not for ConvNet)
 	kad_op_1minus,     // 11: 1-x
-	kad_op_ce_softmax, // 12: multi-class cross-entropy combined with softmax activation
-	kad_op_ce_multi,   // 13: multi-class cross-entropy only
+	0,
+	kad_op_ce_multi,   // 13: multi-class cross-entropy
 	kad_op_softmax,    // 14: softmax
 	kad_op_dropout,    // 15: dropout
 	kad_op_conv2d,     // 16: 2D convolution
@@ -1678,7 +1600,7 @@ void kad_trap_fe(void)
 
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { 0, "add", "mul", "cmul", "ce_sigm", "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "ce_softmax", "ce_multi", "softmax",
+	static const char *op[] = { 0, "add", "mul", "cmul", 0, "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", 0, "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max", "ce_bin" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;

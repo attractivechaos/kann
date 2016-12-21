@@ -310,21 +310,20 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	truth = kad_feed(0, 2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	t = kann_layer_linear(t, n_out);
 	if (type == KANN_C_CEB) {
-		cost = kad_ce_sigm(t, truth);
 		t = kad_sigm(t);
+		cost = kad_ce_bin(t, truth);
 	} else if (type == KANN_C_CEM) {
 		kad_node_t *t1;
 		t1 = kad_const(0, 0), t1->ext_flag |= KANN_F_TEMP;
 		t1->x = (float*)calloc(1, sizeof(float));
 		*t1->x = 1.0f;
-		t = kad_mul(t, t1);
-		cost = kad_ce_softmax(t, truth);
-		t = kad_softmax(t);
+		t = kad_softmax(kad_mul(t, t1));
+		cost = kad_ce_multi(t, truth);
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
 
 	a = (kann_t*)calloc(1, sizeof(kann_t));
-	a->v = kad_compile(&a->n, 2, t, cost);
+	a->v = kad_compile(&a->n, 1, cost);
 	for (i = 0; i < a->n; ++i) {
 		if (a->v[i]->pre) is_rnn = 1;
 		if (kad_is_pivot(a->v[i])) has_pivot = 1;
@@ -333,7 +332,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 		cost->ext_flag &= ~KANN_F_COST;
 		cost = kad_avg(1, &cost), cost->ext_flag |= KANN_F_COST;
 		free(a->v);
-		a->v = kad_compile(&a->n, 2, t, cost);
+		a->v = kad_compile(&a->n, 1, cost);
 	}
 	kad_ext_collate(a->n, a->v, &a->x, &a->g, &a->c);
 	kad_drand = kann_drand;
