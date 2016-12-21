@@ -1056,11 +1056,11 @@ int kad_op_ce_softmax(kad_node_t *p, int action) // TODO: cleanup the code; kad_
 int kad_op_ce_multi(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9;
-	kad_node_t *y1, *y0;
+	kad_node_t *y1 = p->child[0].p; // test
+	kad_node_t *y0 = p->child[1].p; // truth
 	int i, j, n1;
 
 	assert(y0->n_d >= 2);
-	y0 = p->child[1]->p, y1 = p->child[0]->p; // y0 is the truth
 	n1 = kad_len(y0) / y0->d[0];
 	if (action == KAD_SYNC_DIM) {
 		if (kad_len(y0) != kad_len(y1) || y0->d[0] != y1->d[0]) return -1;
@@ -1077,7 +1077,7 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = 1.0f / y0->d[0];
 		for (j = 0; j < y0->d[0]; ++j) {
-			float *g = &p->g[j * n1], *h = y1->g[j * n1];
+			float *g = &p->g[j * n1], *h = &y1->g[j * n1];
 			float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
 			for (i = 0; i < n1; ++i)
 				h[i] += g[i] * x0[i] / (x1[i] > tiny? x1[i] : tiny) * t;
