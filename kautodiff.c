@@ -1039,7 +1039,7 @@ int kad_op_cem(kad_node_t *p, int action)
 			for (i = 0; i < c; ++i)
 				sx += p[i], sy += y[i];
 			assert(sx > 0.0 && sy > 0.0);
-			lsx = logf(sx);
+			lsx = logf(sx) + max;
 			for (i = 0; i < c; ++i) {
 				float yi = y[i] / sy;
 				if (yi != 0.0f) cost += yi * (logf(yi) - (x[i] - lsx));
