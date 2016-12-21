@@ -310,14 +310,14 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 	truth = kad_feed(0, 2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	t = kann_layer_linear(t, n_out);
 	if (type == KANN_C_CEB) {
-		cost = kad_ceb(t, truth);
+		cost = kad_ce_sigm(t, truth);
 		t = kad_sigm(t);
 	} else if (type == KANN_C_CEM) {
 		kad_node_t *temp;
 		temp = kad_const(0, 0), temp->ext_flag |= KANN_F_TEMP;
 		temp->x = (float*)calloc(1, sizeof(float));
 		*temp->x = 1.0f;
-		cost = kad_cem(t, truth);
+		cost = kad_ce_softmax(t, truth);
 		t = kad_softmax2(t, temp);
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
