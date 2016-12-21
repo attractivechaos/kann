@@ -94,7 +94,6 @@ KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_ce_sigm, 4)
 KAD_FUNC_OP2(kad_matmul, 9)
 KAD_FUNC_OP2(kad_ce_softmax, 12)
-KAD_FUNC_OP2(kad_softmax2, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
@@ -1038,7 +1037,6 @@ int kad_op_ce_softmax(kad_node_t *p, int action)
 			p = e[0]->t + j * c;
 			for (i = 0; i < c; ++i)
 				sx += p[i], sy += y[i];
-			assert(sx > 0.0 && sy > 0.0);
 			lsx = logf(sx) + max;
 			for (i = 0; i < c; ++i) {
 				float yi = y[i] / sy;
@@ -1129,25 +1127,23 @@ int kad_op_softmax(kad_node_t *p, int action)
 	if (action == KAD_SYNC_DIM) {
 		kad_sync_dim1(p, e->p);
 	} else if (action == KAD_FORWARD) {
-		float t1 = p->n_child >= 2 && p->child[1].p->x? 1.0f / *p->child[1].p->x : 1.0f;
 		for (j = 0; j < p->d[0]; ++j) {
 			float s, max, *x = &e->p->x[j * n1], *y = &p->x[j * n1];
 			for (i = 0, max = -FLT_MAX; i < n1; ++i)
 				max = max > x[i]? max : x[i];
 			for (i = 0, s = 0.0f; i < n1; ++i) {
-				y[i] = expf((x[i] - max) * t1);
+				y[i] = expf(x[i] - max);
 				s += y[i];
 			}
 			for (i = 0, s = 1.0f / s; i < n1; ++i) y[i] *= s;
 		}
 	} else if (action == KAD_BACKWARD && kad_is_back(e->p)) {
-		float t1 = p->n_child >= 2 && p->child[1].p->x? 1.0f / *p->child[1].p->x : 1.0f;
 		for (j = 0; j < p->d[0]; ++j) {
 			float s, *g = &p->g[j * n1], *y = &p->x[j * n1], *h = &e->p->g[j * n1];
 			for (i = 0, s = 0.0f; i < n1; ++i)
 				s += g[i] * y[i];
 			for (i = 0; i < n1; ++i)
-				h[i] += y[i] * (g[i] - s) * t1;
+				h[i] += y[i] * (g[i] - s);
 		}
 	}
 	return 0;
@@ -1590,8 +1586,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_avg,        // 10: general average pooling (not for ConvNet)
 	kad_op_1minus,     // 11: 1-x
 	kad_op_ce_softmax, // 12: multi-class cross-entropy for softmax activation
-	kad_op_softmax,    // 13: softmax without temperature
-	kad_op_softmax,    // 14: softmax with temperature
+	0,
+	kad_op_softmax,    // 14: softmax
 	kad_op_dropout,    // 15: dropout
 	kad_op_conv2d,     // 16: 2D convolution
 	kad_op_max2d,      // 17: 2D max pooling (for 2D ConvNet)
@@ -1614,8 +1610,8 @@ void kad_trap_fe(void)
 
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { 0, "add", "mul", "cmul", "ceb", "norm2", "sigm", "tanh", "relu", 0, "avg", "1minus", "cem", "softmax2", "softmax",
-								"dropout", "conv2d", "max2d", "conv1d", "max1d", "subset", "max" };
+	static const char *op[] = { 0, "add", "mul", "cmul", "ce_sigm", "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "ce_softmax", 0, "softmax",
+								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {

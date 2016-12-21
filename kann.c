@@ -313,12 +313,13 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 		cost = kad_ce_sigm(t, truth);
 		t = kad_sigm(t);
 	} else if (type == KANN_C_CEM) {
-		kad_node_t *temp;
-		temp = kad_const(0, 0), temp->ext_flag |= KANN_F_TEMP;
-		temp->x = (float*)calloc(1, sizeof(float));
-		*temp->x = 1.0f;
+		kad_node_t *t1;
+		t1 = kad_const(0, 0), t1->ext_flag |= KANN_F_TEMP;
+		t1->x = (float*)calloc(1, sizeof(float));
+		*t1->x = 1.0f;
+		t = kad_mul(t, t1);
 		cost = kad_ce_softmax(t, truth);
-		t = kad_softmax2(t, temp);
+		t = kad_softmax(t);
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
 

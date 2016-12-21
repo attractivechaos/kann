@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r291"
+#define KAD_VERSION "r292"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -110,7 +110,6 @@ kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // f(x,y) = x * y^T     (co
 kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y);// f(x,y) = x * y
 kad_node_t *kad_ce_sigm(kad_node_t *x, kad_node_t *y);    // f(x,y) = \sum_i -y_i*log(s(x_i)) - (1-y_i)*log(1-s(x_i))  (s() is sigmoid; binary cross-entropy for sigmoid; only x differentiable)
 kad_node_t *kad_ce_softmax(kad_node_t *x, kad_node_t *y); // f(x,y) = - \sum_i -y_i*log(s(x_i))  (s() is softmax; cross-entropy for softmax; only x differentiable)
-kad_node_t *kad_softmax2(kad_node_t *x, kad_node_t *y); // softmax with temperature
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end);
 kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);
@@ -124,7 +123,7 @@ kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (el
 kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
-kad_node_t *kad_softmax(kad_node_t *x);// softmax without temperature (i.e. temperature==1)
+kad_node_t *kad_softmax(kad_node_t *x);// softmax
 
 // operators taking an indefinite number of operands (mostly for pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (mean pooling)
