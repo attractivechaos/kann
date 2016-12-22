@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 		kann_data_free(out);
 	} else { // apply
 		int n_out;
-		kann_set_by_flag(ann, KANN_F_DROPOUT, 0.0f);
+		kann_set_scalar(ann, KANN_F_DROPOUT, 0.0f);
 		n_out = kann_n_out(ann);
 		for (i = 0; i < in->n_row; ++i) {
 			const float *y;

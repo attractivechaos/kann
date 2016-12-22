@@ -370,7 +370,7 @@ void kann_delete(kann_t *a)
 	kann_delete_unrolled(a);
 }
 
-void kann_set_by_flag(kann_t *a, int flag, float z)
+void kann_set_scalar(kann_t *a, int flag, float z)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
@@ -398,7 +398,7 @@ static void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
-int kann_bind_by_flag(kann_t *a, int flag, float **x)
+int kann_bind_feed(kann_t *a, int flag, float **x)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
@@ -602,13 +602,13 @@ static inline int kann_get_cost_node(kann_t *a)
 	return i_cost;
 }
 
-float kann_grad(kann_t *a)
+float kann_cost(kann_t *a, int cal_grad)
 {
 	int i_cost;
 	float cost;
 	i_cost = kann_get_cost_node(a);
 	cost = *kad_eval_at(a->n, a->v, i_cost);
-	kad_grad(a->n, a->v, i_cost);
+	if (cal_grad) kad_grad(a->n, a->v, i_cost);
 	return cost;
 }
 
@@ -618,8 +618,8 @@ static float kann_fnn_process_mini(kann_t *a, kann_min_t *m, int bs, float **x, 
 	float cost;
 	i_cost = kann_get_cost_node(a);
 	kann_set_batch_size(a, bs);
-	kann_bind_by_flag(a, KANN_F_IN, x);
-	kann_bind_by_flag(a, KANN_F_TRUTH, y);
+	kann_bind_feed(a, KANN_F_IN, x);
+	kann_bind_feed(a, KANN_F_TRUTH, y);
 	cost = *kad_eval_at(a->n, a->v, i_cost);
 	if (a->v[i_cost]->op == 10) {
 		for (i = 0; i < a->v[i_cost]->n_child; ++i)
@@ -738,7 +738,7 @@ const float *kann_apply1(kann_t *a, float *x)
 {
 	int i;
 	kann_set_batch_size(a, 1);
-	kann_bind_by_flag(a, KANN_F_IN, &x);
+	kann_bind_feed(a, KANN_F_IN, &x);
 	kad_eval_flag(a->n, a->v, KANN_F_OUT);
 	for (i = 0; i < a->n; ++i)
 		if (a->v[i]->ext_flag & KANN_F_OUT)
