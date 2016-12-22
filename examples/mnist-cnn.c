@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	kad_trap_fe();
 	kann_srand(seed);
 	if (fn_in) {
-		ann = kann_read(fn_in);
+		ann = kann_load(fn_in);
 	} else {
 		kad_node_t *t;
 		t = kad_feed(0, 4, 1, 1, 28, 28), t->ext_flag |= KANN_F_IN;
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 	if (y) { // training
 		assert(y->n_col == 10);
 		kann_fnn_train(&mo, ann, x->n_row, x->x, y->x);
-		if (fn_out) kann_write(fn_out, ann);
+		if (fn_out) kann_save(fn_out, ann);
 		kann_data_free(y);
 	} else { // applying
 		int i, j, n_out;

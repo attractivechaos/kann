@@ -844,24 +844,24 @@ void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **
 
 #define KANN_MAGIC "KAN\1"
 
-void kann_write_core(FILE *fp, kann_t *ann)
+void kann_save_fp(FILE *fp, kann_t *ann)
 {
 	kann_set_batch_size(ann, 1);
 	fwrite(KANN_MAGIC, 1, 4, fp);
-	kad_write(fp, ann->n, ann->v);
+	kad_save(fp, ann->n, ann->v);
 	fwrite(ann->x, sizeof(float), kad_n_var(ann->n, ann->v), fp);
 	fwrite(ann->c, sizeof(float), kad_n_const(ann->n, ann->v), fp);
 }
 
-void kann_write(const char *fn, kann_t *ann)
+void kann_save(const char *fn, kann_t *ann)
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
-	kann_write_core(fp, ann);
+	kann_save_fp(fp, ann);
 	fclose(fp);
 }
 
-kann_t *kann_read_core(FILE *fp)
+kann_t *kann_load_fp(FILE *fp)
 {
 	char magic[4];
 	kann_t *ann;
@@ -873,7 +873,7 @@ kann_t *kann_read_core(FILE *fp)
 		return 0;
 	}
 	ann = (kann_t*)calloc(1, sizeof(kann_t));
-	ann->v = kad_read(fp, &ann->n);
+	ann->v = kad_load(fp, &ann->n);
 	n_var = kad_n_var(ann->n, ann->v);
 	n_const = kad_n_const(ann->n, ann->v);
 	ann->x = (float*)malloc(n_var * sizeof(float));
@@ -885,12 +885,12 @@ kann_t *kann_read_core(FILE *fp)
 	return ann;
 }
 
-kann_t *kann_read(const char *fn)
+kann_t *kann_load(const char *fn)
 {
 	FILE *fp;
 	kann_t *ann;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
-	ann = kann_read_core(fp);
+	ann = kann_load_fp(fp);
 	fclose(fp);
 	return ann;
 }

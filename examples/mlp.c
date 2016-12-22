@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 	kann_srand(seed);
 	in = kann_data_read(argv[optind]);
 	if (in_fn) {
-		ann = kann_read(in_fn);
+		ann = kann_load(in_fn);
 		assert(kann_n_in(ann) == in->n_col);
 	}
 
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 		if (ann) assert(kann_n_out(ann) == out->n_col);
 		else ann = model_gen(in->n_col, out->n_col, n_h_layers, n_h_neurons, h_dropout);
 		kann_fnn_train(&mo, ann, in->n_row, in->x, out->x);
-		if (out_fn) kann_write(out_fn, ann);
+		if (out_fn) kann_save(out_fn, ann);
 		kann_data_free(out);
 	} else { // apply
 		int n_out;

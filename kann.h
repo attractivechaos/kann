@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r298"
+#define KANN_VERSION "r301"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -120,10 +120,10 @@ float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
 void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 
 // model I/O
-void kann_write_core(FILE *fp, kann_t *ann);
-void kann_write(const char *fn, kann_t *ann);
-kann_t *kann_read_core(FILE *fp);
-kann_t *kann_read(const char *fn);
+void kann_save_fp(FILE *fp, kann_t *ann);
+void kann_save(const char *fn, kann_t *ann);
+kann_t *kann_load_fp(FILE *fp);
+kann_t *kann_load(const char *fn);
 
 // pseudo-random number generator
 void kann_srand(uint64_t seed);

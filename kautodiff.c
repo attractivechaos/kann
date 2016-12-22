@@ -490,7 +490,7 @@ void kad_grad(int n, kad_node_t **a, int from)
  * Load and save graph *
  ***********************/
 
-static void kad_write1(FILE *fp, const kad_node_t *p)
+static void kad_save1(FILE *fp, const kad_node_t *p)
 {
 	fwrite(&p->ext_label, 4, 1, fp);
 	fwrite(&p->ext_flag, 4, 1, fp);
@@ -511,7 +511,7 @@ static void kad_write1(FILE *fp, const kad_node_t *p)
 	}
 }
 
-static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
+static kad_node_t *kad_load1(FILE *fp, kad_node_t **node)
 {
 	kad_node_t *p;
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
@@ -541,17 +541,17 @@ static kad_node_t *kad_read1(FILE *fp, kad_node_t **node)
 	return p;
 }
 
-int kad_write(FILE *fp, int n_node, kad_node_t **node)
+int kad_save(FILE *fp, int n_node, kad_node_t **node)
 {
 	int32_t i, k = n_node;
 	fwrite(&k, 4, 1, fp);
 	for (i = 0; i < n_node; ++i) node[i]->tmp = i;
-	for (i = 0; i < n_node; ++i) kad_write1(fp, node[i]);
+	for (i = 0; i < n_node; ++i) kad_save1(fp, node[i]);
 	for (i = 0; i < n_node; ++i) node[i]->tmp = 0;
 	return 0;
 }
 
-kad_node_t **kad_read(FILE *fp, int *_n_node)
+kad_node_t **kad_load(FILE *fp, int *_n_node)
 {
 	int32_t i, n_node;
 	kad_node_t **node;
@@ -559,7 +559,7 @@ kad_node_t **kad_read(FILE *fp, int *_n_node)
 	node = (kad_node_t**)malloc(n_node * sizeof(kad_node_t*));
 	for (i = 0; i < n_node; ++i) {
 		kad_node_t *p;
-		p = node[i] = kad_read1(fp, node);
+		p = node[i] = kad_load1(fp, node);
 		if (p->n_child) {
 			kad_op_list[p->op](p, KAD_ALLOC);
 			kad_op_list[p->op](p, KAD_SYNC_DIM);

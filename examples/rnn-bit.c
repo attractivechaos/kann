@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
 	kann_srand(seed);
 	if (fn_in) { // then read the network from file
-		ann = kann_read(fn_in);
+		ann = kann_load(fn_in);
 	} else { // model generation
 		kad_node_t *t;
 		t = kann_layer_input(RN_N_IN*2);
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 		ann = kann_layer_final(t, RN_N_OUT*2, KANN_C_CEB);
 	}
 	kann_train(&mo, ann, data_reader, &conf);
-	if (fn_out) kann_write(fn_out, ann);
+	if (fn_out) kann_save(fn_out, ann);
 
 	for (i = n_err = 0; i < conf.tot[1]; ++i) { // apply to 64-bit integers for testing
 		uint64_t a, b, c;

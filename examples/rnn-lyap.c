@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	ann = kann_read(argv[optind]);
+	ann = kann_load(argv[optind]);
 	for (i = 0; i < ann->n; ++i) {
 		kad_node_t *p = ann->v[i];
 		if (p->pre) {

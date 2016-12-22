@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 		gen_num(bit_len, &ta[i], &tb[i], &tc[i]);
 
 	if (fn_in) {
-		ann = kann_read(fn_in);
+		ann = kann_load(fn_in);
 	} else {
 		kad_node_t *t;
 		t = kann_layer_input(4);
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 	}
 	mo.max_rnn_len = bit_len;
 	kann_train(&mo, ann, bit_reader, 0);
-	if (fn_out) kann_write(fn_out, ann);
+	if (fn_out) kann_save(fn_out, ann);
 
 	x = (float*)calloc(bit_len * 4, sizeof(float));
 	for (k = 0; k < n_print; ++k) {

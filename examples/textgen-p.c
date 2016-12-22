@@ -176,7 +176,7 @@ static void textgen_write(const char *fn, kann_t *ann, int map[MAX_CHAR])
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
-	kann_write_core(fp, ann);
+	kann_save_fp(fp, ann);
 	fwrite(map, sizeof(int), MAX_CHAR, fp);
 	fclose(fp);
 }
@@ -186,7 +186,7 @@ static kann_t *textgen_read(const char *fn, int map[MAX_CHAR])
 	FILE *fp;
 	kann_t *ann;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
-	ann = kann_read_core(fp);
+	ann = kann_load_fp(fp);
 	fread(map, sizeof(int), MAX_CHAR, fp);
 	fclose(fp);
 	return ann;

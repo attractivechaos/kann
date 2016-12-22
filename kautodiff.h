@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r299"
+#define KAD_VERSION "r301"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -147,8 +147,8 @@ void kad_ext_sync(int n, kad_node_t **v, float *x, float *g, float *c);
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
 
 // graph I/O
-int kad_write(FILE *fp, int n_node, kad_node_t **node);
-kad_node_t **kad_read(FILE *fp, int *_n_node);
+int kad_save(FILE *fp, int n_node, kad_node_t **node);
+kad_node_t **kad_load(FILE *fp, int *_n_node);
 
 // debugging routines
 void kad_trap_fe(void); // abort on divide-by-zero and NaN

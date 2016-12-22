@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: inspect [-l len] <in.knm>\n");
 		return 1;
 	}
-	ann = kann_read(argv[optind]);
+	ann = kann_load(argv[optind]);
 	if (len > 0 && !kann_is_rnn(ann))
 		fprintf(stderr, "WARNING: the input graph does not represent an RNN; can't unroll.\n");
 	if (len > 0 && kann_is_rnn(ann)) {
