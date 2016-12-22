@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r301"
+#define KAD_VERSION "r304"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -128,6 +128,7 @@ kad_node_t *kad_softmax(kad_node_t *x);// softmax
 // operators taking an indefinite number of operands (mostly for pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (mean pooling)
 kad_node_t *kad_max(int n, kad_node_t **x);
+kad_node_t *kad_switch(kad_node_t *x, int n, kad_node_t **p); // manually (as a hyperparameter) choose one input
 
 // compile graph
 kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
