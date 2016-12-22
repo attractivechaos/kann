@@ -378,7 +378,7 @@ void kann_set_scalar(kann_t *a, int flag, float z)
 			*a->v[i]->x = z;
 }
 
-static void kann_set_batch_size(kann_t *a, int B)
+void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)

@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r303"
+#define KANN_VERSION "r305"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -93,6 +93,7 @@ kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_ro
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
 // basic model operations
+void kann_set_batch_size(kann_t *a, int B);
 void kann_set_scalar(kann_t *a, int flag, float z);
 int kann_bind_feed(kann_t *a, int flag, float **x);
 void kann_delete(kann_t *a);
