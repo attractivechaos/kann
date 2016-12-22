@@ -754,7 +754,8 @@ void kann_rnn_start(kann_t *a)
 		kad_node_t *p = a->v[i];
 		if (p->pre) {
 			kad_node_t *q = p->pre;
-			memcpy(p->x, q->x, kad_len(p) * sizeof(float));
+			if (q->x) memcpy(p->x, q->x, kad_len(p) * sizeof(float));
+			else memset(p->x, 0, kad_len(p) * sizeof(float));
 			q->x = p->x;
 		}
 	}
