@@ -82,7 +82,7 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 	}
 	if (has_recur && !has_pivot) { // an RNN that doesn't have a pivot; then add a pivot on top of cost and recompile
 		cost->ext_flag &= ~KANN_F_COST;
-		cost = kad_avg(1, &cost), cost->ext_flag |= KANN_F_COST;
+		roots[n_roots-1] = cost = kad_avg(1, &cost), cost->ext_flag |= KANN_F_COST;
 		free(a->v);
 		a->v = kad_compile_array(&a->n, n_roots, roots);
 	}

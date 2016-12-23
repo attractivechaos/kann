@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include "kann.h"
 
 #define RN_N_IN  2
@@ -7,56 +8,75 @@
 
 #define rn_cal(a, b) ((a) * 53 + (b) * 17)
 
-typedef struct {
-	int tot[2], proc[2];
-} reader_conf_t;
-
-static inline void num2vec(int len, int step, uint64_t a, float *x) // convert a number to a bit vector
+static void train(kann_t *ann, int ulen, float lr, int mini_size, int max_epoch, int n)
 {
-	int i, j;
-	for (i = j = 0; i < len; ++i, j += step*2)
-		x[j] = x[j+1] = 0.0f, x[j + (a>>i&1)] = 1.0f;
-}
+	float **x, **y, *r;
+	int i, j, n_var;
+	kann_t *ua;
 
-static int data_reader(void *data, int action, int len, float *x, float *y) // callback to feed data to RNN
-{
-	reader_conf_t *g = (reader_conf_t*)data;
-	if (action == KANN_RDR_BATCH_RESET) {
-		g->proc[0] = g->proc[1] = 0;
-	} else if (action == KANN_RDR_READ_TRAIN || action == KANN_RDR_READ_VALIDATE) {
-		int k = action == KANN_RDR_READ_TRAIN? 0 : 1;
-		if (g->proc[k] < g->tot[k]) {
-			uint64_t a, b;
-			a = kann_rand(), b = kann_rand();
-			num2vec(len, RN_N_IN,  a, x);
-			num2vec(len, RN_N_IN,  b, x+2);
-			num2vec(len, RN_N_OUT, rn_cal(a,b), y);
-			++g->proc[k];
-		} else return 0;
+	n_var = kad_n_var(ann->n, ann->v);
+	r = (float*)calloc(n_var, sizeof(float));
+	x = (float**)malloc(ulen * sizeof(float*));
+	y = (float**)malloc(ulen * sizeof(float*));
+	for (j = 0; j < ulen; ++j) {
+		x[j] = (float*)calloc(mini_size * RN_N_IN  * 2, sizeof(float));
+		y[j] = (float*)calloc(mini_size * RN_N_OUT * 2, sizeof(float));
 	}
-	return len;
+
+	ua = kann_unroll(ann, ulen);
+	kann_set_batch_size(ua, mini_size);
+	kann_bind_feed(ua, KANN_F_IN,    0, x);
+	kann_bind_feed(ua, KANN_F_TRUTH, 0, y);
+	for (i = 0; i < max_epoch; ++i) {
+		double cost = 0.0;
+		int tot = 0, n_cerr = 0;
+		for (j = 0; j < n; j += mini_size) {
+			int m, k;
+			for (k = 0; k < ulen; ++k) {
+				memset(x[k], 0, mini_size * RN_N_IN  * 2 * sizeof(float));
+				memset(y[k], 0, mini_size * RN_N_OUT * 2 * sizeof(float));
+			}
+			for (m = 0; m < mini_size; ++m) {
+				uint64_t a, b, c;
+				a = kann_rand(), b = kann_rand();
+				c = rn_cal(a, b);
+				for (k = 0; k < ulen; ++k) {
+					x[k][m * RN_N_IN  * 2 + (a>>k&1)] = 1.0f;
+					x[k][m * RN_N_IN  * 2 + 2 + (b>>k&1)] = 1.0f;
+					y[k][m * RN_N_OUT * 2 + (c>>k&1)] = 1.0f;
+				}
+			}
+			cost += kann_cost(ua, 1) * ulen * mini_size;
+			n_cerr += kann_class_error(ua);
+			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
+			tot += ulen * mini_size;
+		}
+		fprintf(stderr, "epoch: %d; cost: %g (class error: %.2f%%)\n", i+1, cost / tot, 100.0f * n_cerr / tot);
+	}
+
+	for (j = 0; j < ulen; ++j) {
+		free(y[j]); free(x[j]);
+	}
+	free(y); free(x); free(r);
 }
 
 int main(int argc, char *argv[])
 {
-	reader_conf_t conf = { {10000,1000}, {0,0} };
-	int i, c, n_err, seed = 11, n_h_layers = 1, n_h_neurons = 64;
+	int i, c, n_err, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, ulen = 30, max_epoch = 50, N = 10000;
+	float lr = 0.01f;
 	kann_t *ann;
-	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
 
-	kann_mopt_init(&mo);
-	mo.lr = 0.01f;
-	mo.max_epoch = 100;
-	mo.max_rnn_len = 30;
-	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:u:N:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 'n') n_h_neurons = atoi(optarg);
-		else if (c == 'm') mo.max_epoch = atoi(optarg);
-		else if (c == 'r') mo.lr = atof(optarg);
+		else if (c == 'm') max_epoch = atoi(optarg);
+		else if (c == 'r') lr = atof(optarg);
 		else if (c == 's') seed = atoi(optarg);
+		else if (c == 'u') ulen = atoi(optarg);
+		else if (c == 'N') N = atoi(optarg);
 	}
 
 	kann_srand(seed);
@@ -69,10 +89,10 @@ int main(int argc, char *argv[])
 			t = kann_layer_gru(t, n_h_neurons);
 		ann = kann_layer_final(t, RN_N_OUT*2, KANN_C_CEB);
 	}
-	kann_train(&mo, ann, data_reader, &conf);
+	train(ann, ulen, lr, mini_size, max_epoch, N);
 	if (fn_out) kann_save(fn_out, ann);
 
-	for (i = n_err = 0; i < conf.tot[1]; ++i) { // apply to 64-bit integers for testing
+	for (i = n_err = 0; i < N/10; ++i) { // apply to 64-bit integers for testing
 		uint64_t a, b, c;
 		int j, k;
 		a = kann_rand(), b = kann_rand(), c = rn_cal(a, b);
@@ -88,7 +108,7 @@ int main(int argc, char *argv[])
 		}
 		kann_rnn_end(ann);
 	}
-	fprintf(stderr, "Error on 64-bit integers: %.2f%%\n", 100.0f * n_err / conf.tot[1] / 64);
+	fprintf(stderr, "Error on 64-bit integers: %.2f%%\n", 100.0f * n_err / i / 64);
 
 	kann_delete(ann);
 	return 0;

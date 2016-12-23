@@ -9,7 +9,6 @@
 typedef struct {
 	int len, n_char;
 	uint8_t *data;
-	int tot[2], n_proc[2];
 	int c2i[256];
 } tg_data_t;
 
@@ -77,25 +76,60 @@ kann_t *tg_load(const char *fn, int map[256])
 	return ann;
 }
 
-int tg_reader(void *data, int action, int len, float *x1, float *y1)
+void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int len, const uint8_t *data)
 {
-	tg_data_t *tg = (tg_data_t*)data;
-	if (action == KANN_RDR_BATCH_RESET) {
-		tg->n_proc[0] = tg->n_proc[1] = 0;
-	} else if (action == KANN_RDR_READ_TRAIN || action == KANN_RDR_READ_VALIDATE) {
-		int i, a, k = action == KANN_RDR_READ_TRAIN? 0 : 1;
-		if (tg->n_proc[k] == tg->tot[k]) return 0;
-		i = (int)(kann_drand() * (tg->len - len)) + 1;
-		memset(x1, 0, len * tg->n_char * sizeof(float));
-		memset(y1, 0, len * tg->n_char * sizeof(float));
-		for (a = 0; a < len; ++a) {
-			x1[a * tg->n_char + tg->data[a+i-1]] = 1.0f;
-			y1[a * tg->n_char + tg->data[a+i]] = 1.0f;
-		}
-		++tg->n_proc[k];
-		return len;
+	int i, k, n_var, n_char;
+	float **x, **y, *r, *g;
+	kann_t *ua;
+
+	n_char = kann_n_in(ann);
+	x = (float**)calloc(ulen, sizeof(float*));
+	y = (float**)calloc(ulen, sizeof(float*));
+	for (k = 0; k < ulen; ++k) {
+		x[k] = (float*)calloc(n_char, sizeof(float));
+		y[k] = (float*)calloc(n_char, sizeof(float));
 	}
-	return 0;
+	n_var = kad_n_var(ann->n, ann->v);
+	r = (float*)calloc(n_var, sizeof(float));
+	g = (float*)calloc(n_var, sizeof(float));
+
+	ua = kann_unroll(ann, ulen);
+	kann_bind_feed(ua, KANN_F_IN,    0, x);
+	kann_bind_feed(ua, KANN_F_TRUTH, 0, y);
+	for (i = 0; i < max_epoch; ++i) {
+		double cost = 0.0;
+		int j, b, tot = 0;
+		for (j = 1; j + ulen * mbs - 1 < len; j += ulen * mbs) {
+			memset(g, 0, n_var * sizeof(float));
+			for (b = 0; b < mbs; ++b) { // a mini-batch
+				for (k = 0; k < ulen; ++k) {
+					memset(x[k], 0, n_char * sizeof(float));
+					memset(y[k], 0, n_char * sizeof(float));
+					x[k][data[j+b*ulen+k-1]] = 1.0f;
+					y[k][data[j+b*ulen+k]] = 1.0f;
+				}
+				cost += kann_cost(ua, 1) * ulen;
+				tot += ulen;
+				for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
+				#if 1
+				for (k = 0; k < ua->n; ++k) // keep the cycle rolling
+					if (ua->v[k]->pre)
+						memcpy(ua->v[k]->pre->x, ua->v[k]->x, kad_len(ua->v[k]) * sizeof(float));
+				#endif
+			}
+			for (k = 0; k < n_var; ++k) g[k] /= mbs;
+			kann_RMSprop(n_var, lr, 0, 0.9f, g, ua->x, r);
+		}
+		fprintf(stderr, "epoch: %d; running cost: %g\n", i+1, cost / tot);
+		kann_save("t.knm", ann);
+	}
+	kann_delete_unrolled(ua);
+
+	for (k = 0; k < ulen; ++k) {
+		free(x[k]);
+		free(y[k]);
+	}
+	free(g); free(r); free(y); free(x);
 }
 
 static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout)
@@ -114,29 +148,23 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 128, model = 0, batch_size = 1000000, c2i[256];
-	float h_dropout = 0.0f, temp = 0.5f;
+	int i, c, seed = 11, ulen = 40, n_h_layers = 1, n_h_neurons = 128, model = 0, max_epoch = 20, mbs = 64, c2i[256];
+	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f;
 	kann_t *ann = 0;
-	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
 
-	kann_mopt_init(&mo);
-	mo.max_rnn_len = 100;
-	mo.lr = 0.01f;
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:t:b:T:M:R")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
-		else if (c == 'r') mo.lr = atof(optarg);
-		else if (c == 'm') mo.max_epoch = atoi(optarg);
-		else if (c == 'B') mo.max_mbs = atoi(optarg);
+		else if (c == 'r') lr = atof(optarg);
+		else if (c == 'm') max_epoch = atoi(optarg);
+		else if (c == 'B') mbs = atoi(optarg);
 		else if (c == 'd') h_dropout = atof(optarg);
-		else if (c == 't') mo.max_rnn_len = atoi(optarg);
-		else if (c == 'b') batch_size = atoi(optarg);
 		else if (c == 'T') temp = atof(optarg);
-		else if (c == 'R') mo.batch_algo = KANN_MB_iRprop;
+		else if (c == 'u') ulen = atoi(optarg);
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -155,12 +183,11 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
 		fprintf(fp, "    -M STR      model: rnn, lstm or gru [rnn]\n");
 		fprintf(fp, "  Model training:\n");
-		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", mo.lr);
+		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", lr);
 		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
-		fprintf(fp, "    -m INT      max number of epochs [%d]\n", mo.max_epoch);
-		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mo.max_mbs);
-		fprintf(fp, "    -t INT      max unroll [%d]\n", mo.max_rnn_len);
-		fprintf(fp, "    -R          use iRprop- after a batch\n");
+		fprintf(fp, "    -m INT      max number of epochs [%d]\n", max_epoch);
+		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mbs);
+		fprintf(fp, "    -u INT      max unroll [%d]\n", ulen);
 		fprintf(fp, "  Text generation:\n");
 		fprintf(fp, "    -T FLOAT    temperature [%g]\n", temp);
 		return 1;
@@ -173,12 +200,9 @@ int main(int argc, char *argv[])
 	if (argc - optind >= 1) { // train
 		tg_data_t *tg;
 		tg = tg_read(argv[optind]);
-		fprintf(stderr, "Warning: 'validation cost' below is not right as validation not separated from training data.\n");
 		fprintf(stderr, "Read %d characters; alphabet size %d\n", tg->len, tg->n_char);
-		tg->tot[0] = batch_size / mo.max_rnn_len;
-		tg->tot[1] = (int)(batch_size / mo.max_rnn_len * mo.fv);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
-		kann_train(&mo, ann, tg_reader, tg);
+		tg_train(ann, lr, ulen, mbs, max_epoch, tg->len, tg->data);
 		if (fn_out) tg_save(fn_out, ann, tg->c2i);
 		free(tg->data); free(tg);
 	} else { // apply
