@@ -1,5 +1,6 @@
 #include <math.h>
 #include <stdio.h>
+#include <float.h>
 #include <assert.h>
 #include <unistd.h>
 #include <string.h>
@@ -39,7 +40,7 @@ uint8_t *tg_read_file(const char *fn, int *_len)
 	return s;
 }
 
-tg_data_t *tg_read(const char *fn)
+tg_data_t *tg_init(const char *fn)
 {
 	int i, j;
 	tg_data_t *tg;
@@ -56,27 +57,27 @@ tg_data_t *tg_read(const char *fn)
 	return tg;
 }
 
-void tg_save(const char *fn, kann_t *ann, int map[256])
+void tg_save(const char *fn, kann_t *ann, int c2i[256])
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
 	kann_save_fp(fp, ann);
-	fwrite(map, sizeof(int), 256, fp);
+	fwrite(c2i, sizeof(int), 256, fp);
 	fclose(fp);
 }
 
-kann_t *tg_load(const char *fn, int map[256])
+kann_t *tg_load(const char *fn, int c2i[256])
 {
 	FILE *fp;
 	kann_t *ann;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
 	ann = kann_load_fp(fp);
-	fread(map, sizeof(int), 256, fp);
+	fread(c2i, sizeof(int), 256, fp);
 	fclose(fp);
 	return ann;
 }
 
-void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int len, const uint8_t *data)
+void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn)
 {
 	int i, k, n_var, n_char;
 	float **x, **y, *r, *g;
@@ -98,7 +99,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int len, 
 	kann_bind_feed(ua, KANN_F_TRUTH, 0, y);
 	for (i = 0; i < max_epoch; ++i) {
 		double cost = 0.0;
-		int j, b, tot = 0;
+		int j, b, tot = 0, n_cerr = 0;
 		for (j = 1; j + ulen * mbs - 1 < len; j += ulen * mbs) {
 			memset(g, 0, n_var * sizeof(float));
 			for (b = 0; b < mbs; ++b) { // a mini-batch
@@ -109,19 +110,20 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int len, 
 					y[k][data[j+b*ulen+k]] = 1.0f;
 				}
 				cost += kann_cost(ua, 1) * ulen;
+				n_cerr += kann_class_error(ua);
 				tot += ulen;
 				for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
-				#if 1
-				for (k = 0; k < ua->n; ++k) // keep the cycle rolling
-					if (ua->v[k]->pre)
-						memcpy(ua->v[k]->pre->x, ua->v[k]->x, kad_len(ua->v[k]) * sizeof(float));
-				#endif
+				if (cont_mode) {
+					for (k = 0; k < ua->n; ++k) // keep the cycle rolling
+						if (ua->v[k]->pre)
+							memcpy(ua->v[k]->pre->x, ua->v[k]->x, kad_len(ua->v[k]) * sizeof(float));
+				}
 			}
 			for (k = 0; k < n_var; ++k) g[k] /= mbs;
 			kann_RMSprop(n_var, lr, 0, 0.9f, g, ua->x, r);
 		}
-		fprintf(stderr, "epoch: %d; running cost: %g\n", i+1, cost / tot);
-		kann_save("t.knm", ann);
+		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", i+1, cost / tot, 100.0 * n_cerr / tot);
+		if (fn) tg_save(fn, ann, c2i);
 	}
 	kann_delete_unrolled(ua);
 
@@ -148,12 +150,12 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, ulen = 40, n_h_layers = 1, n_h_neurons = 128, model = 0, max_epoch = 20, mbs = 64, c2i[256];
+	int i, c, seed = 11, ulen = 40, n_h_layers = 1, n_h_neurons = 128, model = 0, max_epoch = 20, mbs = 64, c2i[256], cont_mode = 1;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:C")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -165,6 +167,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') h_dropout = atof(optarg);
 		else if (c == 'T') temp = atof(optarg);
 		else if (c == 'u') ulen = atoi(optarg);
+		else if (c == 'C') cont_mode = 0;
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -199,11 +202,10 @@ int main(int argc, char *argv[])
 
 	if (argc - optind >= 1) { // train
 		tg_data_t *tg;
-		tg = tg_read(argv[optind]);
+		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d characters; alphabet size %d\n", tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
-		tg_train(ann, lr, ulen, mbs, max_epoch, tg->len, tg->data);
-		if (fn_out) tg_save(fn_out, ann, tg->c2i);
+		tg_train(ann, lr, ulen, mbs, max_epoch, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
 		free(tg->data); free(tg);
 	} else { // apply
 		int n_char, i2c[256];
