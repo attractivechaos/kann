@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r305"
+#define KANN_VERSION "r306"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -39,17 +39,6 @@
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
 
-#define KANN_RDR_BATCH_RESET     1
-#define KANN_RDR_MINI_RESET      2
-#define KANN_RDR_READ_TRAIN      3
-#define KANN_RDR_READ_VALIDATE   4
-
-#define KANN_MM_SGD     1
-#define KANN_MM_RMSPROP 2
-
-#define KANN_MB_CONST   1
-#define KANN_MB_iRprop  2
-
 #include "kautodiff.h"
 
 typedef struct {
@@ -58,19 +47,9 @@ typedef struct {
 	float *x, *g, *c;
 } kann_t;
 
-typedef struct {
-	float lr;    // learning rate
-	float fv;    // fraction of validation data
-	int max_mbs; // max mini-batch size
-	int max_rnn_len;
-	int epoch_lazy;
-	int max_epoch;
-	int mini_algo, batch_algo;
-} kann_mopt_t;
-
-typedef int (*kann_reader_f)(void *data, int action, int max_len, float *x, float *y);
-
 extern int kann_verbose;
+
+#define kann_is_rnn(a) kad_unrollable((a)->n, (a)->v)
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,7 +63,6 @@ kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*
 kad_node_t *kann_layer_lstm(kad_node_t *in, int n1);
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
 kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad);
-kann_t *kann_gen(kad_node_t *cost);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 
 kad_node_t *kann_new_weight(int n_row, int n_col);
@@ -93,32 +71,27 @@ kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_ro
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
 // basic model operations
+kann_t *kann_new(kad_node_t *cost, int n_rest, ...);
+void kann_delete(kann_t *a);
+kann_t *kann_unroll(kann_t *a, int len);
+void kann_delete_unrolled(kann_t *a);
+
 void kann_set_batch_size(kann_t *a, int B);
 void kann_set_scalar(kann_t *a, int flag, float z);
-int kann_bind_feed(kann_t *a, int flag, float **x);
-void kann_delete(kann_t *a);
+int kann_bind_feed(kann_t *a, int ext_flag, int ext_label, float **x);
 float kann_cost(kann_t *a, int cal_grad);
+int kann_class_error(const kann_t *ann);
+void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 
 // number of input and output variables
 int kann_n_in(const kann_t *a);
 int kann_n_out(const kann_t *a);
 
-// unroll an RNN to an FNN
-int kann_is_rnn(const kann_t *a);
-kann_t *kann_rnn_unroll(kann_t *a, int len);
-void kann_delete_unrolled(kann_t *a);
-
-// train a model
-void kann_mopt_init(kann_mopt_t *mo);
-void kann_train(const kann_mopt_t *mo, kann_t *a, kann_reader_f rdr, void *data);
-void kann_fnn_train(const kann_mopt_t *mo, kann_t *a, int n, float **x, float **y);
-
 // apply a trained model
+int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y);
 const float *kann_apply1(kann_t *a, float *x);
 void kann_rnn_start(kann_t *a);
 void kann_rnn_end(kann_t *a);
-float *kann_rnn_apply_seq1(kann_t *a, int len, float *x);
-void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 
 // model I/O
 void kann_save_fp(FILE *fp, kann_t *ann);

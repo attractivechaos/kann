@@ -17,26 +17,23 @@ static kann_t *model_gen(int n_in, int n_out, int n_h_layers, int n_h_neurons, f
 
 int main(int argc, char *argv[])
 {
+	int max_epoch = 50, mini_size = 64, max_drop_streak = 10;
 	int i, j, c, n_h_neurons = 64, n_h_layers = 1, seed = 11;
 	kann_data_t *in = 0;
-	kann_mopt_t mo;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
-	float h_dropout = 0.0f;
+	float lr = 0.001f, frac_val = 0.1f, h_dropout = 0.0f;
 
-	kann_mopt_init(&mo);
-	mo.max_epoch = 50;
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:R")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') in_fn = optarg;
 		else if (c == 'o') out_fn = optarg;
-		else if (c == 'r') mo.lr = atof(optarg);
-		else if (c == 'm') mo.max_epoch = atoi(optarg);
-		else if (c == 'B') mo.max_mbs = atoi(optarg);
+		else if (c == 'r') lr = atof(optarg);
+		else if (c == 'm') max_epoch = atoi(optarg);
+		else if (c == 'B') mini_size = atoi(optarg);
 		else if (c == 'd') h_dropout = atof(optarg);
-		else if (c == 'R') mo.batch_algo = KANN_MB_iRprop;
 	}
 	if (argc - optind < 1) {
 		FILE *fp = stdout;
@@ -48,12 +45,11 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -s INT      random seed [%d]\n", seed);
 		fprintf(fp, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
 		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
-		fprintf(fp, "  Model training:\n");
-		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", mo.lr);
 		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
-		fprintf(fp, "    -m INT      max number of epochs [%d]\n", mo.max_epoch);
-		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mo.max_mbs);
-		fprintf(fp, "    -R          use iRprop- after a batch\n");
+		fprintf(fp, "  Model training:\n");
+		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", lr);
+		fprintf(fp, "    -m INT      max number of epochs [%d]\n", max_epoch);
+		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mini_size);
 		return 1;
 	}
 	if (argc - optind == 1 && in_fn == 0) {
@@ -75,7 +71,7 @@ int main(int argc, char *argv[])
 		assert(in->n_row == out->n_row);
 		if (ann) assert(kann_n_out(ann) == out->n_col);
 		else ann = model_gen(in->n_col, out->n_col, n_h_layers, n_h_neurons, h_dropout);
-		kann_fnn_train(&mo, ann, in->n_row, in->x, out->x);
+		kann_train_xy(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, out->x);
 		if (out_fn) kann_save(out_fn, ann);
 		kann_data_free(out);
 	} else { // apply

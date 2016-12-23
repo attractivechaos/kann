@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r304"
+#define KAD_VERSION "r306"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -101,7 +101,7 @@ extern "C" {
 // define a variable, a constant or a feed (placeholder in TensorFlow)
 kad_node_t *kad_var(float *x, float *g, int n_d, ...);
 kad_node_t *kad_const(float *x, int n_d, ...);
-kad_node_t *kad_feed(float *x, int n_d, ...);
+kad_node_t *kad_feed(int n_d, ...);
 
 // operators taking two operands
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // f(x,y) = x + y       (element-wise addition)
@@ -143,8 +143,7 @@ void kad_grad(int n, kad_node_t **a, int from);
 // miscellaneous operations on a compiled graph
 int kad_n_var(int n, kad_node_t *const* v);
 int kad_n_const(int n, kad_node_t *const* v);
-void kad_ext_collate(int n, kad_node_t **v, float **_x, float **_g, float **_c);
-void kad_ext_sync(int n, kad_node_t **v, float *x, float *g, float *c);
+int kad_unrollable(int n, kad_node_t *const* v);
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
 
 // graph I/O

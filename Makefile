@@ -2,8 +2,8 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 INCLUDES=	-I.
-EXE=		examples/mlp examples/textgen examples/rnn-bit examples/rnn-bit2 examples/mnist-cnn \
-			examples/rnn-lyap examples/inspect examples/textgen-p
+EXE=		examples/mlp examples/mnist-cnn examples/inspect examples/textgen examples/rnn-bit examples/rnn-bit2 \
+			examples/rnn-lyap examples/textgen-p
 LIBS=		-lm -lz
 
 ifdef CBLAS

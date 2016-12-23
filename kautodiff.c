@@ -44,12 +44,12 @@ kad_node_t *kad_const(float *x, int n_d, ...)
 	return p;
 }
 
-kad_node_t *kad_feed(float *x, int n_d, ...)
+kad_node_t *kad_feed(int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
 	va_start(ap, n_d);
-	p = kad_new_external(x, 0, n_d, ap);
+	p = kad_new_external(0, 0, n_d, ap);
 	va_end(ap);
 	return p;
 }
@@ -404,50 +404,6 @@ int kad_n_const(int n, kad_node_t *const* v)
 	return c;
 }
 
-void kad_ext_collate(int n, kad_node_t **a, float **_x, float **_g, float **_c)
-{
-	int i, j, k, l, n_var;
-	float *x, *g, *c;
-	n_var = kad_n_var(n, a);
-	x = *_x = (float*)realloc(*_x, n_var * sizeof(float));
-	g = *_g = (float*)realloc(*_g, n_var * sizeof(float));
-	c = *_c = (float*)realloc(*_c, kad_n_const(n, a) * sizeof(float));
-	memset(g, 0, n_var * sizeof(float));
-	for (i = j = k = 0; i < n; ++i) {
-		kad_node_t *v = a[i];
-		if (kad_is_var(v)) {
-			l = kad_len(v);
-			memcpy(&x[j], v->x, l * sizeof(float));
-			free(v->x);
-			v->x = &x[j];
-			v->g = &g[j];
-			j += l;
-		} else if (kad_is_const(v)) {
-			l = kad_len(v);
-			memcpy(&c[k], v->x, l * sizeof(float));
-			free(v->x);
-			v->x = &c[k];
-			k += l;
-		}
-	}
-}
-
-void kad_ext_sync(int n, kad_node_t **a, float *x, float *g, float *c)
-{
-	int i, j, k;
-	for (i = j = k = 0; i < n; ++i) {
-		kad_node_t *v = a[i];
-		if (kad_is_var(v)) {
-			v->x = &x[j];
-			v->g = &g[j];
-			j += kad_len(v);
-		} else if (kad_is_const(v)) {
-			v->x = &c[k];
-			k += kad_len(v);
-		}
-	}
-}
-
 /**********************************
  * Computate values and gradients *
  **********************************/
@@ -603,13 +559,25 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	return q;
 }
 
+int kad_unrollable(int n, kad_node_t *const* v)
+{
+	int i, has_pivot = 0, has_recur = 0;
+	for (i = 0; i < n; ++i) {
+		if (kad_is_pivot(v[i])) has_pivot = 1;
+		if (v[i]->pre) has_recur = 1;
+	}
+	return (has_pivot && has_recur);
+}
+
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 {
 	int i, j, k, l, k0;
 	short *flag;
 	kad_node_t **w, **alt, **aux;
 
-	// set flags
+	if (!kad_unrollable(n_v, v)) return 0;
+
+	// set flags and check if the graph is unrollable
 	flag = (short*)calloc(n_v, sizeof(short));
 	for (i = 0; i < n_v; ++i) {
 		v[i]->tmp = i;
@@ -1635,7 +1603,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 void kad_trap_fe(void)
 {
 #ifdef __SSE__
-	_MM_SET_EXCEPTION_MASK(_MM_GET_EXCEPTION_MASK() & ~(_MM_MASK_INVALID | _MM_MASK_DIV_ZERO | _MM_MASK_OVERFLOW));
+	_MM_SET_EXCEPTION_MASK(_MM_GET_EXCEPTION_MASK() & ~(_MM_MASK_INVALID | _MM_MASK_DIV_ZERO));
 #endif
 }
 

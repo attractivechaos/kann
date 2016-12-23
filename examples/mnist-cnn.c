@@ -8,16 +8,14 @@ int main(int argc, char *argv[])
 {
 	kann_t *ann;
 	kann_data_t *x, *y;
-	kann_mopt_t mo;
 	char *fn_in = 0, *fn_out = 0;
-	int c, seed = 131, n_h_fc = 128, n_h_flt = 32;
-	float dropout = 0.2f;
+	int c, mini_size = 64, max_epoch = 20, max_drop_streak = 10, seed = 131, n_h_fc = 128, n_h_flt = 32;
+	float lr = 0.001f, dropout = 0.2f, frac_val = 0.1f;
 
-	kann_mopt_init(&mo);
 	while ((c = getopt(argc, argv, "i:o:m:h:f:d:s:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
-		else if (c == 'm') mo.max_epoch = atoi(optarg);
+		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'h') n_h_fc = atoi(optarg);
 		else if (c == 'f') n_h_flt = atoi(optarg);
 		else if (c == 'd') dropout = atof(optarg);
@@ -36,7 +34,7 @@ int main(int argc, char *argv[])
 		ann = kann_load(fn_in);
 	} else {
 		kad_node_t *t;
-		t = kad_feed(0, 4, 1, 1, 28, 28), t->ext_flag |= KANN_F_IN;
+		t = kad_feed(4, 1, 1, 28, 28), t->ext_flag |= KANN_F_IN;
 		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, KAD_PAD_AUTO));
 		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, KAD_PAD_AUTO));
 		t = kad_max2d(t, 2, 2, 2, 2, KAD_PAD_AUTO, KAD_PAD_AUTO);
@@ -53,7 +51,7 @@ int main(int argc, char *argv[])
 
 	if (y) { // training
 		assert(y->n_col == 10);
-		kann_fnn_train(&mo, ann, x->n_row, x->x, y->x);
+		kann_train_xy(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, x->n_row, x->x, y->x);
 		if (fn_out) kann_save(fn_out, ann);
 		kann_data_free(y);
 	} else { // applying

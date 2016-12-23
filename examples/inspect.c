@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "WARNING: the input graph does not represent an RNN; can't unroll.\n");
 	if (len > 0 && kann_is_rnn(ann)) {
 		kann_t *un;
-		un = kann_rnn_unroll(ann, len);
+		un = kann_unroll(ann, len);
 		kad_print_graph(stdout, un->n, un->v);
 		kann_delete_unrolled(un);
 	} else kad_print_graph(stdout, ann->n, ann->v);
