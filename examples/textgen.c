@@ -150,7 +150,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, ulen = 40, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 20, mbs = 64, c2i[256], cont_mode = 1;
+	int i, c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
