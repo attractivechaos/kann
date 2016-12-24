@@ -142,7 +142,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 	for (i = 0; i < n_h_layers; ++i) {
 		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, kad_tanh);
 		else if (model == 1) t = kann_layer_lstm(t, n_h_neurons);
-		else if (model == 2) t = kann_layer_gru(t, n_h_neurons);
+		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, 0);
 		t = kann_layer_dropout(t, h_dropout);
 	}
 	return kann_layer_final(t, n_char, KANN_C_CEM);
@@ -150,7 +150,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, ulen = 40, n_h_layers = 1, n_h_neurons = 128, model = 0, max_epoch = 20, mbs = 64, c2i[256], cont_mode = 1;
+	int i, c, seed = 11, ulen = 40, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 20, mbs = 64, c2i[256], cont_mode = 1;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -s INT      random seed [%d]\n", seed);
 		fprintf(fp, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
 		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
-		fprintf(fp, "    -M STR      model: rnn, lstm or gru [rnn]\n");
+		fprintf(fp, "    -M STR      model: rnn, lstm or gru [gru]\n");
 		fprintf(fp, "  Model training:\n");
 		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", lr);
 		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);

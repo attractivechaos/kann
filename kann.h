@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r307"
+#define KANN_VERSION "r310"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -61,7 +61,7 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r);
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*));
 kad_node_t *kann_layer_lstm(kad_node_t *in, int n1);
-kad_node_t *kann_layer_gru(kad_node_t *in, int n1);
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int var_h0);
 kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad);
 kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type);
 

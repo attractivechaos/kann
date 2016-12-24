@@ -381,13 +381,13 @@ kad_node_t *kann_layer_lstm(kad_node_t *in, int n1)
 	return out;
 }
 
-kad_node_t *kann_layer_gru(kad_node_t *in, int n1)
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int var_h0)
 {
 	int n0;
 	kad_node_t *r, *z, *w, *u, *b, *s, *h0, *out;
 
 	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	h0 = kad_var(0, 0, 2, 1, n1);
+	h0 = var_h0? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
 	h0->x = (float*)calloc(n1, sizeof(float));
 
 	// z = sigm(x_t * W_z + h_{t-1} * U_z + b_z)
