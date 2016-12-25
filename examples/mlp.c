@@ -71,7 +71,7 @@ int main(int argc, char *argv[])
 		assert(in->n_row == out->n_row);
 		if (ann) assert(kann_dim_out(ann) == out->n_col);
 		else ann = model_gen(in->n_col, out->n_col, n_h_layers, n_h_neurons, h_dropout);
-		kann_train_xy(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, out->x);
+		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, out->x);
 		if (out_fn) kann_save(out_fn, ann);
 		kann_data_free(out);
 	} else { // apply

@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r317"
+#define KAD_VERSION "r318"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -168,13 +168,13 @@ kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y^T (colum
 kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y); // multi-class cross-entropy; output is a scalar; x is the preidction and y is the truth
 kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);   // binary cross-entropy
 
-#define KAD_PAD_NONE  0
-#define KAD_PAD_AUTO  (-1)
-#define KAD_PAD_SAME  (-2)
+#define KAD_PAD_NONE  0      // no zero-padding
+#define KAD_PAD_AUTO  (-1)   // automatically choose zero-padding
+#define KAD_PAD_SAME  (-2)   // output to have the same dimension as input
 
-kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);             // 2D convolution
+kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);             // 2D convolution with weight matrix flipped
 kad_node_t *kad_max2d(kad_node_t *x, int kernel_h, int kernel_w, int r_stride, int c_stride, int r_pad, int c_pad); // 2D max pooling
-kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);  // 1D convolution
+kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);  // 1D convolution with weight flipped
 kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D max pooling
 
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r

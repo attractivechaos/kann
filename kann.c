@@ -146,7 +146,7 @@ int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label)
 	for (i = k = 0; i < a->n; ++i)
 		if ((a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
 			++k, r = i;
-	return k == 1? r : k == 0? KANN_E_NA : KANN_E_MULTI;
+	return k == 1? r : k == 0? -1 : -2;
 }
 
 int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x)
@@ -164,7 +164,7 @@ int kann_feed_dim(kann_t *a, uint32_t ext_flag, int32_t ext_label)
 	for (i = k = 0; i < a->n; ++i)
 		if (kad_is_feed(a->v[i]) && (a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
 			++k, n = a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : a->v[i]->n_d == 1? a->v[i]->d[0] : 1;
-	return k == 1? n : k == 0? KANN_E_NA : KANN_E_MULTI;
+	return k == 1? n : k == 0? -1 : -2;
 }
 
 float kann_cost(kann_t *a, int cost_label, int cal_grad)
@@ -176,6 +176,26 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 	cost = *kad_eval_at(a->n, a->v, i_cost);
 	if (cal_grad) kad_grad(a->n, a->v, i_cost);
 	return cost;
+}
+
+void kann_rnn_start(kann_t *a)
+{
+	int i;
+	kann_set_batch_size(a, 1);
+	for (i = 0; i < a->n; ++i) {
+		kad_node_t *p = a->v[i];
+		if (p->pre) {
+			kad_node_t *q = p->pre;
+			if (q->x) memcpy(p->x, q->x, kad_len(p) * sizeof(float));
+			else memset(p->x, 0, kad_len(p) * sizeof(float));
+			q->x = p->x;
+		}
+	}
+}
+
+void kann_rnn_end(kann_t *a)
+{
+	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
 }
 
 int kann_class_error(const kann_t *ann)
@@ -604,47 +624,11 @@ void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, 
 }
 #endif
 
-/*****************************************
- *** @@APPLY: applying a trained model ***
- *****************************************/
+/****************************************************************
+ *** @@XY: simpler API for network with a single input/output ***
+ ****************************************************************/
 
-const float *kann_apply1(kann_t *a, float *x)
-{
-	int i;
-	kann_set_batch_size(a, 1);
-	kann_feed_bind(a, KANN_F_IN, 0, &x);
-	kad_eval_flag(a->n, a->v, KANN_F_OUT);
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->ext_flag & KANN_F_OUT)
-			return a->v[i]->x;
-	return 0;
-}
-
-void kann_rnn_start(kann_t *a)
-{
-	int i;
-	kann_set_batch_size(a, 1);
-	for (i = 0; i < a->n; ++i) {
-		kad_node_t *p = a->v[i];
-		if (p->pre) {
-			kad_node_t *q = p->pre;
-			if (q->x) memcpy(p->x, q->x, kad_len(p) * sizeof(float));
-			else memset(p->x, 0, kad_len(p) * sizeof(float));
-			q->x = p->x;
-		}
-	}
-}
-
-void kann_rnn_end(kann_t *a)
-{
-	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
-}
-
-/*********************************************
- *** @@TRAIN: simpler API for training FNN ***
- *********************************************/
-
-int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y)
+int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y)
 {
 	int i, j, *shuf, n_train, n_val, n_in, n_out, n_var, n_const, drop_streak = 0;
 	float **x, **y, *x1, *y1, *r, min_val_cost = FLT_MAX, *min_x, *min_c;
@@ -731,4 +715,15 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 
 	free(min_c); free(min_x); free(y1); free(x1); free(y); free(x); free(shuf); free(r);
 	return i;
+}
+
+const float *kann_apply1(kann_t *a, float *x)
+{
+	int i_out;
+	i_out = kann_find_node(a, KANN_F_OUT, 0);
+	if (i_out < 0) return 0;
+	kann_set_batch_size(a, 1);
+	kann_feed_bind(a, KANN_F_IN, 0, &x);
+	kad_eval_at(a->n, a->v, i_out);
+	return a->v[i_out]->x;
 }

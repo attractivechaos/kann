@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 
 	if (y) { // training
 		assert(y->n_col == 10);
-		kann_train_xy(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, x->n_row, x->x, y->x);
+		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, x->n_row, x->x, y->x);
 		if (fn_out) kann_save(fn_out, ann);
 		kann_data_free(y);
 	} else { // applying
