@@ -141,6 +141,14 @@ void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
+void kann_switch(kann_t *a, int is_train)
+{
+	int i;
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->op == 12 && a->v[i]->n_child == 2)
+			*(int32_t*)a->v[i]->ptr = !!is_train;
+}
+
 int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, r = -1;
@@ -322,11 +330,12 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 {
-	kad_node_t *s;
+	kad_node_t *s, *x[2];
 	s = kad_const(0, 0), s->ext_flag |= KANN_F_DROPOUT;
 	s->x = (float*)calloc(1, sizeof(float));
 	*s->x = r;
-	return kad_dropout(t, s);
+	x[0] = t, x[1] = kad_dropout(t, s);
+	return kad_switch(2, x);
 }
 
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*))
@@ -434,7 +443,7 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
 		cost = kad_ce_bin(t, truth);
 	} else if (type == KANN_C_CEM) {
 		kad_node_t *t1;
-		t1 = kad_const(0, 0), t1->ext_flag |= KANN_F_TEMP;
+		t1 = kad_const(0, 0), t1->ext_flag |= KANN_F_TEMP_INV;
 		t1->x = (float*)calloc(1, sizeof(float));
 		*t1->x = 1.0f;
 		t = kad_softmax(kad_mul(t, t1));
@@ -675,6 +684,7 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 		int n_proc = 0, is_class = 1, n_train_err = 0, n_val_err = 0;
 		double train_cost = 0.0, val_cost = 0.0;
 		kann_shuffle(n_train, shuf);
+		kann_switch(ann, 1);
 		while (n_proc < n_train) {
 			int b, c, ms = n_train - n_proc < mini_size? n_train - n_proc : mini_size;
 			for (b = 0; b < ms; ++b) {
@@ -690,6 +700,7 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 			n_proc += ms;
 		}
 		train_cost /= n_train;
+		kann_switch(ann, 0);
 		n_proc = 0;
 		while (n_proc < n_val) {
 			int b, c, ms = n_val - n_proc < mini_size? n_val - n_proc : mini_size;

@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
 		for (i = 0; i < 256; ++i)
 			if (c2i[i] >= 0) i2c[c2i[i]] = i;
 		n_char = kann_dim_in(ann);
-		kann_set_scalar(ann, KANN_F_TEMP, 1.0f/temp);
+		kann_set_scalar(ann, KANN_F_TEMP_INV, 1.0f/temp);
 		kann_rnn_start(ann);
 		c = (int)(n_char * kann_drand());
 		for (i = 0; i < 1000; ++i) {

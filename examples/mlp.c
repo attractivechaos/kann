@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 		kann_data_free(out);
 	} else { // apply
 		int n_out;
-		kann_set_scalar(ann, KANN_F_DROPOUT, 0.0f);
+		kann_switch(ann, 0);
 		n_out = kann_dim_out(ann);
 		for (i = 0; i < in->n_row; ++i) {
 			const float *y;

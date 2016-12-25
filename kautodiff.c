@@ -243,7 +243,7 @@ kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
 	return s;
 }
 
-kad_node_t *kad_switch(kad_node_t *x, int n, kad_node_t **p)
+kad_node_t *kad_switch(int n, kad_node_t **p)
 {
 	kad_node_t *s;
 	int32_t i, *aux;

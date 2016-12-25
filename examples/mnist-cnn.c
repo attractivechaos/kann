@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 		kann_data_free(y);
 	} else { // applying
 		int i, j, n_out;
-		kann_set_scalar(ann, KANN_F_DROPOUT, 0.0f);
+		kann_switch(ann, 0);
 		n_out = kann_dim_out(ann);
 		assert(n_out == 10);
 		for (i = 0; i < x->n_row; ++i) {

@@ -27,13 +27,13 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r312"
+#define KANN_VERSION "r313"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
 #define KANN_F_TRUTH    0x4   // truth output
 #define KANN_F_COST     0x8   // final cost
-#define KANN_F_TEMP     0x10  // temperature for softmax
+#define KANN_F_TEMP_INV 0x10  // temperature for softmax
 #define KANN_F_DROPOUT  0x20  // dropout ratio
 
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
@@ -56,7 +56,7 @@ extern int kann_verbose;
 #define kann_size_var(a) kad_size_var((a)->n, (a)->v)
 #define kann_size_const(a) kad_size_const((a)->n, (a)->v)
 #define kann_dim_in(a) kann_feed_dim((a), KANN_F_IN, 0)
-#define kann_dim_out(a) kann_feed_dim((a), KANN_F_OUT, 0)
+#define kann_dim_out(a) kann_feed_dim((a), KANN_F_TRUTH, 0)
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,6 +83,7 @@ void kann_delete(kann_t *a);
 kann_t *kann_unroll(kann_t *a, int len);
 void kann_delete_unrolled(kann_t *a);
 
+void kann_switch(kann_t *a, int is_train);
 void kann_set_batch_size(kann_t *a, int B);
 void kann_set_scalar(kann_t *a, int flag, float z);
 int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label);
