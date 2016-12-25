@@ -552,6 +552,10 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	q = (kad_node_t*)malloc(sizeof(kad_node_t));
 	memcpy(q, p, sizeof(kad_node_t));
 	q->pre = 0, q->tmp = 0;
+	if (p->ptr && p->ptr_size > 0) {
+		q->ptr = malloc(p->ptr_size);
+		memcpy(q->ptr, p->ptr, p->ptr_size);
+	}
 	if (q->n_child) {
 		q->x = q->g = 0;
 		q->child = (kad_edge_t*)calloc(q->n_child, sizeof(kad_edge_t));
@@ -575,8 +579,6 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 	short *flag;
 	kad_node_t **w, **alt, **aux;
 
-	if (!kad_unrollable(n_v, v)) return 0;
-
 	// set flags and check if the graph is unrollable
 	flag = (short*)calloc(n_v, sizeof(short));
 	for (i = 0; i < n_v; ++i) {
@@ -595,6 +597,7 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 	w = (kad_node_t**)calloc(n_v * len, sizeof(kad_node_t*));
 	alt = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
 	aux = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
+	if (!kad_unrollable(n_v, v)) len = 1; // if not unrollable, we are duplicating the whole graph
 	for (l = k = 0; l < len; ++l) {
 		for (i = 0; i < n_v; ++i) {
 			if (flag[i]&8) continue;
@@ -942,13 +945,12 @@ int kad_op_dropout(kad_node_t *p, int action)
 int kad_op_split(kad_node_t *p, int action)
 {
 	kad_node_t *q = p->child[0].p;
-	int32_t *aux, n, *range;
+	int32_t *aux, *range;
 	int i, dim, d0, d1;
 
 	assert(p->ptr);
 	aux = (int*)p->ptr, dim = aux[0], range = aux + 1;
 	if (dim < 0 || dim >= q->n_d) return -1;
-	n = kad_len(q);
 	for (i = 0, d0 = 1; i < dim; ++i) d0 *= q->d[i];
 	for (i = dim + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
 	if (action == KAD_SYNC_DIM) {

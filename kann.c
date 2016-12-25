@@ -93,7 +93,6 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 kann_t *kann_unroll(kann_t *a, int len)
 {
 	kann_t *b;
-	if (!kann_is_rnn(a)) return 0;
 	b = (kann_t*)calloc(1, sizeof(kann_t));
 	b->x = a->x, b->g = a->g, b->c = a->c; // these arrays are shared
 	b->v = kad_unroll(a->n, a->v, len, &b->n);
@@ -667,8 +666,8 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 	min_x = (float*)malloc(n_var * sizeof(float));
 	min_c = (float*)malloc(n_const * sizeof(float));
 
-	x1 = (float*)malloc(n * mini_size * sizeof(float));
-	y1 = (float*)malloc(n * mini_size * sizeof(float));
+	x1 = (float*)malloc(n_in  * mini_size * sizeof(float));
+	y1 = (float*)malloc(n_out * mini_size * sizeof(float));
 	kann_feed_bind(ann, KANN_F_IN,    0, &x1);
 	kann_feed_bind(ann, KANN_F_TRUTH, 0, &y1);
 
