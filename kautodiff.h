@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r306"
+#define KAD_VERSION "r312"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -141,8 +141,8 @@ void kad_eval_flag(int n, kad_node_t **a, int ext_flag);
 void kad_grad(int n, kad_node_t **a, int from);
 
 // miscellaneous operations on a compiled graph
-int kad_n_var(int n, kad_node_t *const* v);
-int kad_n_const(int n, kad_node_t *const* v);
+int kad_size_var(int n, kad_node_t *const* v);
+int kad_size_const(int n, kad_node_t *const* v);
 int kad_unrollable(int n, kad_node_t *const* v);
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
 

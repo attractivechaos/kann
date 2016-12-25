@@ -16,10 +16,10 @@ static void kad_ext_collate(int n, kad_node_t **a, float **_x, float **_g, float
 {
 	int i, j, k, l, n_var;
 	float *x, *g, *c;
-	n_var = kad_n_var(n, a);
+	n_var = kad_size_var(n, a);
 	x = *_x = (float*)realloc(*_x, n_var * sizeof(float));
 	g = *_g = (float*)realloc(*_g, n_var * sizeof(float));
-	c = *_c = (float*)realloc(*_c, kad_n_const(n, a) * sizeof(float));
+	c = *_c = (float*)realloc(*_c, kad_size_const(n, a) * sizeof(float));
 	memset(g, 0, n_var * sizeof(float));
 	for (i = j = k = 0; i < n; ++i) {
 		kad_node_t *v = a[i];
@@ -141,7 +141,16 @@ void kann_set_batch_size(kann_t *a, int B)
 	}
 }
 
-int kann_bind_feed(kann_t *a, int ext_flag, int ext_label, float **x)
+int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label)
+{
+	int i, k, r = -1;
+	for (i = k = 0; i < a->n; ++i)
+		if ((a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
+			++k, r = i;
+	return k == 1? r : k == 0? KANN_E_NA : KANN_E_MULTI;
+}
+
+int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
@@ -150,30 +159,25 @@ int kann_bind_feed(kann_t *a, int ext_flag, int ext_label, float **x)
 	return k;
 }
 
-float kann_cost(kann_t *a, int cal_grad)
+int kann_feed_dim(kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
-	int i, i_cost = -1, n_cost = 0;
+	int i, k, n = 0;
+	for (i = k = 0; i < a->n; ++i)
+		if (kad_is_feed(a->v[i]) && (a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
+			++k, n = a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : a->v[i]->n_d == 1? a->v[i]->d[0] : 1;
+	return k == 1? n : k == 0? KANN_E_NA : KANN_E_MULTI;
+}
+
+float kann_cost(kann_t *a, int cost_label, int cal_grad)
+{
+	int i_cost;
 	float cost;
-	for (i = 0; i < a->n; ++i)
-		if ((a->v[i]->ext_flag & KANN_F_COST) && a->v[i]->n_d == 0)
-			i_cost = i, ++n_cost;
-	assert(n_cost == 1);
+	i_cost = kann_find_node(a, KANN_F_COST, cost_label);
+	assert(i_cost >= 0);
 	cost = *kad_eval_at(a->n, a->v, i_cost);
 	if (cal_grad) kad_grad(a->n, a->v, i_cost);
 	return cost;
 }
-
-static inline int kann_n_by_flag(const kann_t *a, int flag)
-{
-	int i, n = 0;
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->ext_flag & flag)
-			n += a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : 1; // the first dimension is batch size
-	return n;
-}
-
-int kann_n_in(const kann_t *a) { return kann_n_by_flag(a, KANN_F_IN); }
-int kann_n_out(const kann_t *a) { return kann_n_by_flag(a, KANN_F_OUT); }
 
 int kann_class_error(const kann_t *ann)
 {
@@ -214,8 +218,8 @@ void kann_save_fp(FILE *fp, kann_t *ann)
 	kann_set_batch_size(ann, 1);
 	fwrite(KANN_MAGIC, 1, 4, fp);
 	kad_save(fp, ann->n, ann->v);
-	fwrite(ann->x, sizeof(float), kad_n_var(ann->n, ann->v), fp);
-	fwrite(ann->c, sizeof(float), kad_n_const(ann->n, ann->v), fp);
+	fwrite(ann->x, sizeof(float), kann_size_var(ann), fp);
+	fwrite(ann->c, sizeof(float), kann_size_const(ann), fp);
 }
 
 void kann_save(const char *fn, kann_t *ann)
@@ -239,8 +243,8 @@ kann_t *kann_load_fp(FILE *fp)
 	}
 	ann = (kann_t*)calloc(1, sizeof(kann_t));
 	ann->v = kad_load(fp, &ann->n);
-	n_var = kad_n_var(ann->n, ann->v);
-	n_const = kad_n_const(ann->n, ann->v);
+	n_var = kad_size_var(ann->n, ann->v);
+	n_const = kad_size_const(ann->n, ann->v);
 	ann->x = (float*)malloc(n_var * sizeof(float));
 	ann->g = (float*)calloc(n_var, sizeof(float));
 	ann->c = (float*)malloc(n_const * sizeof(float));
@@ -608,7 +612,7 @@ const float *kann_apply1(kann_t *a, float *x)
 {
 	int i;
 	kann_set_batch_size(a, 1);
-	kann_bind_feed(a, KANN_F_IN, 0, &x);
+	kann_feed_bind(a, KANN_F_IN, 0, &x);
 	kad_eval_flag(a->n, a->v, KANN_F_OUT);
 	for (i = 0; i < a->n; ++i)
 		if (a->v[i]->ext_flag & KANN_F_OUT)
@@ -645,10 +649,11 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 	int i, j, *shuf, n_train, n_val, n_in, n_out, n_var, n_const, drop_streak = 0;
 	float **x, **y, *x1, *y1, *r, min_val_cost = FLT_MAX, *min_x, *min_c;
 
-	n_in = kann_n_in(ann);
-	n_out = kann_n_out(ann);
-	n_var = kad_n_var(ann->n, ann->v);
-	n_const = kad_n_const(ann->n, ann->v);
+	n_in = kann_dim_in(ann);
+	n_out = kann_dim_out(ann);
+	if (n_in < 0 || n_out < 0) return -1;
+	n_var = kann_size_var(ann);
+	n_const = kann_size_const(ann);
 	r = (float*)calloc(n_var, sizeof(float));
 	shuf = (int*)malloc(n * sizeof(int));
 	x = (float**)malloc(n * sizeof(float*));
@@ -663,8 +668,8 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 
 	x1 = (float*)malloc(n * mini_size * sizeof(float));
 	y1 = (float*)malloc(n * mini_size * sizeof(float));
-	kann_bind_feed(ann, KANN_F_IN,    0, &x1);
-	kann_bind_feed(ann, KANN_F_TRUTH, 0, &y1);
+	kann_feed_bind(ann, KANN_F_IN,    0, &x1);
+	kann_feed_bind(ann, KANN_F_TRUTH, 0, &y1);
 
 	for (i = 0; i < max_epoch; ++i) {
 		int n_proc = 0, is_class = 1, n_train_err = 0, n_val_err = 0;
@@ -677,7 +682,7 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 				memcpy(&y1[b*n_out], y[shuf[n_proc+b]], n_out * sizeof(float));
 			}
 			kann_set_batch_size(ann, ms);
-			train_cost += kann_cost(ann, 1) * ms;
+			train_cost += kann_cost(ann, 0, 1) * ms;
 			c = kann_class_error(ann);
 			if (c < 0) is_class = 0;
 			else n_train_err += c;
@@ -693,7 +698,7 @@ int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_d
 				memcpy(&y1[b*n_out], y[n_train+n_proc+b], n_out * sizeof(float));
 			}
 			kann_set_batch_size(ann, ms);
-			val_cost += kann_cost(ann, 0) * ms;
+			val_cost += kann_cost(ann, 0, 0) * ms;
 			c = kann_class_error(ann);
 			if (c < 0) is_class = 0;
 			else n_val_err += c;

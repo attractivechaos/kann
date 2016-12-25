@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r310"
+#define KANN_VERSION "r312"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -38,6 +38,9 @@
 
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
+
+#define KANN_E_NA       (-1)
+#define KANN_E_MULTI    (-2)
 
 #include "kautodiff.h"
 
@@ -50,6 +53,10 @@ typedef struct {
 extern int kann_verbose;
 
 #define kann_is_rnn(a) kad_unrollable((a)->n, (a)->v)
+#define kann_size_var(a) kad_size_var((a)->n, (a)->v)
+#define kann_size_const(a) kad_size_const((a)->n, (a)->v)
+#define kann_dim_in(a) kann_feed_dim((a), KANN_F_IN, 0)
+#define kann_dim_out(a) kann_feed_dim((a), KANN_F_OUT, 0)
 
 #ifdef __cplusplus
 extern "C" {
@@ -78,14 +85,12 @@ void kann_delete_unrolled(kann_t *a);
 
 void kann_set_batch_size(kann_t *a, int B);
 void kann_set_scalar(kann_t *a, int flag, float z);
-int kann_bind_feed(kann_t *a, int ext_flag, int ext_label, float **x);
-float kann_cost(kann_t *a, int cal_grad);
+int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label);
+int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x);
+int kann_feed_dim(kann_t *a, uint32_t ext_flag, int32_t ext_label);
+float kann_cost(kann_t *a, int cost_label, int cal_grad);
 int kann_class_error(const kann_t *ann);
 void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
-
-// number of input and output variables
-int kann_n_in(const kann_t *a);
-int kann_n_out(const kann_t *a);
 
 // apply a trained model
 int kann_train_xy(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y);

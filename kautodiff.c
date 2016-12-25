@@ -386,7 +386,7 @@ void kad_delete(int n, kad_node_t **a)
 	free(a);
 }
 
-int kad_n_var(int n, kad_node_t *const* v)
+int kad_size_var(int n, kad_node_t *const* v)
 {
 	int c, i;
 	for (i = c = 0; i < n; ++i)
@@ -395,7 +395,7 @@ int kad_n_var(int n, kad_node_t *const* v)
 	return c;
 }
 
-int kad_n_const(int n, kad_node_t *const* v)
+int kad_size_const(int n, kad_node_t *const* v)
 {
 	int c, i;
 	for (i = c = 0; i < n; ++i)
@@ -1652,7 +1652,7 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 	const float eps = 1e-5, rel = 1e-7 / eps;
 	int i, k, n_var;
 	float *g0, *delta, f0, f_minus, f_plus, s0, s1, rel_err, p_m_err;
-	n_var = kad_n_var(n, a);
+	n_var = kad_size_var(n, a);
 	g0 = (float*)calloc(n_var, sizeof(float));
 	f0 = *kad_eval_at(n, a, from);
 	kad_grad(n, a, from);

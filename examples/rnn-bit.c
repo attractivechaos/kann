@@ -14,7 +14,7 @@ static void train(kann_t *ann, int ulen, float lr, int mini_size, int max_epoch,
 	int i, j, n_var;
 	kann_t *ua;
 
-	n_var = kad_n_var(ann->n, ann->v);
+	n_var = kann_size_var(ann);
 	r = (float*)calloc(n_var, sizeof(float));
 	x = (float**)malloc(ulen * sizeof(float*));
 	y = (float**)malloc(ulen * sizeof(float*));
@@ -25,8 +25,8 @@ static void train(kann_t *ann, int ulen, float lr, int mini_size, int max_epoch,
 
 	ua = kann_unroll(ann, ulen);
 	kann_set_batch_size(ua, mini_size);
-	kann_bind_feed(ua, KANN_F_IN,    0, x);
-	kann_bind_feed(ua, KANN_F_TRUTH, 0, y);
+	kann_feed_bind(ua, KANN_F_IN,    0, x);
+	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
 	for (i = 0; i < max_epoch; ++i) {
 		double cost = 0.0;
 		int tot = 0, n_cerr = 0;
@@ -46,7 +46,7 @@ static void train(kann_t *ann, int ulen, float lr, int mini_size, int max_epoch,
 					y[k][m * RN_N_OUT * 2 + (c>>k&1)] = 1.0f;
 				}
 			}
-			cost += kann_cost(ua, 1) * ulen * mini_size;
+			cost += kann_cost(ua, 0, 1) * ulen * mini_size;
 			n_cerr += kann_class_error(ua);
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			tot += ulen * mini_size;

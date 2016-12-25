@@ -83,20 +83,20 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_
 	float **x, **y, *r, *g;
 	kann_t *ua;
 
-	n_char = kann_n_in(ann);
+	n_char = kann_dim_in(ann);
 	x = (float**)calloc(ulen, sizeof(float*));
 	y = (float**)calloc(ulen, sizeof(float*));
 	for (k = 0; k < ulen; ++k) {
 		x[k] = (float*)calloc(n_char, sizeof(float));
 		y[k] = (float*)calloc(n_char, sizeof(float));
 	}
-	n_var = kad_n_var(ann->n, ann->v);
+	n_var = kann_size_var(ann);
 	r = (float*)calloc(n_var, sizeof(float));
 	g = (float*)calloc(n_var, sizeof(float));
 
 	ua = kann_unroll(ann, ulen);
-	kann_bind_feed(ua, KANN_F_IN,    0, x);
-	kann_bind_feed(ua, KANN_F_TRUTH, 0, y);
+	kann_feed_bind(ua, KANN_F_IN,    0, x);
+	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
 	for (i = 0; i < max_epoch; ++i) {
 		double cost = 0.0;
 		int j, b, tot = 0, n_cerr = 0;
@@ -109,7 +109,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_
 					x[k][data[j+b*ulen+k-1]] = 1.0f;
 					y[k][data[j+b*ulen+k]] = 1.0f;
 				}
-				cost += kann_cost(ua, 1) * ulen;
+				cost += kann_cost(ua, 0, 1) * ulen;
 				n_cerr += kann_class_error(ua);
 				tot += ulen;
 				for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 		memset(i2c, 0, 256 * sizeof(int));
 		for (i = 0; i < 256; ++i)
 			if (c2i[i] >= 0) i2c[c2i[i]] = i;
-		n_char = kann_n_in(ann);
+		n_char = kann_dim_in(ann);
 		kann_set_scalar(ann, KANN_F_TEMP, 1.0f/temp);
 		kann_rnn_start(ann);
 		c = (int)(n_char * kann_drand());

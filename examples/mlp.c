@@ -62,14 +62,14 @@ int main(int argc, char *argv[])
 	in = kann_data_read(argv[optind]);
 	if (in_fn) {
 		ann = kann_load(in_fn);
-		assert(kann_n_in(ann) == in->n_col);
+		assert(kann_dim_in(ann) == in->n_col);
 	}
 
 	if (optind+1 < argc) { // train
 		kann_data_t *out;
 		out = kann_data_read(argv[optind+1]);
 		assert(in->n_row == out->n_row);
-		if (ann) assert(kann_n_out(ann) == out->n_col);
+		if (ann) assert(kann_dim_out(ann) == out->n_col);
 		else ann = model_gen(in->n_col, out->n_col, n_h_layers, n_h_neurons, h_dropout);
 		kann_train_xy(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, out->x);
 		if (out_fn) kann_save(out_fn, ann);
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	} else { // apply
 		int n_out;
 		kann_set_scalar(ann, KANN_F_DROPOUT, 0.0f);
-		n_out = kann_n_out(ann);
+		n_out = kann_dim_out(ann);
 		for (i = 0; i < in->n_row; ++i) {
 			const float *y;
 			y = kann_apply1(ann, in->x[i]);

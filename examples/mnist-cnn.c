@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	} else { // applying
 		int i, j, n_out;
 		kann_set_scalar(ann, KANN_F_DROPOUT, 0.0f);
-		n_out = kann_n_out(ann);
+		n_out = kann_dim_out(ann);
 		assert(n_out == 10);
 		for (i = 0; i < x->n_row; ++i) {
 			const float *y;

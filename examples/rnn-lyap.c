@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	h1 = (float*)malloc(l * sizeof(float));
 	memcpy(h0, p0->x, l * sizeof(float));
 
-	x = (float*)calloc(kann_n_in(ann), sizeof(float));
+	x = (float*)calloc(kann_dim_in(ann), sizeof(float));
 	kann_rnn_start(ann);
 	for (j = 0; j < n + burn_in; ++j) {
 		float norm;
