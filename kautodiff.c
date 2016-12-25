@@ -924,17 +924,17 @@ int kad_op_dropout(kad_node_t *p, int action)
 		kad_sync_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
 		if (kad_is_back(p->child[0].p))
-			p->child[0].t = (float*)realloc(p->child[0].t, n);
+			p->child[0].t = realloc(p->child[0].t, n);
 	} else if (action == KAD_FORWARD) {
 		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
-		unsigned char *flag = (unsigned char*)p->child[0].t;
+		uint8_t *flag = (uint8_t*)p->child[0].t;
 		for (i = 0; i < n; ++i) {
 			int kept = (kad_drand() >= r);
 			p->x[i] = kept? q->x[i] * z : 0.0f;
 			if (flag) flag[i] = kept;
 		}
 	} else if (action == KAD_BACKWARD) {
-		unsigned char *flag = (unsigned char*)p->child[0].t;
+		uint8_t *flag = (uint8_t*)p->child[0].t;
 		if (flag)
 			for (i = 0; i < n; ++i)
 				if (flag[i]) q->g[i] += p->g[i];
@@ -1189,7 +1189,7 @@ int kad_op_max(kad_node_t *p, int action)
 			if (kad_len(p->child[i].p) != n) return -1;
 		kad_sync_dim1(p, q);
 		max_j = (int*)calloc(n, sizeof(int));
-		p->child[0].t = (float*)max_j;
+		p->child[0].t = max_j;
 	} else if (action == KAD_FORWARD) {
 		int j, *max_j = (int*)p->child[0].t;
 		memset(max_j, 0, n * sizeof(int));
@@ -1392,7 +1392,7 @@ int kad_op_max2d(kad_node_t *p, int action)
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = q->d[1], p->d[2] = conv_out_size(q->d[2], &aux[0]), p->d[3] = conv_out_size(q->d[3], &aux[1]);
 	} else if (action == KAD_ALLOC) {
-		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
+		p->child[0].t = realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
 		int rest = 1, len, t, i;
 		int *f = (int*)p->child[0].t;
@@ -1547,7 +1547,7 @@ int kad_op_max1d(kad_node_t *p, int action)
 		p->n_d = 3;
 		p->d[0] = q->d[0], p->d[1] = q->d[1], p->d[2] = conv_out_size(q->d[2], aux);
 	} else if (action == KAD_ALLOC) {
-		p->child[0].t = (float*)realloc(p->child[0].t, kad_len(p) * sizeof(int));
+		p->child[0].t = realloc(p->child[0].t, kad_len(p) * sizeof(int));
 	} else if (action == KAD_FORWARD) {
 		int rest = 1, len, t, i;
 		int *f = (int*)p->child[0].t;

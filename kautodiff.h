@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r316"
+#define KAD_VERSION "r317"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -47,7 +47,7 @@ typedef struct kad_node_t kad_node_t;
 // an edge between two nodes in the computational graph
 typedef struct {
 	kad_node_t *p;  // child node, not allocated
-	float *t;       // temporary data needed for backprop; allocated on heap if not NULL
+	void *t;        // temporary data needed for backprop; allocated on heap if not NULL
 } kad_edge_t;
 
 #define KAD_F_WITH_PD  0x1 // PD = partial derivative
