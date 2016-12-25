@@ -78,12 +78,13 @@ kad_node_t *kann_new_bias(int n);
 kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_row, int k_col);
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
-// basic model operations
+// network generation and destroy
 kann_t *kann_new(kad_node_t *cost, int n_rest, ...);
 void kann_delete(kann_t *a);
 kann_t *kann_unroll(kann_t *a, int len);
 void kann_delete_unrolled(kann_t *a);
 
+// basic operations
 void kann_switch(kann_t *a, int is_train);
 void kann_set_batch_size(kann_t *a, int B);
 int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label);

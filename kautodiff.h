@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r315"
+#define KAD_VERSION "r316"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -39,9 +39,9 @@ struct kad_node_t;
 typedef struct kad_node_t kad_node_t;
 
 /* A computational graph is an acyclic directed graph. In the graph, an
- * external node represents a differentiable variable or a non-differentiable
- * parameter; an internal node represents an operator; an edge from node v to w
- * indicates v is an operand of w.
+ * external node represents a variable, a constant or a feed; an internal node
+ * represents an operator; an edge from node v to w indicates v is an operand
+ * of w.
  */
 
 // an edge between two nodes in the computational graph
@@ -70,8 +70,8 @@ struct kad_node_t {
 	int32_t     tmp;            // temporary field; MUST BE zero before calling kad_compile()
 	int32_t     ptr_size;       // size of ptr below
 	int32_t     d[KAD_MAX_DIM]; // dimensions
-	int32_t     ext_label;
-	uint32_t    ext_flag;
+	int32_t     ext_label;      // labels for external uses (not modified by the kad_* APIs)
+	uint32_t    ext_flag;       // flags for external uses (not modified by the kad_* APIs)
 	float      *x;              // value; allocated for internal nodes
 	float      *g;              // gradient; allocated for internal nodes
 	kad_edge_t *child;          // operands/child nodes
@@ -79,72 +79,124 @@ struct kad_node_t {
 	void       *ptr;            // for special operators that need additional parameters (e.g. conv2d)
 };
 
-#define KAD_ALLOC      1
-#define KAD_FORWARD    2
-#define KAD_BACKWARD   3
-#define KAD_SYNC_DIM   4
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef int (*kad_op_f)(kad_node_t*, int);
-extern kad_op_f kad_op_list[KAD_MAX_OP];
+/**
+ * Compile/linearize a computational graph
+ *
+ * @param n_node   number of nodes (out)
+ * @param n_roots  number of nodes without predecessors
+ * @param roots    list of nodes without predecessors
+ *
+ * @return list of nodes, of size *n_node
+ */
+kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 
-typedef double (*kad_drand_f)(void);
-extern kad_drand_f kad_drand; // random number generator, default to drand48()
+kad_node_t **kad_compile(int *n_node, int n_roots, ...); // an alternative API to above
+void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized graph
+
+/**
+ * Compute the value at a node
+ * 
+ * @param n       number of nodes
+ * @param a       list of nodes
+ * @param from    compute the value at this node, 0<=from<n
+ *
+ * @return a pointer to the value (pointing to kad_node_t::x, so don't call
+ *         free() on it!)
+ */
+const float *kad_eval_at(int n, kad_node_t **a, int from);
+
+/**
+ * Compute the values at nodes set with particular external flags
+ *
+ * @param n       number of nodes
+ * @param a       list of nodes
+ * @param ex_flag external flags
+ */
+void kad_eval_flag(int n, kad_node_t **a, int ext_flag);
+
+/**
+ * Compute gradient
+ *
+ * @param n       number of nodes
+ * @param a       list of nodes
+ * @param from    the function node; must be a scalar (compute \nabla a[from])
+ */
+void kad_grad(int n, kad_node_t **a, int from);
+
+/**
+ * Test if a computational graph can be unrolled
+ *
+ * A graph is unrollable if and only if: 1) it has a recurrent node (i.e.
+ * kad_node_t::pre is not NULL) and 2) it has a pooling node (i.e.
+ * kad_node_t::op is either kad_avg or kad_max) with exactly one child.
+ *
+ * @param n       number of nodes
+ * @param v       list of nodes
+ *
+ * @return 1 if the graph can be unrolled or 0 otherwise
+ */
+int kad_unrollable(int n, kad_node_t *const* v);
+
+/**
+ * Unroll a recurrent computation graph
+ *
+ * @param n_v     number of nodes
+ * @param v       list of nodes
+ * @param len     how many times to unroll
+ * @param new_n   number of nodes in the unrolled graph (out)
+ *
+ * @return list of nodes in the unrolled graph
+ */
+kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
+
+// define a variable, a constant or a feed (placeholder in TensorFlow)
+kad_node_t *kad_var(float *x, float *g, int n_d, ...); // a variable; gradients to be computed; not unrolled
+kad_node_t *kad_const(float *x, int n_d, ...);         // a constant; no gradients computed; not unrolled
+kad_node_t *kad_feed(int n_d, ...);                    // an input/output; no gradients computed; unrolled
+
+// operators taking two operands
+kad_node_t *kad_add(kad_node_t *x, kad_node_t *y); // f(x,y) = x + y (generalized element-wise addition; f[i*n+j]=x[i*n+j]+y[j], n=kad_len(y), 0<j<n, 0<i<kad_len(x)/n)
+kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y); // f(x,y) = x * y (generalized element-wise product)
+
+kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y); // f(x,y) = x * y   (general matrix product)
+kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y^T (column-wise matrix product; i.e. y is transposed)
+
+kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y); // multi-class cross-entropy; output is a scalar; x is the preidction and y is the truth
+kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);   // binary cross-entropy
 
 #define KAD_PAD_NONE  0
 #define KAD_PAD_AUTO  (-1)
 #define KAD_PAD_SAME  (-2)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);             // 2D convolution
+kad_node_t *kad_max2d(kad_node_t *x, int kernel_h, int kernel_w, int r_stride, int c_stride, int r_pad, int c_pad); // 2D max pooling
+kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);  // 1D convolution
+kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D max pooling
 
-// define a variable, a constant or a feed (placeholder in TensorFlow)
-kad_node_t *kad_var(float *x, float *g, int n_d, ...);
-kad_node_t *kad_const(float *x, int n_d, ...);
-kad_node_t *kad_feed(int n_d, ...);
-
-// operators taking two operands
-kad_node_t *kad_add(kad_node_t *x, kad_node_t *y);   // f(x,y) = x + y       (element-wise addition)
-kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y       (element-wise product)
-kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);  // f(x,y) = x * y^T     (column-wise matrix product; i.e. y is transposed)
-kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y);// f(x,y) = x * y
-kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y); // multi-class cross-entropy; x is the preidction and y is the truth
-kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);   // binary cross-entropy
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
-kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end);
-kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);
-kad_node_t *kad_max2d(kad_node_t *x, int kernel_h, int kernel_w, int r_stride, int c_stride, int r_pad, int c_pad);
-kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);
-kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad);
+kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end); // a subset on the dim-th dimension
 
 // operators taking one operand
 kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)
 kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (element-wise sigmoid)
 kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
+kad_node_t *kad_softmax(kad_node_t *x);// f_i(x_1,...,x_n) = exp(x_i) / \sum_j exp(x_j) (softmax)
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
-kad_node_t *kad_softmax(kad_node_t *x);// softmax
 
-// operators taking an indefinite number of operands (mostly for pooling)
-kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n (mean pooling)
-kad_node_t *kad_max(int n, kad_node_t **x);
+// operators taking an indefinite number of operands (e.g. pooling)
+kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
+kad_node_t *kad_max(int n, kad_node_t **x); // f(x_1,...,x_n) = max{x_1,...,x_n}  (max pooling)
+
 kad_node_t *kad_switch(int n, kad_node_t **p); // manually (as a hyperparameter) choose one input
 
-// compile graph
-kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
-kad_node_t **kad_compile(int *n_node, int n_roots, ...);
-void kad_delete(int n, kad_node_t **a);
-
-// compute values and gradients
-const float *kad_eval_at(int n, kad_node_t **a, int from);
-void kad_eval_flag(int n, kad_node_t **a, int ext_flag);
-void kad_grad(int n, kad_node_t **a, int from);
-
 // miscellaneous operations on a compiled graph
-int kad_size_var(int n, kad_node_t *const* v);
-int kad_size_const(int n, kad_node_t *const* v);
-int kad_unrollable(int n, kad_node_t *const* v);
-kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
+int kad_size_var(int n, kad_node_t *const* v);   // total size of all variables
+int kad_size_const(int n, kad_node_t *const* v); // total size of all constants
 
 // graph I/O
 int kad_save(FILE *fp, int n_node, kad_node_t **node);
@@ -158,6 +210,17 @@ void kad_check_grad(int n, kad_node_t **a, int from);
 #ifdef __cplusplus
 }
 #endif
+
+#define KAD_ALLOC      1
+#define KAD_FORWARD    2
+#define KAD_BACKWARD   3
+#define KAD_SYNC_DIM   4
+
+typedef int (*kad_op_f)(kad_node_t*, int);
+extern kad_op_f kad_op_list[KAD_MAX_OP];
+
+typedef double (*kad_drand_f)(void);
+extern kad_drand_f kad_drand; // random number generator, default to drand48()
 
 static inline int kad_len(const kad_node_t *p) // calculate the size of p->x
 {
