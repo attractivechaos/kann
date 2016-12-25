@@ -208,12 +208,13 @@ int main(int argc, char *argv[])
 		tg_train(ann, lr, ulen, mbs, max_epoch, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
 		free(tg->data); free(tg);
 	} else { // apply
-		int n_char, i2c[256];
+		int n_char, i2c[256], i_temp;
 		memset(i2c, 0, 256 * sizeof(int));
 		for (i = 0; i < 256; ++i)
 			if (c2i[i] >= 0) i2c[c2i[i]] = i;
 		n_char = kann_dim_in(ann);
-		kann_set_scalar(ann, KANN_F_TEMP_INV, 1.0f/temp);
+		i_temp = kann_find_node(ann, KANN_F_TEMP_INV, 0);
+		if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f / temp;
 		kann_rnn_start(ann);
 		c = (int)(n_char * kann_drand());
 		for (i = 0; i < 1000; ++i) {

@@ -113,14 +113,6 @@ void kann_delete(kann_t *a)
 	kann_delete_unrolled(a);
 }
 
-void kann_set_scalar(kann_t *a, int flag, float z)
-{
-	int i;
-	for (i = 0; i < a->n; ++i)
-		if ((a->v[i]->ext_flag & flag) && a->v[i]->n_d == 0)
-			*a->v[i]->x = z;
-}
-
 void kann_set_batch_size(kann_t *a, int B)
 {
 	int i;
