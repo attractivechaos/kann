@@ -77,6 +77,34 @@ kann_t *tg_load(const char *fn, int c2i[256])
 	return ann;
 }
 
+void tg_gen(FILE *fp, kann_t *ann, float temp, int len, int c2i[256])
+{
+	int i, c, n_char, i2c[256], i_temp;
+	memset(i2c, 0, 256 * sizeof(int));
+	for (i = 0; i < 256; ++i)
+		if (c2i[i] >= 0) i2c[c2i[i]] = i;
+	n_char = kann_dim_in(ann);
+	i_temp = kann_find_node(ann, KANN_F_TEMP_INV, 0);
+	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f / temp;
+	kann_rnn_start(ann);
+	c = (int)(n_char * kann_drand());
+	for (i = 0; i < len; ++i) {
+		float x[256], s, r;
+		const float *y;
+		memset(x, 0, n_char * sizeof(float));
+		x[c] = 1.0f;
+		y = kann_apply1(ann, x);
+		r = kann_drand();
+		for (c = 0, s = 0.0f; c < n_char; ++c)
+			if (s + y[c] >= r) break;
+			else s += y[c];
+		fputc(i2c[c], fp);
+	}
+	fputc('\n', fp);
+	kann_rnn_end(ann);
+	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f;
+}
+
 void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn)
 {
 	int i, k, n_var, n_char;
@@ -123,6 +151,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_
 			kann_RMSprop(n_var, lr, 0, 0.9f, g, ua->x, r);
 		}
 		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", i+1, cost / tot, 100.0 * n_cerr / tot);
+		tg_gen(stderr, ann, 0.4f, 100, c2i);
 		if (fn) tg_save(fn, ann, c2i);
 	}
 	kann_delete_unrolled(ua);
@@ -150,7 +179,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1;
+	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
@@ -207,31 +236,7 @@ int main(int argc, char *argv[])
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
 		tg_train(ann, lr, ulen, mbs, max_epoch, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
 		free(tg->data); free(tg);
-	} else { // apply
-		int n_char, i2c[256], i_temp;
-		memset(i2c, 0, 256 * sizeof(int));
-		for (i = 0; i < 256; ++i)
-			if (c2i[i] >= 0) i2c[c2i[i]] = i;
-		n_char = kann_dim_in(ann);
-		i_temp = kann_find_node(ann, KANN_F_TEMP_INV, 0);
-		if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f / temp;
-		kann_rnn_start(ann);
-		c = (int)(n_char * kann_drand());
-		for (i = 0; i < 1000; ++i) {
-			float x[256], s, r;
-			const float *y;
-			memset(x, 0, n_char * sizeof(float));
-			x[c] = 1.0f;
-			y = kann_apply1(ann, x);
-			r = kann_drand();
-			for (c = 0, s = 0.0f; c < n_char; ++c)
-				if (s + y[c] >= r) break;
-				else s += y[c];
-			putchar(i2c[c]);
-		}
-		putchar('\n');
-		kann_rnn_end(ann);
-	}
+	} else tg_gen(stdout, ann, temp, 1000, c2i);
 
 	kann_delete(ann);
 	return 0;
