@@ -95,6 +95,7 @@ KAD_FUNC_OP2(kad_matmul, 9)
 KAD_FUNC_OP2(kad_ce_multi, 13)
 KAD_FUNC_OP2(kad_dropout, 15)
 KAD_FUNC_OP2(kad_ce_bin, 22)
+KAD_FUNC_OP2(kad_ce_bin_neg, 4)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
@@ -1022,6 +1023,36 @@ int kad_op_ce_bin(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_ce_bin_neg(kad_node_t *p, int action)
+{
+	static const float tiny = 1e-9f;
+	kad_node_t *y1 = p->child[0].p; // test
+	kad_node_t *y0 = p->child[1].p; // truth
+	int i, n;
+
+	n = kad_len(y0);
+	if (action == KAD_SYNC_DIM) {
+		if (n != kad_len(y1)) return -1;
+		p->n_d = 0;
+	} else if (action == KAD_FORWARD) {
+		double cost = 0.0;
+		for (i = 0; i < n; ++i) {
+			if (1.0f + y0->x[i] > 0.0f)
+				cost += .5 * (1.0f + y0->x[i]) * log((1.0f + y0->x[i]) / (1.0f + y1->x[i] > tiny? 1.0f + y1->x[i] : tiny));
+			if (1.0f - y0->x[i] > 0.0f)
+				cost += .5 * (1.0f - y0->x[i]) * log((1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
+		}
+		p->x[0] = cost / n;
+	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
+		float t = p->g[0] / n;
+		for (i = 0; i < n; ++i) {
+			y1->g[i] -= .5 * t * (1.0f + y0->x[i]) / (1.0f + y1->x[i] > tiny? 1.0f + y1->x[i] : tiny);
+			y1->g[i] += .5 * t * (1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny);
+		}
+	}
+	return 0;
+}
+
 int kad_op_ce_multi(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
@@ -1577,7 +1608,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_add,        // 1:  element-wise addition
 	kad_op_mul,        // 2:  element-wise multiplication
 	kad_op_cmul,       // 3:  column multiplication
-	0,
+	kad_op_ce_bin_neg, // 4:  binary cross-entropy for (-1,1)
 	kad_op_norm2,      // 5:  L2-norm
 	kad_op_sigm,       // 6:  sigmoid
 	kad_op_tanh,       // 7:  tanh
@@ -1595,7 +1626,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_max1d,      // 19: 1D max pooling (for 1D ConvNet)
 	kad_op_split,      // 20: split data at a dimension
 	kad_op_max,        // 21: general max pooling
-	kad_op_ce_bin      // 22: binary cross-entropy only
+	kad_op_ce_bin      // 22: binary cross-entropy for (0,1)
 };
 
 /**************************

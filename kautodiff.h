@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r318"
+#define KAD_VERSION "r320"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -162,11 +162,12 @@ kad_node_t *kad_feed(int n_d, ...);                    // an input/output; no gr
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y); // f(x,y) = x + y (generalized element-wise addition; f[i*n+j]=x[i*n+j]+y[j], n=kad_len(y), 0<j<n, 0<i<kad_len(x)/n)
 kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y); // f(x,y) = x * y (generalized element-wise product)
 
-kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y); // f(x,y) = x * y   (general matrix product)
-kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);   // f(x,y) = x * y^T (column-wise matrix product; i.e. y is transposed)
+kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y);     // f(x,y) = x * y   (general matrix product)
+kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);       // f(x,y) = x * y^T (column-wise matrix product; i.e. y is transposed)
 
-kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y); // multi-class cross-entropy; output is a scalar; x is the preidction and y is the truth
-kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);   // binary cross-entropy
+kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y);   // multi-class cross-entropy; output is a scalar; x is the preidction and y is the truth
+kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);     // binary cross-entropy for (0,1)
+kad_node_t *kad_ce_bin_neg(kad_node_t *x, kad_node_t *y); // binary cross-entropy for (-1,1)
 
 #define KAD_PAD_NONE  0      // no zero-padding
 #define KAD_PAD_AUTO  (-1)   // automatically choose zero-padding
