@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 		t = kann_layer_linear(t, n_h_fc);
 		t = kad_relu(t);
 		t = kann_layer_dropout(t, dropout);
-		ann = kann_layer_final(t, 10, KANN_C_CEB);
+		ann = kann_new(kann_layer_cost(t, 10, KANN_C_CEB), 0);
 	}
 
 	x = kann_data_read(argv[optind]);

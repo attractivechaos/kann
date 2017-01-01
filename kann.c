@@ -442,13 +442,13 @@ kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols,
 	return kad_conv2d(in, w, stride, stride, pad, pad);
 }
 
-kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type)
+kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 {
 	kad_node_t *cost = 0, *truth = 0;
 	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG);
 	kad_drand = kann_drand;
+	t = kann_layer_linear(t, n_out), t->ext_flag |= KANN_F_OUT;
 	truth = kad_feed(2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
-	t = kann_layer_linear(t, n_out);
 	if (cost_type == KANN_C_CEB) {
 		cost = kad_ce_bin(kad_sigm(t), truth);
 	} else if (cost_type == KANN_C_CEB_NEG) {
@@ -456,8 +456,8 @@ kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type)
 	} else if (cost_type == KANN_C_CEM) {
 		cost = kad_ce_multi(kad_softmax(t), truth);
 	}
-	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
-	return kann_new(cost, 0);
+	cost->ext_flag |= KANN_F_COST;
+	return cost;
 }
 
 /*********************************************

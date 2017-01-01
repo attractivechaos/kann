@@ -178,7 +178,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 	t1->x = (float*)calloc(1, sizeof(float));
 	*t1->x = 1.0f;
 	t = kad_mul(t, t1);
-	return kann_layer_final(t, n_char, KANN_C_CEM);
+	return kann_new(kann_layer_cost(t, n_char, KANN_C_CEM), 0);
 }
 
 int main(int argc, char *argv[])

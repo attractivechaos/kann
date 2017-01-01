@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 		t = kann_layer_input(RN_N_IN*2);
 		for (i = 0; i < n_h_layers; ++i)
 			t = kann_layer_gru(t, n_h_neurons, 1);
-		ann = kann_layer_final(t, RN_N_OUT*2, KANN_C_CEB);
+		ann = kann_new(kann_layer_cost(t, RN_N_OUT*2, KANN_C_CEB), 0);
 	}
 	train(ann, ulen, lr, mini_size, max_epoch, N);
 	if (fn_out) kann_save(fn_out, ann);
