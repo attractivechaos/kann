@@ -140,11 +140,13 @@ void kann_switch(kann_t *a, int is_train)
 			*(int32_t*)a->v[i]->ptr = !!is_train;
 }
 
+#define chk_flg(flag, mask) ((mask) == 0 || ((flag) & (mask)))
+
 int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, r = -1;
 	for (i = k = 0; i < a->n; ++i)
-		if ((a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
+		if (chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
 			++k, r = i;
 	return k == 1? r : k == 0? -1 : -2;
 }
@@ -153,7 +155,7 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
-		if (kad_is_feed(a->v[i]) && (a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
+		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
 			a->v[i]->x = x[k++];
 	return k;
 }
@@ -162,7 +164,7 @@ int kann_feed_dim(kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, n = 0;
 	for (i = k = 0; i < a->n; ++i)
-		if (kad_is_feed(a->v[i]) && (a->v[i]->ext_flag & ext_flag) && a->v[i]->ext_label == ext_label)
+		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
 			++k, n = a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : a->v[i]->n_d == 1? a->v[i]->d[0] : 1;
 	return k == 1? n : k == 0? -1 : -2;
 }
@@ -447,16 +449,19 @@ kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 	kad_node_t *cost = 0, *truth = 0;
 	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG);
 	kad_drand = kann_drand;
-	t = kann_layer_linear(t, n_out), t->ext_flag |= KANN_F_OUT;
+	t = kann_layer_linear(t, n_out);
 	truth = kad_feed(2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	if (cost_type == KANN_C_CEB) {
-		cost = kad_ce_bin(kad_sigm(t), truth);
+		t = kad_sigm(t);
+		cost = kad_ce_bin(t, truth);
 	} else if (cost_type == KANN_C_CEB_NEG) {
-		cost = kad_ce_bin_neg(kad_tanh(t), truth);
+		t = kad_tanh(t);
+		cost = kad_ce_bin_neg(t, truth);
 	} else if (cost_type == KANN_C_CEM) {
-		cost = kad_ce_multi(kad_softmax(t), truth);
+		t = kad_softmax(t);
+		cost = kad_ce_multi(t, truth);
 	}
-	cost->ext_flag |= KANN_F_COST;
+	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
 	return cost;
 }
 

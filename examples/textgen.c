@@ -84,7 +84,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int len, int c2i[256])
 	for (i = 0; i < 256; ++i)
 		if (c2i[i] >= 0) i2c[c2i[i]] = i;
 	n_char = kann_dim_in(ann);
-	i_temp = kann_find_node(ann, KANN_F_ALL, 1);
+	i_temp = kann_find_node(ann, 0, 1);
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f / temp;
 	kann_rnn_start(ann);
 	c = (int)(n_char * kann_drand());
@@ -166,7 +166,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_
 static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout)
 {
 	int i;
-	kad_node_t *t, *t1;
+	kad_node_t *t, *t1, *truth;
 	t = kann_layer_input(n_char);
 	for (i = 0; i < n_h_layers; ++i) {
 		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, kad_tanh);
@@ -174,11 +174,13 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, 0);
 		t = kann_layer_dropout(t, h_dropout);
 	}
+	t = kann_layer_linear(t, n_char);
 	t1 = kad_const(0, 0), t1->ext_label = 1; // inverse of temperature
 	t1->x = (float*)calloc(1, sizeof(float));
 	*t1->x = 1.0f;
-	t = kad_mul(t, t1);
-	return kann_new(kann_layer_cost(t, n_char, KANN_C_CEM), 0);
+	t = kad_softmax(kad_mul(t, t1)), t->ext_flag |= KANN_F_OUT;
+	truth = kad_feed(2, 1, n_char), truth->ext_flag |= KANN_F_TRUTH;
+	return kann_new(kad_ce_multi(t, truth), 0);
 }
 
 int main(int argc, char *argv[])

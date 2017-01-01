@@ -27,13 +27,12 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r322"
+#define KANN_VERSION "r323"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
 #define KANN_F_TRUTH    0x4   // truth output
 #define KANN_F_COST     0x8   // final cost
-#define KANN_F_ALL      ((uint32_t)-1)
 
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
@@ -123,7 +122,7 @@ int kann_class_error(const kann_t *ann);
  * Find a node
  *
  * @param a         network
- * @param ext_flag  required external flags
+ * @param ext_flag  required external flags; set to 0 to match all flags
  * @param ext_label required external label
  *
  * @return >=0 if found; -1 if not found; -2 if found multiple
