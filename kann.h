@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r323"
+#define KANN_VERSION "r324"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -37,6 +37,8 @@
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
 #define KANN_C_CEB_NEG  3   // binary cross-enytopy-like cost, used with tanh
+
+#define KANN_L_TEMP_INV (-1)
 
 #include "kautodiff.h"
 

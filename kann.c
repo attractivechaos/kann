@@ -458,7 +458,11 @@ kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 		t = kad_tanh(t);
 		cost = kad_ce_bin_neg(t, truth);
 	} else if (cost_type == KANN_C_CEM) {
-		t = kad_softmax(t);
+		kad_node_t *t1;
+		t1 = kad_const(0, 0), t1->ext_label = KANN_L_TEMP_INV;
+		t1->x = (float*)calloc(1, sizeof(float));
+		*t1->x = 1.0f;
+		t = kad_softmax(kad_mul(t, t1));
 		cost = kad_ce_multi(t, truth);
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
