@@ -27,18 +27,17 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r318"
+#define KANN_VERSION "r321"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
 #define KANN_F_TRUTH    0x4   // truth output
 #define KANN_F_COST     0x8   // final cost
-#define KANN_F_TEMP_INV 0x10  // temperature for softmax
-#define KANN_F_DROPOUT  0x20  // dropout ratio
 #define KANN_F_ALL      ((uint32_t)-1)
 
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
+#define KANN_C_CEB_NEG  3   // binary cross-enytopy-like cost, used with tanh
 
 #include "kautodiff.h"
 
@@ -63,9 +62,12 @@ extern "C" {
 /**
  * Generate a network from a computational graph
  *
+ * A network must have at least one scalar cost node (i.e. whose n_d==0). It
+ * may optionally contain other cost nodes (i.e. for GAN) or output nodes.
+ *
  * @param cost    cost node (must be a scalar, i.e. cost->n_d==0)
  * @param n_rest  number of other nodes without predecessors
- * @param ...     other nodes without predecessors
+ * @param ...     other nodes (of type kad_node_t*) without predecessors
  *
  * @return network on success, or NULL otherwise
  */
@@ -77,7 +79,7 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...);
  * @param a       network
  * @param len     number of unrolls
  *
- * @return an unrolled network.
+ * @return an unrolled network, or NULL if the network is not an RNN
  */
 kann_t *kann_unroll(kann_t *a, int len);
 

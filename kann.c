@@ -342,7 +342,7 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 {
 	kad_node_t *s, *x[2];
-	s = kad_const(0, 0), s->ext_flag |= KANN_F_DROPOUT;
+	s = kad_const(0, 0);
 	s->x = (float*)calloc(1, sizeof(float));
 	*s->x = r;
 	x[0] = t, x[1] = kad_dropout(t, s);
@@ -442,23 +442,19 @@ kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols,
 	return kad_conv2d(in, w, stride, stride, pad, pad);
 }
 
-kann_t *kann_layer_final(kad_node_t *t, int n_out, int type)
+kann_t *kann_layer_final(kad_node_t *t, int n_out, int cost_type)
 {
 	kad_node_t *cost = 0, *truth = 0;
-	assert(type == KANN_C_CEB || type == KANN_C_CEM);
+	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG);
 	kad_drand = kann_drand;
 	truth = kad_feed(2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	t = kann_layer_linear(t, n_out);
-	if (type == KANN_C_CEB) {
-		t = kad_sigm(t);
-		cost = kad_ce_bin(t, truth);
-	} else if (type == KANN_C_CEM) {
-		kad_node_t *t1;
-		t1 = kad_const(0, 0), t1->ext_flag |= KANN_F_TEMP_INV;
-		t1->x = (float*)calloc(1, sizeof(float));
-		*t1->x = 1.0f;
-		t = kad_softmax(kad_mul(t, t1));
-		cost = kad_ce_multi(t, truth);
+	if (cost_type == KANN_C_CEB) {
+		cost = kad_ce_bin(kad_sigm(t), truth);
+	} else if (cost_type == KANN_C_CEB_NEG) {
+		cost = kad_ce_bin_neg(kad_tanh(t), truth);
+	} else if (cost_type == KANN_C_CEM) {
+		cost = kad_ce_multi(kad_softmax(t), truth);
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
 	return kann_new(cost, 0);
