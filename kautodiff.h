@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r325"
+#define KAD_VERSION "r326"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -109,14 +109,7 @@ void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized grap
  */
 const float *kad_eval_at(int n, kad_node_t **a, int from);
 
-/**
- * Compute the values at nodes set with particular external flags
- *
- * @param n       number of nodes
- * @param a       list of nodes
- * @param ex_flag external flags
- */
-void kad_eval_flag(int n, kad_node_t **a, int ext_flag);
+void kad_eval_core(int n, kad_node_t **a);
 
 /**
  * Compute gradient

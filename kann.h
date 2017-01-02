@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r325"
+#define KANN_VERSION "r326"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -118,6 +118,7 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x);
  */
 float kann_cost(kann_t *a, int cost_label, int cal_grad);
 
+int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label);
 int kann_class_error(const kann_t *ann);
 
 /**
@@ -129,7 +130,7 @@ int kann_class_error(const kann_t *ann);
  *
  * @return >=0 if found; -1 if not found; -2 if found multiple
  */
-int kann_find_node(const kann_t *a, uint32_t ext_flag, int32_t ext_label);
+int kann_find(const kann_t *a, uint32_t ext_flag, int32_t ext_label);
 
 /**
  * Get the size of a feed node, assuming mini-batch size 1

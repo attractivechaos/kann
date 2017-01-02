@@ -142,7 +142,7 @@ void kann_switch(kann_t *a, int is_train)
 
 #define chk_flg(flag, mask) ((mask) == 0 || ((flag) & (mask)))
 
-int kann_find_node(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
+int kann_find(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, r = -1;
 	for (i = k = 0; i < a->n; ++i)
@@ -173,11 +173,21 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 {
 	int i_cost;
 	float cost;
-	i_cost = kann_find_node(a, KANN_F_COST, cost_label);
+	i_cost = kann_find(a, KANN_F_COST, cost_label);
 	assert(i_cost >= 0);
 	cost = *kad_eval_at(a->n, a->v, i_cost);
 	if (cal_grad) kad_grad(a->n, a->v, i_cost);
 	return cost;
+}
+
+int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
+{
+	int i, k;
+	for (i = k = 0; i < a->n; ++i)
+		if (chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
+			++k, a->v[i]->tmp = 1;
+	kad_eval_core(a->n, a->v); // kad_node_t::tmp will be reset to 0 by kad_eval_core()
+	return k;
 }
 
 void kann_rnn_start(kann_t *a)
@@ -725,7 +735,7 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 const float *kann_apply1(kann_t *a, float *x)
 {
 	int i_out;
-	i_out = kann_find_node(a, KANN_F_OUT, 0);
+	i_out = kann_find(a, KANN_F_OUT, 0);
 	if (i_out < 0) return 0;
 	kann_set_batch_size(a, 1);
 	kann_feed_bind(a, KANN_F_IN, 0, &x);

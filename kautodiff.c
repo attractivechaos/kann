@@ -418,7 +418,7 @@ static void kad_mark_compute(int n, kad_node_t **a)
 				a[i]->child[j].p->tmp = 1;
 }
 
-static void kad_eval_core(int n, kad_node_t **a)
+void kad_eval_core(int n, kad_node_t **a)
 {
 	int i;
 	kad_mark_compute(n, a);
@@ -435,13 +435,6 @@ const float *kad_eval_at(int n, kad_node_t **a, int from)
 	for (i = 0; i < n; ++i) a[i]->tmp = (i == from);
 	kad_eval_core(n, a);
 	return a[from]->x;
-}
-
-void kad_eval_flag(int n, kad_node_t **a, int ext_flag)
-{
-	int i;
-	for (i = 0; i < n; ++i) a[i]->tmp = (a[i]->ext_flag & ext_flag)? 1 : 0;
-	kad_eval_core(n, a);
 }
 
 void kad_grad(int n, kad_node_t **a, int from)

@@ -84,7 +84,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int len, int c2i[256])
 	for (i = 0; i < 256; ++i)
 		if (c2i[i] >= 0) i2c[c2i[i]] = i;
 	n_char = kann_dim_in(ann);
-	i_temp = kann_find_node(ann, 0, KANN_L_TEMP_INV);
+	i_temp = kann_find(ann, 0, KANN_L_TEMP_INV);
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f / temp;
 	kann_rnn_start(ann);
 	c = (int)(n_char * kann_drand());
