@@ -635,13 +635,12 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
 	for (i = 0; i < n_v; ++i)
 		if (kad_is_pivot(v[i]))
 			alt[v[i]->child[0].p->tmp] = alt[i];
-	for (i = 0; i < k0; ++i) {
+	for (i = 0; i < k0; ++i)
 		if (w[i]->tmp >= 0) {
 			kad_node_t *q = alt[w[i]->tmp];
 			q->child[q->tmp++].p = w[i];
 		}
-		w[i]->tmp = 0;
-	}
+	for (i = 0; i < k; ++i) w[i]->tmp = 0;
 	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
 
 	free(alt); free(flag);
