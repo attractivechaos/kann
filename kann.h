@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r324"
+#define KANN_VERSION "r325"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -129,7 +129,7 @@ int kann_class_error(const kann_t *ann);
  *
  * @return >=0 if found; -1 if not found; -2 if found multiple
  */
-int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label);
+int kann_find_node(const kann_t *a, uint32_t ext_flag, int32_t ext_label);
 
 /**
  * Get the size of a feed node, assuming mini-batch size 1
@@ -140,7 +140,7 @@ int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label);
  *
  * @return size>=0; -1 if not found; -2 if found multiple
  */
-int kann_feed_dim(kann_t *a, uint32_t ext_flag, int32_t ext_label);
+int kann_feed_dim(const kann_t *a, uint32_t ext_flag, int32_t ext_label);
 
 /**
  * Get an RNN ready for continuous feeding

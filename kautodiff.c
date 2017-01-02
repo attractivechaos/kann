@@ -1642,7 +1642,7 @@ void kad_trap_fe(void)
 
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { 0, "add", "mul", "cmul", 0, "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
+	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "norm2", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max", "ce_bin" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;

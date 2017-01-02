@@ -142,7 +142,7 @@ void kann_switch(kann_t *a, int is_train)
 
 #define chk_flg(flag, mask) ((mask) == 0 || ((flag) & (mask)))
 
-int kann_find_node(kann_t *a, uint32_t ext_flag, int32_t ext_label)
+int kann_find_node(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, r = -1;
 	for (i = k = 0; i < a->n; ++i)
@@ -160,7 +160,7 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x)
 	return k;
 }
 
-int kann_feed_dim(kann_t *a, uint32_t ext_flag, int32_t ext_label)
+int kann_feed_dim(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, n = 0;
 	for (i = k = 0; i < a->n; ++i)
