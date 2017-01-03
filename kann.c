@@ -141,12 +141,13 @@ void kann_switch(kann_t *a, int is_train)
 }
 
 #define chk_flg(flag, mask) ((mask) == 0 || ((flag) & (mask)))
+#define chk_lbl(label, query) ((query) == 0 || (label) == (query))
 
 int kann_find(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, r = -1;
 	for (i = k = 0; i < a->n; ++i)
-		if (chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
+		if (chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
 			++k, r = i;
 	return k == 1? r : k == 0? -1 : -2;
 }
@@ -155,7 +156,7 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
-		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
+		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
 			a->v[i]->x = x[k++];
 	return k;
 }
@@ -164,7 +165,7 @@ int kann_feed_dim(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 {
 	int i, k, n = 0;
 	for (i = k = 0; i < a->n; ++i)
-		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
+		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
 			++k, n = a->v[i]->n_d > 1? kad_len(a->v[i]) / a->v[i]->d[0] : a->v[i]->n_d == 1? a->v[i]->d[0] : 1;
 	return k == 1? n : k == 0? -1 : -2;
 }
@@ -184,7 +185,7 @@ int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
 {
 	int i, k;
 	for (i = k = 0; i < a->n; ++i)
-		if (chk_flg(a->v[i]->ext_flag, ext_flag) && a->v[i]->ext_label == ext_label)
+		if (chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
 			++k, a->v[i]->tmp = 1;
 	kad_eval_core(a->n, a->v); // kad_node_t::tmp will be reset to 0 by kad_eval_core()
 	return k;
