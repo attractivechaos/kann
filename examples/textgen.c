@@ -115,7 +115,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, int c2i
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f;
 }
 
-void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn)
+void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn)
 {
 	int i, k, n_var, n_char;
 	float **x, **y, *r, *g;
@@ -158,6 +158,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int cont_
 				}
 			}
 			for (k = 0; k < n_var; ++k) g[k] /= mbs;
+			if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, g);
 			kann_RMSprop(n_var, lr, 0, 0.9f, g, ua->x, r);
 		}
 		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", i+1, cost / tot, 100.0 * n_cerr / tot);
@@ -190,11 +191,11 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 int main(int argc, char *argv[])
 {
 	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1, len_gen = 1000, rand_hidden = 0;
-	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f;
+	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:R")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -209,6 +210,7 @@ int main(int argc, char *argv[])
 		else if (c == 'C') cont_mode = 0;
 		else if (c == 'L') len_gen = atoi(optarg);
 		else if (c == 'R') rand_hidden = 1;
+		else if (c == 'g') grad_clip = atof(optarg);
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -232,6 +234,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -m INT      max number of epochs [%d]\n", max_epoch);
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mbs);
 		fprintf(fp, "    -u INT      max unroll [%d]\n", ulen);
+		fprintf(fp, "    -g FLOAT    gradient clipping threshold [%g]\n", grad_clip);
 		fprintf(fp, "  Text generation:\n");
 		fprintf(fp, "    -T FLOAT    temperature [%g]\n", temp);
 		fprintf(fp, "    -L INT      length of text to generate [%d]\n", len_gen);
@@ -247,7 +250,7 @@ int main(int argc, char *argv[])
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d characters; alphabet size %d\n", tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
-		tg_train(ann, lr, ulen, mbs, max_epoch, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
+		tg_train(ann, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, rand_hidden, len_gen, c2i);
 

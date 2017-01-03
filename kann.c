@@ -640,6 +640,19 @@ void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, 
 }
 #endif
 
+float kann_grad_clip(float thres, int n, float *g)
+{
+	int i;
+	double s2 = 0.0;
+	for (i = 0; i < n; ++i)
+		s2 += g[i] * g[i];
+	s2 = sqrt(s2);
+	if (s2 > thres)
+		for (i = 0, s2 = 1.0 / s2; i < n; ++i)
+			g[i] *= s2;
+	return s2 / thres;
+}
+
 /****************************************************************
  *** @@XY: simpler API for network with a single input/output ***
  ****************************************************************/

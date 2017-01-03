@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r329"
+#define KANN_VERSION "r330"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -172,6 +172,8 @@ void kann_switch(kann_t *a, int is_train);
  * @param r      memory, of size n
  */
 void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
+
+float kann_grad_clip(float thres, int n, float *g);
 
 // common layers
 kad_node_t *kann_layer_input(int n1);
