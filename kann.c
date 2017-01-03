@@ -362,30 +362,30 @@ kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 	return kad_switch(2, x);
 }
 
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, kad_node_t *(*af)(kad_node_t*))
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int var_h0)
 {
 	int n0;
 	kad_node_t *h0, *w, *u, *b, *out;
 	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	h0 = kad_var(0, 0, 2, 1, n1);
+	h0 = var_h0? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
 	h0->x = (float*)calloc(n1, sizeof(float));
 	w = kann_new_weight(n1, n0);
 	u = kann_new_weight(n1, n1);
 	b = kann_new_bias(n1);
-	out = af(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
+	out = kad_tanh(kad_add(kad_add(kad_cmul(in, w), kad_cmul(h0, u)), b));
 	out->pre = h0;
 	return out;
 }
 
-kad_node_t *kann_layer_lstm(kad_node_t *in, int n1)
+kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int var_h0)
 {
 	int j, n0;
 	kad_node_t *i, *f, *o, *g, *w, *u, *b, *h0, *c0, *c, *out;
 
 	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	h0 = kad_var(0, 0, 2, 1, n1);
+	h0 = var_h0? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
 	h0->x = (float*)calloc(n1, sizeof(float));
-	c0 = kad_var(0, 0, 2, 1, n1);
+	c0 = var_h0? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
 	c0->x = (float*)calloc(n1, sizeof(float));
 
 	// i = sigm(x_t * W_i + h_{t-1} * U_i + b_i)
