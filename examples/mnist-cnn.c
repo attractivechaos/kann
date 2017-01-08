@@ -35,9 +35,9 @@ int main(int argc, char *argv[])
 	} else {
 		kad_node_t *t;
 		t = kad_feed(4, 1, 1, 28, 28), t->ext_flag |= KANN_F_IN;
-		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, KAD_PAD_AUTO));
-		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, KAD_PAD_AUTO));
-		t = kad_max2d(t, 2, 2, 2, 2, KAD_PAD_AUTO, KAD_PAD_AUTO);
+		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0));
+		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0));
+		t = kann_layer_max2d(t, 2, 2, 2, 0);
 		t = kann_layer_dropout(t, dropout);
 		t = kann_layer_linear(t, n_h_fc);
 		t = kad_relu(t);

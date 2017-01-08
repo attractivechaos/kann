@@ -162,8 +162,7 @@ kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y);   // multi-class cross-e
 kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);     // binary cross-entropy for (0,1)
 kad_node_t *kad_ce_bin_neg(kad_node_t *x, kad_node_t *y); // binary cross-entropy for (-1,1)
 
-#define KAD_PAD_NONE  0      // no zero-padding
-#define KAD_PAD_AUTO  (-1)   // automatically choose zero-padding
+#define KAD_PAD_NONE  0      // use the smallest zero-padding
 #define KAD_PAD_SAME  (-2)   // output to have the same dimension as input
 
 kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride, int r_pad, int c_pad);             // 2D convolution with weight matrix flipped

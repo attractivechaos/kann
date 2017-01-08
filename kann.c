@@ -456,6 +456,11 @@ kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols,
 	return kad_conv2d(in, w, stride, stride, pad, pad);
 }
 
+kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad)
+{
+	return kad_max2d(in, k_rows, k_cols, stride, stride, pad, pad);
+}
+
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 {
 	kad_node_t *cost = 0, *truth = 0;
