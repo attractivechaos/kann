@@ -1,3 +1,17 @@
+## Table of Contents
+
+* [Overview](#overview)
+* [Constructing a Neural Network](#constructing-a-neural-network)
+  - [Constructing a multi-layer perceptron (MLP)](#constructing-a-multi-layer-perceptron-mlp)
+  - [Constructing a convolutional neural network (CNN)](#constructing-a-convolutional-neural-network-cnn)
+  - [Constructed a denoising autoencoder (dAE) with tied weights](#constructed-a-denoising-autoencoder-dae-with-tied-weights)
+  - [Constructing a recurrent neural network (RNN)](#constructing-a-recurrent-neural-network-rnn)
+* [Training a Neural Network](#training-a-neural-network)
+  - [Training a simple feedforward neural network (FNN)](#training-a-simple-feedforward-neural-network-fnn)
+  - [Training a recurrent neural network (RNN)](#training-a-recurrent-neural-network-rnn)
+
+
+
 ## Overview
 
 The KANN library consists of two components. The first is a computational graph
@@ -63,7 +77,7 @@ Violating this rule might lead to unexpected errors. The rest of code adds two
 convolution layers and one max pooling layer. We are using multi-class
 cross-entropy cost (specified by `KANN_C_CEM`) in this example.
 
-### Constructed a denoising autoencoder (dAE) with tied tied weights
+### Constructed a denoising autoencoder (dAE) with tied weights
 
 The following function demonstrates how to use shared weights.
 ```c
