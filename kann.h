@@ -27,7 +27,9 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r331"
+#define KANN_VERSION "r332"
+
+// #define NO_ATOMIC_BUILTIN // use this for VC++
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output

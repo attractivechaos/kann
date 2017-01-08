@@ -306,7 +306,7 @@ kad_node_t *kann_new_weight(int n_row, int n_col)
 	kad_node_t *w;
 	w = kad_var(0, 0, 2, n_row, n_col);
 	w->x = (float*)malloc(n_row * n_col * sizeof(float));
-	kann_normal_array(sqrt(n_col), n_row * n_col, w->x);
+	kann_normal_array(sqrtf((float)n_col), n_row * n_col, w->x);
 	return w;
 }
 
@@ -323,7 +323,7 @@ kad_node_t *kann_new_weight_conv2d(int n_out, int n_in, int k_row, int k_col)
 	kad_node_t *w;
 	w = kad_var(0, 0, 4, n_out, n_in, k_row, k_col);
 	w->x = (float*)malloc(kad_len(w) * sizeof(float));
-	kann_normal_array(sqrt(n_in * k_row * k_col), n_out * n_in * k_row * k_col, w->x);
+	kann_normal_array(sqrtf((float)n_in * k_row * k_col), n_out * n_in * k_row * k_col, w->x);
 	return w;
 }
 
@@ -332,7 +332,7 @@ kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len)
 	kad_node_t *w;
 	w = kad_var(0, 0, 3, n_out, n_in, kernel_len);
 	w->x = (float*)malloc(kad_len(w) * sizeof(float));
-	kann_normal_array(sqrt(n_in * kernel_len), n_out * n_in * kernel_len, w->x);
+	kann_normal_array(sqrtf((float)n_in * kernel_len), n_out * n_in * kernel_len, w->x);
 	return w;
 }
 
@@ -507,6 +507,16 @@ static inline uint64_t xorshift128plus(uint64_t s[2])
 	return y;
 }
 
+#ifdef NO_ATOMIC_BUILTIN
+static inline int __sync_lock_test_and_set(volatile int *p, int v)
+{
+	int old = *p;
+	*p = v;
+	return old;
+}
+#define __sync_lock_release(p) (*(p) = 0)
+#endif
+
 void kann_srand(uint64_t seed0)
 {
 	kann_rand_t *r = &kann_rng;
@@ -581,7 +591,7 @@ void kann_normal_array(float sigma, int n, float *x)
 	double s = 1.0 / sigma;
 	kann_rand_t *r = &kann_rng;
 	while (__sync_lock_test_and_set(&r->lock, 1));
-	for (i = 0; i < n; ++i) x[i] = kann_normal_unsafe(r) * s;
+	for (i = 0; i < n; ++i) x[i] = (float)(kann_normal_unsafe(r) * s);
 	__sync_lock_release(&r->lock);
 }
 
@@ -626,7 +636,7 @@ void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, 
 	}
 	for (; i < n; ++i) {
 		r[i] = (1. - decay) * g[i] * g[i] + decay * r[i];
-		t[i] -= (h? h[i] : h0) / sqrt(1e-6 + r[i]) * g[i];
+		t[i] -= (h? h[i] : h0) / sqrtf(1e-6f + r[i]) * g[i];
 	}
 }
 #else
@@ -635,8 +645,8 @@ void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, 
 	int i;
 	for (i = 0; i < n; ++i) {
 		float lr = h? h[i] : h0;
-		r[i] = (1. - decay) * g[i] * g[i] + decay * r[i];
-		t[i] -= lr / sqrt(1e-6 + r[i]) * g[i];
+		r[i] = (1.0f - decay) * g[i] * g[i] + decay * r[i];
+		t[i] -= lr / sqrtf(1e-6f + r[i]) * g[i];
 	}
 }
 #endif
@@ -650,8 +660,8 @@ float kann_grad_clip(float thres, int n, float *g)
 	s2 = sqrt(s2);
 	if (s2 > thres)
 		for (i = 0, s2 = 1.0 / s2; i < n; ++i)
-			g[i] *= s2;
-	return s2 / thres;
+			g[i] *= (float)s2;
+	return (float)s2 / thres;
 }
 
 /****************************************************************
@@ -735,7 +745,7 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 				memcpy(min_x, ann->x, n_var * sizeof(float));
 				memcpy(min_c, ann->c, n_const * sizeof(float));
 				drop_streak = 0;
-				min_val_cost = val_cost;
+				min_val_cost = (float)val_cost;
 			} else if (++drop_streak >= max_drop_streak)
 				break;
 		}

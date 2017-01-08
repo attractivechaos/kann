@@ -334,13 +334,13 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 		}
 	}
 	free(stack.a);
-	for (i = 0; i < a.n; ++i) { // check cycles; no cycles if constructed with kad_add() etc
+	for (i = 0; i < (int)a.n; ++i) { // check cycles; no cycles if constructed with kad_add() etc
 		assert(a.a[i]->tmp>>1 == 0);
 		a.a[i]->tmp = 0;
 	}
 
 	// post-processing: reverse, mark back flag and allocate memory for internal nodes
-	for (i = 0; i < a.n>>1; ++i) { // reverse a.a[]
+	for (i = 0; i < (int)a.n>>1; ++i) { // reverse a.a[]
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
@@ -1007,12 +1007,14 @@ int kad_op_ce_bin(kad_node_t *p, int action)
 			if (1.0f - y0->x[i] > 0.0f)
 				cost += (1.0f - y0->x[i]) * log((1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
 		}
-		p->x[0] = cost / n;
+		p->x[0] = (float)(cost / n);
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = p->g[0] / n;
 		for (i = 0; i < n; ++i) {
-			y1->g[i] -= t * y0->x[i] / (y1->x[i] > tiny? y1->x[i] : tiny);
-			y1->g[i] += t * (1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny);
+			if (y0->x[i] > 0.0f)
+				y1->g[i] -= t * y0->x[i] / (y1->x[i] > tiny? y1->x[i] : tiny);
+			if (1.0f - y0->x[i] > 0.0f)
+				y1->g[i] += t * (1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny);
 		}
 	}
 	return 0;
@@ -1033,16 +1035,18 @@ int kad_op_ce_bin_neg(kad_node_t *p, int action)
 		double cost = 0.0;
 		for (i = 0; i < n; ++i) {
 			if (1.0f + y0->x[i] > 0.0f)
-				cost += .5 * (1.0f + y0->x[i]) * log((1.0f + y0->x[i]) / (1.0f + y1->x[i] > tiny? 1.0f + y1->x[i] : tiny));
+				cost += .5f * (1.0f + y0->x[i]) * log((1.0f + y0->x[i]) / (1.0f + y1->x[i] > tiny? 1.0f + y1->x[i] : tiny));
 			if (1.0f - y0->x[i] > 0.0f)
-				cost += .5 * (1.0f - y0->x[i]) * log((1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
+				cost += .5f * (1.0f - y0->x[i]) * log((1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny));
 		}
-		p->x[0] = cost / n;
+		p->x[0] = (float)(cost / n);
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = p->g[0] / n;
 		for (i = 0; i < n; ++i) {
-			y1->g[i] -= .5 * t * (1.0f + y0->x[i]) / (1.0f + y1->x[i] > tiny? 1.0f + y1->x[i] : tiny);
-			y1->g[i] += .5 * t * (1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny);
+			if (1.0f + y0->x[i] > 0.0f)
+				y1->g[i] -= .5f * t * (1.0f + y0->x[i]) / (1.0f + y1->x[i] > tiny? 1.0f + y1->x[i] : tiny);
+			if (1.0f - y0->x[i] > 0.0f)
+				y1->g[i] += .5f * t * (1.0f - y0->x[i]) / (1.0f - y1->x[i] > tiny? 1.0f - y1->x[i] : tiny);
 		}
 	}
 	return 0;
@@ -1068,7 +1072,7 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 				if (x0[i] > 0.0f)
 					cost += x0[i] * log(x0[i] / (x1[i] > tiny? x1[i] : tiny));
 		}
-		p->x[0] = cost / y0->d[0];
+		p->x[0] = (float)(cost / y0->d[0]);
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = p->g[0] / y0->d[0];
 		for (j = 0; j < y0->d[0]; ++j) {
@@ -1677,7 +1681,7 @@ static void kad_add_delta(int n, kad_node_t **a, float c, float *delta)
 
 void kad_check_grad(int n, kad_node_t **a, int from)
 {
-	const float eps = 1e-5, rel = 1e-7 / eps;
+	const float eps = 1e-5f, rel = 1e-7f / eps;
 	int i, k, n_var;
 	float *g0, *delta, f0, f_minus, f_plus, s0, s1, rel_err, p_m_err;
 	n_var = kad_size_var(n, a);
@@ -1690,18 +1694,18 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 			k += kad_len(a[i]);
 		}
 	delta = (float*)calloc(n_var, sizeof(float));
-	for (k = 0; k < n_var; ++k) delta[k] = kad_drand() * eps;
+	for (k = 0; k < n_var; ++k) delta[k] = (float)kad_drand() * eps;
 	kad_add_delta(n, a, 1.0f, delta);
 	f_plus = *kad_eval_at(n, a, from);
 	kad_add_delta(n, a, -2.0f, delta);
 	f_minus = *kad_eval_at(n, a, from);
 	kad_add_delta(n, a, 1.0f, delta);
 	s0 = kad_sdot(n_var, g0, delta);
-	s1 = .5 * (f_plus - f_minus);
+	s1 = .5f * (f_plus - f_minus);
 	fprintf(stderr, "Gradient check -- %g <=> %g @ %g -- ", s0/eps, s1/eps, f0);
 	if (fabs(s1) >= rel * eps) {
-		rel_err = fabs(fabs(s0) - fabs(s1)) / (fabs(s0) + fabs(s1));
-		p_m_err = fabs(f_plus + f_minus - 2.0f * f0) / fabs(f_plus - f_minus);
+		rel_err = fabsf(fabsf(s0) - fabsf(s1)) / (fabsf(s0) + fabsf(s1));
+		p_m_err = fabsf(f_plus + f_minus - 2.0f * f0) / fabsf(f_plus - f_minus);
 		fprintf(stderr, "rel_err:%g p_m_err:%g -- ", rel_err, p_m_err);
 		if (rel_err >= rel && rel_err > p_m_err) fprintf(stderr, "failed\n");
 		else fprintf(stderr, "passed\n");
