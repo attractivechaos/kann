@@ -66,7 +66,7 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 	if (cost->n_d != 0) return 0;
 
 	va_start(ap, n_rest);
-	roots = (kad_node_t**)alloca((n_roots + 1) * sizeof(kad_node_t*));
+	roots = (kad_node_t**)malloc((n_roots + 1) * sizeof(kad_node_t*));
 	for (i = 0; i < n_rest; ++i)
 		roots[i] = va_arg(ap, kad_node_t*);
 	roots[i++] = cost;
@@ -87,6 +87,7 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 		a->v = kad_compile_array(&a->n, n_roots, roots);
 	}
 	kad_ext_collate(a->n, a->v, &a->x, &a->g, &a->c);
+	free(roots);
 	return a;
 }
 

@@ -6,8 +6,6 @@
 #include <math.h>
 #include "kautodiff.h"
 
-kad_drand_f kad_drand = drand48;
-
 /**********************
  * Graph construction *
  **********************/
@@ -355,14 +353,16 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 kad_node_t **kad_compile(int *n_node, int n_roots, ...)
 {
 	int i;
-	kad_node_t **roots;
+	kad_node_t **roots, **ret;
 	va_list ap;
 
-	roots = (kad_node_t**)alloca(n_roots * sizeof(kad_node_t*));
+	roots = (kad_node_t**)malloc(n_roots * sizeof(kad_node_t*));
 	va_start(ap, n_roots);
 	for (i = 0; i < n_roots; ++i) roots[i] = va_arg(ap, kad_node_p);
 	va_end(ap);
-	return kad_compile_array(n_node, n_roots, roots);
+	ret = kad_compile_array(n_node, n_roots, roots);
+	free(roots);
+	return ret;
 }
 
 /************************************
@@ -756,6 +756,9 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 /*************
  * Operators *
  *************/
+
+double kad_drand_simple(void) { return (double)rand() / RAND_MAX; }
+kad_drand_f kad_drand = kad_drand_simple;
 
 static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
 {
@@ -1687,7 +1690,7 @@ void kad_check_grad(int n, kad_node_t **a, int from)
 			k += kad_len(a[i]);
 		}
 	delta = (float*)calloc(n_var, sizeof(float));
-	for (k = 0; k < n_var; ++k) delta[k] = drand48() * eps;
+	for (k = 0; k < n_var; ++k) delta[k] = kad_drand() * eps;
 	kad_add_delta(n, a, 1.0f, delta);
 	f_plus = *kad_eval_at(n, a, from);
 	kad_add_delta(n, a, -2.0f, delta);
