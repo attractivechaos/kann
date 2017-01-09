@@ -65,7 +65,9 @@ be found in the [doc](doc) directory. Examples using the library can be found
 in the [examples](examples) directory. The following is a complete program that
 learns addition between two 10-bit integers (NB: RNN is a better and more
 general model to learn additions; see also
-[examples/rnn-bit.c](examples/rnn-bit.c)).
+[examples/rnn-bit.c](examples/rnn-bit.c)). This may help to give a
+look-and-feel of KANN APIs on constructing and training simple feedforward
+models.
 ```c
 // to compile and run: gcc -O2 this-prog.c kann.c kautodiff.c && ./a.out
 #include <stdlib.h>
@@ -100,7 +102,7 @@ int main(void)
 		}
 	}
 	// train
-	kann_train_fnn1(ann, 0.01f, 64, 100, 10, 0.1f, n_samples, x, y);
+	kann_train_fnn1(ann, 0.01f, 64, 25, 10, 0.1f, n_samples, x, y);
 	// predict
 	for (i = 0, n_err = 0; i < n_samples; ++i) {
 		const float *y1 = kann_apply1(ann, x[i]);
