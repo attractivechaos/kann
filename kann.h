@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r336"
+#define KANN_VERSION "r346"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
