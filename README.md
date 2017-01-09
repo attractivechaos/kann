@@ -38,6 +38,59 @@ and fairly efficient for its size.
 
 * Verbose APIs for training RNNs.
 
+## Documentations
+
+Comments in the header files briefly explain the APIs. More documentations can
+be found in the [doc](doc) directory. Examples using the library can be found
+in the [examples](examples) directory. The following is a program that learns
+addition between two 10-bit integers.
+```c
+// to compile: gcc this-prog.c kann.c kautodiff.c
+#include <stdlib.h>
+#include <stdio.h>
+#include "kann.h"
+
+int main(void)
+{
+	int i, k, max_bit = 10, n_samples = 30000, mask, n_err;
+	kann_t *ann;
+	float **x, **y;
+	kad_node_t *t;
+	// construct an MLP with two hidden layers
+	t = kann_layer_input(max_bit * 2);
+	t = kad_relu(kann_layer_linear(t, 64));
+	t = kad_relu(kann_layer_linear(t, 64));
+	ann = kann_new(kann_layer_cost(t, max_bit * 2, KANN_C_CEB), 0);
+	// generate training data
+	x = (float**)calloc(n_samples, sizeof(float*));
+	y = (float**)calloc(n_samples, sizeof(float*));
+	mask = (1<<max_bit) - 1;
+	for (i = 0; i < n_samples; ++i) {
+		int a = kann_rand() & (mask>>1);
+		int b = kann_rand() & (mask>>1);
+		int c = (a + b) & mask;
+		x[i] = (float*)calloc(max_bit * 2, sizeof(float));
+		y[i] = (float*)calloc(max_bit * 2, sizeof(float));
+		for (k = 0; k < max_bit; ++k) {
+			x[i][k*2]   = (float)(a>>k&1);
+			x[i][k*2+1] = (float)(b>>k&1);
+			y[i][k*2 + (c>>k&1)] = 1.0f; // 1-hot encoding
+		}
+	}
+	// train
+	kann_train_fnn1(ann, 0.01f, 64, 100, 10, 0.1f, n_samples, x, y);
+	// predict
+	for (i = 0, n_err = 0; i < n_samples; ++i) {
+		const float *y1 = kann_apply1(ann, x[i]);
+		for (k = 0; k < max_bit; ++k)
+			if ((y1[k*2] < y1[k*2+1]) != (y[i][k*2] < y[i][k*2+1]))
+				++n_err;
+	}
+	fprintf(stderr, "Error rate per bit: %.2f%%\n", 100.0 * n_err / n_samples / max_bit);
+	return 0;
+}
+```
+
 [mlp]: https://en.wikipedia.org/wiki/Multilayer_perceptron
 [cnn]: https://en.wikipedia.org/wiki/Convolutional_neural_network
 [lstm]: https://en.wikipedia.org/wiki/Long_short-term_memory
