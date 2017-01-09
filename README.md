@@ -16,8 +16,26 @@ KANN is a standalone 4-file library in C for constructing and training
 artificial neural networks such as [MLP][mlp], [CNN][cnn] and [LSTM][lstm]. It
 implements generic reverse-mode [automatic differentiation][ad] based on the
 concept of computational graph and allows to construct neural networks with
-shared weights, multiple inputs/outputs and recurrence. KANN is portable, small
-and fairly efficient for its size.
+shared weights, multiple inputs/outputs and recurrence. KANN is flexible,
+portable, small and fairly efficient for its size.
+
+### Background and motivations
+
+Mainstream deep learning frameworks often consist of over 100k lines of code by
+itself and additionally have multiple non-trivial dependencies such as Python,
+BLAS, HDF5 and ProtoBuf. This makes it hard to deploy on older machines and
+difficult for general programmers to understand the internals. While there are
+several lightweight frameworks, they are still fairly heavy and lack important
+features (e.g. RNN) and flexibility (e.g. arbitrary weight sharing) of
+mainstream frameworks.  It is non-trivial and often impossible to use these
+lightweight frameworks to construct non-standard neural networks.
+
+We developed KANN, 1) to understand the algorithms behind mainstream
+frameworks; 2) to have a foundation flexible enough to experiment our own
+contrived models; 3) to give other C/C++ programmers a tiny and efficient
+library that can be easily integrated into their tools with no extra
+dependencies. KANN is targeting small to medium neural networks that can be
+trained on CPUs.
 
 ### Features
 
@@ -30,11 +48,13 @@ and fairly efficient for its size.
   enabled with the `HAVE_CBLAS` macro.
 
 * Small. As of now, KANN has less than 3000 coding lines in four source code
-  files, with no non-standard dependencies by default.
+  files, with no non-standard dependencies by default. We encourage developers
+  to put all the KANN source code into their source code trees.
 
 ### Limitations
 
-* CPU only. KANN does not support GPU, at least for now.
+* CPU only; no parallelization. KANN does not support GPU or multithreading for
+  now. As such, KANN is **not** intended for huge neural networks.
 
 * Verbose APIs for training RNNs.
 
@@ -42,10 +62,12 @@ and fairly efficient for its size.
 
 Comments in the header files briefly explain the APIs. More documentations can
 be found in the [doc](doc) directory. Examples using the library can be found
-in the [examples](examples) directory. The following is a program that learns
-addition between two 10-bit integers.
+in the [examples](examples) directory. The following is a complete program that
+learns addition between two 10-bit integers (NB: RNN is a better and more
+general model to learn additions; see also
+[examples/rnn-bit.c](examples/rnn-bit.c)).
 ```c
-// to compile: gcc this-prog.c kann.c kautodiff.c
+// to compile and run: gcc -O2 this-prog.c kann.c kautodiff.c && ./a.out
 #include <stdlib.h>
 #include <stdio.h>
 #include "kann.h"
@@ -68,7 +90,7 @@ int main(void)
 	for (i = 0; i < n_samples; ++i) {
 		int a = kann_rand() & (mask>>1);
 		int b = kann_rand() & (mask>>1);
-		int c = (a + b) & mask;
+		int c = (a + b) & mask; // NB: XOR is easier to learn than addition
 		x[i] = (float*)calloc(max_bit * 2, sizeof(float));
 		y[i] = (float*)calloc(max_bit * 2, sizeof(float));
 		for (k = 0; k < max_bit; ++k) {
