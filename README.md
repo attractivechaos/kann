@@ -34,9 +34,8 @@ lightweight frameworks to construct non-standard neural networks.
 We developed KANN, 1) to understand the algorithms behind mainstream
 frameworks; 2) to have a foundation flexible enough to experiment our own
 contrived models; 3) to give other C/C++ programmers a tiny and efficient
-library that can be easily integrated into their tools with no extra
-dependencies. KANN is targeting small to medium neural networks that can be
-trained on CPUs.
+library that can be easily integrated into their tools without worrying about
+[dependency hell][dh].
 
 ### Features
 
@@ -120,3 +119,4 @@ int main(void)
 [cnn]: https://en.wikipedia.org/wiki/Convolutional_neural_network
 [lstm]: https://en.wikipedia.org/wiki/Long_short-term_memory
 [ad]: https://en.wikipedia.org/wiki/Automatic_differentiation
+[dh]: https://en.wikipedia.org/wiki/Dependency_hell
