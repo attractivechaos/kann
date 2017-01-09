@@ -1,3 +1,15 @@
+## Getting Started
+```c
+# acquire source code and compile
+git clone https://github.com/attractivechaos/kann
+cd kann; make
+# learn unsigned addition
+seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
+  | ./examples/rnn-bit -m5 -o add.kan -
+# apply the model
+echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
+```
+
 ## Introduction
 
 KANN is a standalone 4-file library in C for constructing and training
