@@ -1,60 +1,111 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <ctype.h>
 #include "kann.h"
 
-#define RN_N_IN  2
-#define RN_N_OUT 1
+typedef struct {
+	int n_in, ulen;
+	int n, m;
+	uint64_t *x, *y;
+} bit_data_t;
 
-#define rn_cal(a, b) ((a) * 53 + (b) * 17)
+#define MAX_FIELDS 64
 
-static void train(kann_t *ann, int ulen, float lr, int mini_size, int max_epoch, int n)
+static int read_int(FILE *fp, uint64_t x[MAX_FIELDS])
+{
+	char *p, *q, line[1024];
+	int i;
+	if (feof(fp) || fgets(line, 1024, fp) == 0) return 0;
+	for (q = p = line, i = 0; *p; ++p) {
+		if (isspace(*p)) {
+			long t;
+			t = strtol(q, &q, 10);
+			assert(t >= 0);
+			x[i++] = t;
+			if (i == MAX_FIELDS) break;
+			q = p + 1;
+		}
+	}
+	return i;
+}
+
+static bit_data_t *read_data(const char *fn)
+{
+	bit_data_t *d;
+	FILE *fp;
+	int i, j;
+	uint64_t max, x[MAX_FIELDS];
+
+	fp = fn && strcmp(fn, "-")? fopen(fn, "r") : stdin;
+	if (fp == 0) return 0;
+	d = (bit_data_t*)calloc(1, sizeof(bit_data_t));
+	while ((i = read_int(fp, x)) > 0) {
+		assert(d->n == 0 || d->n_in == i - 1);
+		d->n_in = i - 1;
+		if (d->n == d->m) {
+			d->m = d->m? d->m<<1 : 256;
+			d->x = (uint64_t*)realloc(d->x, d->m * d->n_in * 8);
+			d->y = (uint64_t*)realloc(d->y, d->m * 8);
+		}
+		memcpy(&d->x[d->n * d->n_in], x, d->n_in * 8);
+		d->y[d->n++] = x[d->n_in];
+	}
+	fclose(fp);
+	for (i = 0, max = 0; i < d->n; ++i) {
+		int t = i * d->n_in;
+		for (j = 0; j < d->n_in; ++j)
+			max = max > d->x[t + j]? max : d->x[t + j];
+		max = max > d->y[i]? max : d->y[i];
+	}
+	for (i = 0; max; max >>= 1, ++i);
+	d->ulen = i;
+	return d;
+}
+
+static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_epoch, const char *fn)
 {
 	float **x, **y, *r;
-	int i, j, n_var;
+	int epoch, j, n_var;
 	kann_t *ua;
 
 	n_var = kann_size_var(ann);
 	r = (float*)calloc(n_var, sizeof(float));
-	x = (float**)malloc(ulen * sizeof(float*));
-	y = (float**)malloc(ulen * sizeof(float*));
-	for (j = 0; j < ulen; ++j) {
-		x[j] = (float*)calloc(mini_size * RN_N_IN  * 2, sizeof(float));
-		y[j] = (float*)calloc(mini_size * RN_N_OUT * 2, sizeof(float));
+	x = (float**)malloc(d->ulen * sizeof(float*));
+	y = (float**)malloc(d->ulen * sizeof(float*));
+	for (j = 0; j < d->ulen; ++j) {
+		x[j] = (float*)calloc(mini_size * d->n_in, sizeof(float));
+		y[j] = (float*)calloc(mini_size * 2, sizeof(float));
 	}
 
-	ua = kann_unroll(ann, ulen);
+	ua = kann_unroll(ann, d->ulen);
 	kann_set_batch_size(ua, mini_size);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
-	for (i = 0; i < max_epoch; ++i) {
+	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
 		int tot = 0, n_cerr = 0;
-		for (j = 0; j < n; j += mini_size) {
-			int m, k;
-			for (k = 0; k < ulen; ++k) {
-				memset(x[k], 0, mini_size * RN_N_IN  * 2 * sizeof(float));
-				memset(y[k], 0, mini_size * RN_N_OUT * 2 * sizeof(float));
-			}
-			for (m = 0; m < mini_size; ++m) {
-				uint64_t a, b, c;
-				a = kann_rand(), b = kann_rand();
-				c = rn_cal(a, b);
-				for (k = 0; k < ulen; ++k) {
-					x[k][m * RN_N_IN  * 2 + (a>>k&1)] = 1.0f;
-					x[k][m * RN_N_IN  * 2 + 2 + (b>>k&1)] = 1.0f;
-					y[k][m * RN_N_OUT * 2 + (c>>k&1)] = 1.0f;
+		for (j = 0; j < d->n; j += mini_size) {
+			int i, b, k;
+			for (k = 0; k < d->ulen; ++k) {
+				for (b = 0; b < mini_size; ++b) {
+					for (i = 0; i < d->n_in; ++i)
+						x[k][b * d->n_in + i] = (float)(d->x[(j + b) * d->n_in + i] >> k & 1);
+					y[k][b * 2] = y[k][b * 2 + 1] = 0.0f;
+					y[k][b * 2 + (d->y[j + b] >> k & 1)] = 1.0f;
 				}
 			}
-			cost += kann_cost(ua, 0, 1) * ulen * mini_size;
+			cost += kann_cost(ua, 0, 1) * d->ulen * mini_size;
 			n_cerr += kann_class_error(ua);
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
-			tot += ulen * mini_size;
+			tot += d->ulen * mini_size;
 		}
-		fprintf(stderr, "epoch: %d; cost: %g (class error: %.2f%%)\n", i+1, cost / tot, 100.0f * n_cerr / tot);
+		fprintf(stderr, "epoch: %d; cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0f * n_cerr / tot);
+		if (fn) kann_save(fn, ann);
 	}
 
-	for (j = 0; j < ulen; ++j) {
+	for (j = 0; j < d->ulen; ++j) {
 		free(y[j]); free(x[j]);
 	}
 	free(y); free(x); free(r);
@@ -62,12 +113,12 @@ static void train(kann_t *ann, int ulen, float lr, int mini_size, int max_epoch,
 
 int main(int argc, char *argv[])
 {
-	int i, c, n_err, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, ulen = 30, max_epoch = 50, N = 10000;
+	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0;
 	float lr = 0.01f;
-	kann_t *ann;
+	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:u:N:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:A")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -75,40 +126,55 @@ int main(int argc, char *argv[])
 		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'r') lr = atof(optarg);
 		else if (c == 's') seed = atoi(optarg);
-		else if (c == 'u') ulen = atoi(optarg);
-		else if (c == 'N') N = atoi(optarg);
+		else if (c == 'A') to_apply = 1;
 	}
-
+	if (optind == argc) {
+		fprintf(stderr, "Usage: rnn-bit [options] <in.txt>\n");
+		return 1;
+	}
 	kann_srand(seed);
-	if (fn_in) { // then read the network from file
-		ann = kann_load(fn_in);
-	} else { // model generation
-		kad_node_t *t;
-		t = kann_layer_input(RN_N_IN*2);
-		for (i = 0; i < n_h_layers; ++i)
-			t = kann_layer_gru(t, n_h_neurons, 1);
-		ann = kann_new(kann_layer_cost(t, RN_N_OUT*2, KANN_C_CEB), 0);
-	}
-	train(ann, ulen, lr, mini_size, max_epoch, N);
-	if (fn_out) kann_save(fn_out, ann);
+	if (fn_in) ann = kann_load(fn_in);
 
-	for (i = n_err = 0; i < N/10; ++i) { // apply to 64-bit integers for testing
-		uint64_t a, b, c;
-		int j, k;
-		a = kann_rand(), b = kann_rand(), c = rn_cal(a, b);
-		kann_rnn_start(ann);
-		for (j = 0; j < 64; ++j) { // run prediction bit by bit
-			float x[RN_N_IN*2];
-			const float *y;
-			x[0] = x[1] = x[2] = x[3] = 0.0f;
-			x[a>>j&1] = 1.0f, x[(b>>j&1)+2] = 1.0f;
-			y = kann_apply1(ann, x);
-			k = y[0] > y[1]? 0 : 1;
-			if (k != (c>>j&1)) ++n_err;
+	if (!to_apply) {
+		bit_data_t *d;
+		d = read_data(argv[optind]);
+		if (ann == 0) { // model generation
+			kad_node_t *t;
+			t = kann_layer_input(d->n_in);
+			for (i = 0; i < n_h_layers; ++i)
+				t = kann_layer_gru(t, n_h_neurons, 1);
+			ann = kann_new(kann_layer_cost(t, 2, KANN_C_CEM), 0);
 		}
-		kann_rnn_end(ann);
+		train(ann, d, lr, mini_size, max_epoch, fn_out);
+		free(d->x); free(d->y); free(d);
+	} else {
+		FILE *fp;
+		uint64_t x[MAX_FIELDS], y;
+		int n, i, k, n_in;
+		n_in = kann_dim_in(ann);
+		fp = strcmp(argv[optind], "-")? fopen(argv[optind], "r") : stdin;
+		while ((n = read_int(fp, x)) > 0) {
+			float x1[MAX_FIELDS];
+			uint64_t max = 0;
+			int ulen;
+			assert(n >= n_in);
+			for (i = 0; i < n; ++i)
+				max = max > x[i]? max : x[i];
+			for (i = 0; max; ++i, max >>= 1);
+			ulen = i;
+			kann_rnn_start(ann);
+			for (k = 0, y = 0; k < ulen; ++k) {
+				const float *y1;
+				for (i = 0; i < n_in; ++i)
+					x1[i] = (float)(x[i] >> k & 1);
+				y1 = kann_apply1(ann, x1);
+				if (y1[1] > y1[0]) y |= 1ULL << k;
+			}
+			kann_rnn_end(ann);
+			printf("%llu\n", (unsigned long long)y);
+		}
+		fclose(fp);
 	}
-	fprintf(stderr, "Error on 64-bit integers: %.2f%%\n", 100.0f * n_err / i / 64);
 
 	kann_delete(ann);
 	return 0;
