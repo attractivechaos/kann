@@ -13,11 +13,12 @@ echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
 ## Introduction
 
 KANN is a standalone 4-file library in C for constructing and training
-artificial neural networks such as [MLP][mlp], [CNN][cnn] and [LSTM][lstm]. It
-implements generic reverse-mode [automatic differentiation][ad] based on the
-concept of computational graph and allows to construct neural networks with
-shared weights, multiple inputs/outputs and recurrence. KANN is flexible,
-portable, small and fairly efficient for its size.
+small to medium artificial neural networks such as [MLP][mlp], [CNN][cnn] and
+[LSTM][lstm]. It implements generic reverse-mode [automatic
+differentiation][ad] based on the concept of computational graph and allows to
+construct topologically complex neural networks with shared weights, multiple
+inputs/outputs and recurrence. KANN is flexible, portable, small and fairly
+efficient for its size.
 
 ### Background and motivations
 
