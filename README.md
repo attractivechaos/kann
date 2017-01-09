@@ -1,5 +1,5 @@
 ## Getting Started
-```c
+```sh
 # acquire source code and compile
 git clone https://github.com/attractivechaos/kann
 cd kann; make
