@@ -155,15 +155,9 @@ int main(int argc, char *argv[])
 		fp = strcmp(argv[optind], "-")? fopen(argv[optind], "r") : stdin;
 		while ((n = read_int(fp, x)) > 0) {
 			float x1[MAX_FIELDS];
-			uint64_t max = 0;
-			int ulen;
 			assert(n >= n_in);
-			for (i = 0; i < n; ++i)
-				max = max > x[i]? max : x[i];
-			for (i = 0; max; ++i, max >>= 1);
-			ulen = i;
 			kann_rnn_start(ann);
-			for (k = 0, y = 0; k < ulen; ++k) {
+			for (k = 0, y = 0; k < 64; ++k) {
 				const float *y1;
 				for (i = 0; i < n_in; ++i)
 					x1[i] = (float)(x[i] >> k & 1);
