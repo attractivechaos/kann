@@ -31,11 +31,11 @@ features (e.g. RNN) and flexibility (e.g. arbitrary weight sharing) of
 mainstream frameworks.  It is non-trivial and often impossible to use these
 lightweight frameworks to construct non-standard neural networks.
 
-We developed KANN, 1) to understand the algorithms behind mainstream
+We developed KANN, 1) to fully understand the algorithms behind mainstream
 frameworks; 2) to have a foundation flexible enough to experiment our own
-contrived models; 3) to give other C/C++ programmers a tiny and efficient
-library that can be easily integrated into their tools without worrying about
-[dependency hell][dh].
+small but contrived models; 3) to give other C/C++ programmers a tiny and
+efficient library that can be easily integrated into their tools without
+worrying about [dependency hell][dh].
 
 ### Features
 
