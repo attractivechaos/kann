@@ -56,8 +56,8 @@ worrying about [dependency hell][dh].
 * CPU only; no parallelization. KANN does not support GPU or multithreading for
   now. As such, KANN is **not** intended for huge neural networks.
 
-* No bidirectional RNN (achievable by manually unrolling RNN, but tedious). No
-  batch normalization.
+* No bidirectional RNN (achievable by manually unrolling RNN, but tedious and
+  not general enough). No batch normalization.
 
 * Verbose APIs for training RNNs.
 
