@@ -53,8 +53,7 @@ worrying about [dependency hell][dh].
   enabled with the `HAVE_CBLAS` macro.
 
 * Small. As of now, KANN has less than 3000 coding lines in four source code
-  files, with no non-standard dependencies by default. We encourage developers
-  to put all the KANN source code into their source code trees.
+  files, with no non-standard dependencies by default.
 
 ### Limitations
 
