@@ -159,7 +159,7 @@ network simultaneously trains the original network. As the unrolled network has
 multiple input nodes, we cannot use `kann_train_fnn1()` for training.  We are
 not providing a `kann_train_fnn1()` like API because converting all time series
 data to vectors may take too much memory (for example, converting text to
-vectors at the character level makes input 1000 times larger). We tried a
+vectors at the character level makes the input 1000 times larger). We tried a
 callback-based API in an older version of KANN, but found it is confusing to
 use and is not flexible enough.
 
