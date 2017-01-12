@@ -75,7 +75,7 @@ be found in the [doc](doc) directory. Examples using the library are in the
 ### A tour of basic KANN APIs
 
 Working with neural networks usually involves three steps: model construction,
-training and prediction. We can use layer APIs to build simple model:
+training and prediction. We can use layer APIs to build a simple model:
 ```c
 kann_t *ann;
 kad_node_t *t;
@@ -101,6 +101,9 @@ const float *y; // this will point to an array of size 10
 // fill in x here and then call:
 y = kann_apply1(ann, x);
 ```
+
+Working with complex models requires to use low-level APIs. Please see
+[01user.md](doc/01user.md) for details.
 
 ### A complete example
 
