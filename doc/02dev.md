@@ -106,11 +106,9 @@ works exactly this way.
 ### Definition of convolution
 
 We often see two ways to define convolution in the context of deep learning:
-with or without the weight matrix rotated. Both ways work in practice. However,
-major frameworks and libraries all rotate the weight matrix as this is closer
-to the original mathematical definition of convolution. To call their APIs and
-to load their pretrained weight matrices, we prefer to rorate the weight matrix
-as well. This is the convention.
+with or without the weight matrix flipped. Both ways work in practice and are
+used in mainstream frameworks. KANN uses flipped weight matrices as this is
+closer to the mathematical definition of convolution.
 
 ### The shape of n-d arrays
 
@@ -137,8 +135,8 @@ convolution operation can also be implemented with Fast Fourier Transformation
 (FFT). [NNPACK][nnpack] gives an efficient CPU-only implementation.
 
 KANN uses direct computation with an optimized inner loop. On a machine we use,
-it is eight times faster than a naive implementation, but 80% slower than
-a CPU-only Theano implementation which is based on matrix product. KANN
+it is eight times faster than a naive implementation, but about twice as slow
+as a CPU-only Theano implementation which is based on matrix product. KANN
 provides a reasonbly fast, though not very fast, implementation that is still
 simple and does not require a lot of working space.
 
