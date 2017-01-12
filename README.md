@@ -8,6 +8,11 @@ seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
   | ./examples/rnn-bit -m5 -o add.kan -
 # apply the model (output 1138429, the sum of the two numbers)
 echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
+# learn multiplication to a number smaller than 100:
+seq 30000 | awk '{a=int(10000*rand());b=int(100*rand())+1;print a,b,a*b}' \
+  | ./examples/rnn-bit -m30 -l2 -n128 -o mul100.kan -
+# apply the model to large numbers (answer: 1486734150878261153)
+echo 15327156194621249 97 | ./examples/rnn-bit -Ai 1.kan -
 ```
 
 ## Introduction
@@ -54,7 +59,7 @@ worrying about [dependency hell][dh].
 ### Limitations
 
 * CPU only; no parallelization. KANN does not support GPU or multithreading for
-  now. As such, KANN is **not** intended for huge neural networks.
+  now. As such, KANN is **not** intended for training huge neural networks.
 
 * No bidirectional RNN (achievable by manually unrolling RNN, but tedious and
   not general enough). No batch normalization.
@@ -64,13 +69,42 @@ worrying about [dependency hell][dh].
 ## Documentations
 
 Comments in the header files briefly explain the APIs. More documentations can
-be found in the [doc](doc) directory. Examples using the library can be found
-in the [examples](examples) directory. The following is a complete program that
-learns addition between two 10-bit integers (NB: RNN is a better and more
-general model to learn additions; see also
-[examples/rnn-bit.c](examples/rnn-bit.c)). This may help to give a
-look-and-feel of KANN APIs on constructing and training simple feedforward
-models.
+be found in the [doc](doc) directory. Examples using the library are in the
+[examples](examples) directory.
+
+### A tour of basic KANN APIs
+
+Working with neural networks usually involves three steps: model construction,
+training and prediction. We can use layer APIs to build simple model:
+```c
+kann_t *ann;
+kad_node_t *t;
+t = kann_layer_input(784); // for MNIST
+t = kad_relu(kann_layer_linear(t, 64)); // a 64-neuron hidden layer with ReLU activation
+t = kann_layer_cost(t, 10, KANN_C_CEM); // softmax output + multi-class cross-entropy cost
+ann = kann_new(t, 0);                   // compile the network and collate variables
+```
+For this simple feedforward model with one input and one output, we can train
+it with:
+```c
+int n;     // number of training samples
+float **x; // model input, of size n * 784
+float **y; // model output, of size n * 10
+// fill in x and y here and then call:
+kann_train_fnn1(ann, 0.001f, 64, 25, 10, 0.1f, n, x, y);
+```
+We can save the model to a file with `kann_save()` or use it to classify a
+MNIST image:
+```c
+float *x;       // of size 784
+const float *y; // this will point to an array of size 10
+// fill in x here and then call:
+y = kann_apply1(ann, x);
+```
+
+### A complete example
+
+This example learns addition between two 10-bit integers:
 ```c
 // to compile and run: gcc -O2 this-prog.c kann.c kautodiff.c && ./a.out
 #include <stdlib.h>
@@ -84,10 +118,11 @@ int main(void)
 	float **x, **y;
 	kad_node_t *t;
 	// construct an MLP with two hidden layers
-	t = kann_layer_input(max_bit * 2);
+	t = kann_layer_input(max_bit * 2); // two numbers in binary representation
 	t = kad_relu(kann_layer_linear(t, 64));
 	t = kad_relu(kann_layer_linear(t, 64));
-	ann = kann_new(kann_layer_cost(t, max_bit * 2, KANN_C_CEB), 0);
+	t = kann_layer_cost(t, max_bit * 2, KANN_C_CEB); // output uses 1-hot encoding
+	ann = kann_new(t, 0);
 	// generate training data
 	x = (float**)calloc(n_samples, sizeof(float*));
 	y = (float**)calloc(n_samples, sizeof(float*));
