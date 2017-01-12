@@ -8,7 +8,7 @@ seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
   | ./examples/rnn-bit -m5 -o add.kan -
 # apply the model (output 1138429, the sum of the two numbers)
 echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
-# learn multiplication to a number smaller than 100:
+# learn multiplication to a number between 1 and 100
 seq 30000 | awk '{a=int(10000*rand());b=int(100*rand())+1;print a,b,a*b}' \
   | ./examples/rnn-bit -m30 -l2 -n128 -o mul100.kan -
 # apply the model to large numbers (answer: 1486734150878261153)
@@ -29,18 +29,18 @@ efficient for its size.
 
 Mainstream deep learning frameworks often consist of over 100k lines of code by
 itself and additionally have multiple non-trivial dependencies such as Python,
-BLAS, HDF5 and ProtoBuf. This makes it hard to deploy on older machines and
+BLAS, ProtoBuf and HDF5. This makes it hard to deploy on older machines and
 difficult for general programmers to understand the internals. While there are
 several lightweight frameworks, they are still fairly heavy and lack important
 features (e.g. RNN) and flexibility (e.g. arbitrary weight sharing) of
-mainstream frameworks.  It is non-trivial and often impossible to use these
+mainstream frameworks. It is non-trivial and sometimes impossible to use these
 lightweight frameworks to construct non-standard neural networks.
 
-We developed KANN, 1) to fully understand the algorithms behind mainstream
+We developed KANN, 1) to fully understand the algorithms behind deep learning
 frameworks; 2) to have a foundation flexible enough to experiment our own
 small but contrived models; 3) to give other C/C++ programmers a tiny and
-efficient library that can be easily integrated into their tools without
-worrying about [dependency hell][dh].
+efficient library that can be integrated into their tools without worrying
+about [dependency hell][dh].
 
 ### Features
 
