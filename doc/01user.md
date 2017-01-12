@@ -156,11 +156,16 @@ The KANN computational graph does not keep the history of computation. To train
 an RNN, we have to unroll it with `kann_unroll()`. Variables and constants are
 shared between the original and the unrolled networks. Training the unrolled
 network simultaneously trains the original network. As the unrolled network has
-multiple input nodes, we cannot use `kann_train_fnn1()` for training. We have
-to manually roll our own training routine.
+multiple input nodes, we cannot use `kann_train_fnn1()` for training.  We are
+not providing a `kann_train_fnn1()` like API because converting all time series
+data to vectors may take too much memory (for example, converting text to
+vectors at the character level makes input 1000 times larger). We tried a
+callback-based API in an older version of KANN, but found it is confusing to
+use and is not flexible enough.
 
-The following example shows how to train an RNN for character-level text
-generation:
+For now, the only way to train an RNN is to manually write our own training
+routine. The following example shows how to train an RNN for character-level
+text generation:
 ```c
 void train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int len, const uint8_t *data)
 {
