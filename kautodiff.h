@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r332"
+#define KAD_VERSION "r363"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -195,6 +195,13 @@ int kad_size_const(int n, kad_node_t *const* v); // total size of all constants
 int kad_save(FILE *fp, int n_node, kad_node_t **node);
 kad_node_t **kad_load(FILE *fp, int *_n_node);
 
+// random number generator
+void *kad_rng(void);
+void kad_srand(void *d, uint64_t seed);
+uint64_t kad_rand(void *d);
+double kad_drand(void *d);
+double kad_drand_normal(void *d);
+
 // debugging routines
 void kad_trap_fe(void); // abort on divide-by-zero and NaN
 void kad_print_graph(FILE *fp, int n, kad_node_t **v);
@@ -211,9 +218,6 @@ void kad_check_grad(int n, kad_node_t **a, int from);
 
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[KAD_MAX_OP];
-
-typedef double (*kad_drand_f)(void);
-extern kad_drand_f kad_drand; // random number generator, default to drand48()
 
 static inline int kad_len(const kad_node_t *p) // calculate the size of p->x
 {

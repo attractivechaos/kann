@@ -465,7 +465,6 @@ kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 {
 	kad_node_t *cost = 0, *truth = 0;
 	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG);
-	kad_drand = kann_drand;
 	t = kann_layer_linear(t, n_out);
 	truth = kad_feed(2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	if (cost_type == KANN_C_CEB) {
@@ -490,128 +489,21 @@ kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
  *** @@RNG: pseudo-random number generator ***
  *********************************************/
 
-#define KANN_SEED1 1181783497276652981ULL
-
-typedef struct {
-	uint64_t s[2];
-	double n_gset;
-	int n_iset;
-	volatile int lock;
-} kann_rand_t;
-
-static kann_rand_t kann_rng = { {11ULL, KANN_SEED1}, 0.0, 0, 0 };
-
-static inline uint64_t xorshift128plus(uint64_t s[2])
-{
-	uint64_t x, y;
-	x = s[0], y = s[1];
-	s[0] = y;
-	x ^= x << 23;
-	s[1] = x ^ y ^ (x >> 17) ^ (y >> 26);
-	y += s[1];
-	return y;
-}
-
-#ifdef NO_ATOMIC_BUILTIN
-static inline int __sync_lock_test_and_set(volatile int *p, int v)
-{
-	int old = *p;
-	*p = v;
-	return old;
-}
-#define __sync_lock_release(p) (*(p) = 0)
-#endif
-
-void kann_srand(uint64_t seed0)
-{
-	kann_rand_t *r = &kann_rng;
-	while (__sync_lock_test_and_set(&r->lock, 1));
-	memset(r, 0, sizeof(kann_rand_t));
-	r->s[0] = seed0, r->s[1] = KANN_SEED1;
-	__sync_lock_release(&r->lock);
-}
-
-static inline uint64_t kann_rand_unsafe(kann_rand_t *r)
-{
-	return xorshift128plus(r->s);
-}
-
-static inline double kann_drand_unsafe(kann_rand_t *r)
-{
-	return (xorshift128plus(r->s)>>11) * (1.0/9007199254740992.0);
-}
-
-static double kann_normal_unsafe(kann_rand_t *r)
-{
-	if (r->n_iset == 0) {
-		double fac, rsq, v1, v2;
-		do {
-			v1 = 2.0 * kann_drand_unsafe(r) - 1.0;
-			v2 = 2.0 * kann_drand_unsafe(r) - 1.0;
-			rsq = v1 * v1 + v2 * v2;
-		} while (rsq >= 1.0 || rsq == 0.0);
-		fac = sqrt(-2.0 * log(rsq) / rsq);
-		r->n_gset = v1 * fac;
-		r->n_iset = 1;
-		return v2 * fac;
-	} else {
-		r->n_iset = 0;
-		return r->n_gset;
-	}
-}
-
-uint64_t kann_rand(void)
-{
-	uint64_t x;
-	kann_rand_t *r = &kann_rng;
-	while (__sync_lock_test_and_set(&r->lock, 1));
-	x = kann_rand_unsafe(r);
-	__sync_lock_release(&r->lock);
-	return x;
-}
-
-double kann_drand(void)
-{
-	double x;
-	kann_rand_t *r = &kann_rng;
-	while (__sync_lock_test_and_set(&r->lock, 1));
-	x = kann_drand_unsafe(r);
-	__sync_lock_release(&r->lock);
-	return x;
-}
-
-double kann_normal(void)
-{
-	double x;
-	kann_rand_t *r = &kann_rng;
-	while (__sync_lock_test_and_set(&r->lock, 1));
-	x = kann_normal_unsafe(r);
-	__sync_lock_release(&r->lock);
-	return x;
-}
-
 void kann_normal_array(float sigma, int n, float *x)
 {
 	int i;
 	double s = 1.0 / sigma;
-	kann_rand_t *r = &kann_rng;
-	while (__sync_lock_test_and_set(&r->lock, 1));
-	for (i = 0; i < n; ++i) x[i] = (float)(kann_normal_unsafe(r) * s);
-	__sync_lock_release(&r->lock);
+	for (i = 0; i < n; ++i) x[i] = (float)(kad_drand_normal(0) * s);
 }
 
 void kann_shuffle(int n, int *s)
 {
 	int i, j, t;
-	kann_rand_t *r = &kann_rng;
-
 	for (i = 0; i < n; ++i) s[i] = i;
-	while (__sync_lock_test_and_set(&r->lock, 1));
 	for (i = n; i > 0; --i) {
-		j = (int)(i * kann_drand_unsafe(r));
+		j = (int)(i * kad_drand(0));
 		t = s[j], s[j] = s[i-1], s[i-1] = t;
 	}
-	__sync_lock_release(&r->lock);
 }
 
 /***************************

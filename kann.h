@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r346"
+#define KANN_VERSION "r363"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
@@ -57,6 +57,8 @@ extern int kann_verbose;
 #define kann_size_const(a) kad_size_const((a)->n, (a)->v)
 #define kann_dim_in(a) kann_feed_dim((a), KANN_F_IN, 0)
 #define kann_dim_out(a) kann_feed_dim((a), KANN_F_TRUTH, 0)
+#define kann_srand(seed) kad_srand(0, (seed))
+#define kann_drand() kad_drand(0)
 
 #ifdef __cplusplus
 extern "C" {
@@ -193,6 +195,8 @@ kad_node_t *kann_new_bias(int n);
 kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_row, int k_col);
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
+void kann_normal_array(float sigma, int n, float *x);
+
 // operations on network with a single input node and a single output node
 int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y);
 const float *kann_apply1(kann_t *a, float *x);
@@ -202,13 +206,6 @@ void kann_save_fp(FILE *fp, kann_t *ann);
 void kann_save(const char *fn, kann_t *ann);
 kann_t *kann_load_fp(FILE *fp);
 kann_t *kann_load(const char *fn);
-
-// pseudo-random number generator
-void kann_srand(uint64_t seed);
-uint64_t kann_rand(void);
-double kann_drand(void);
-double kann_normal(void);
-void kann_normal_array(float sigma, int n, float *x);
 
 #ifdef __cplusplus
 }
