@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r365"
+#define KAD_VERSION "r366"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -175,9 +175,10 @@ kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 kad_node_t *kad_sample_normal(kad_node_t *x);           // f(x) = x * r, where r is drawn from a standard normal distribution
 
 kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end); // a subset on the dim-th dimension
+kad_node_t *kad_switch(int n, kad_node_t **p); // manually (as a hyperparameter) choose one input
 
 // operators taking one operand
-kad_node_t *kad_norm2(kad_node_t *x);  // f(x) = \sum_i x_i^2                (L2 norm)
+kad_node_t *kad_square(kad_node_t *x); // f(x) = x^2                         (element-wise square)
 kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (element-wise sigmoid)
 kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
@@ -188,7 +189,9 @@ kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
 kad_node_t *kad_max(int n, kad_node_t **x); // f(x_1,...,x_n) = max{x_1,...,x_n}  (max pooling)
 
-kad_node_t *kad_switch(int n, kad_node_t **p); // manually (as a hyperparameter) choose one input
+// dimension reduction
+kad_node_t *kad_reduce_sum(kad_node_t *x, int dim);   // reduce dimension by 1 at dimension _dim_ (similar to TensorFlow's reduce_sum()
+kad_node_t *kad_reduce_mean(kad_node_t *x, int dim);
 
 // miscellaneous operations on a compiled graph
 int kad_size_var(int n, kad_node_t *const* v);   // total size of all variables
