@@ -97,32 +97,13 @@ KAD_FUNC_OP2(kad_ce_bin_neg, 4)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
+KAD_FUNC_OP1(kad_log, 27)
 KAD_FUNC_OP1(kad_square, 5)
 KAD_FUNC_OP1(kad_sigm, 6)
 KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
 KAD_FUNC_OP1(kad_1minus, 11)
 KAD_FUNC_OP1(kad_softmax, 14)
-
-/////////// General pooling ///////////
-
-static kad_node_t *kad_op_pooling_core(int op, int n, kad_node_t **x)
-{
-	int i;
-	kad_node_t *s;
-	s = kad_new_core(0, op, n);
-	s->flag |= KAD_F_POOLING;
-	for (i = 0; i < n; ++i)
-		s->child[i].p = x[i];
-	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
-		free(s->child); free(s);
-		return 0;
-	}
-	return s;
-}
-
-kad_node_t *kad_avg(int n, kad_node_t **x) { return kad_op_pooling_core(10, n, x); }
-kad_node_t *kad_max(int n, kad_node_t **x) { return kad_op_pooling_core(21, n, x); }
 
 /////////// Convolution ///////////
 
@@ -223,40 +204,25 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
 	return s;
 }
 
-/////////// Miscellaneous ///////////
+/////////// Multi-node pooling ///////////
 
-kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
+static kad_node_t *kad_pooling_general(int op, int n, kad_node_t **x)
 {
+	int i;
 	kad_node_t *s;
-	int32_t *aux;
-	if (end < start || start < 0) return 0;
-	aux = (int32_t*)malloc(3 * 4);
-	aux[0] = dim, aux[1] = start, aux[2] = end;
-	s = kad_new_core(0, 20, 1);
-	s->child[0].p = x;
-	s->ptr = aux, s->ptr_size = 3 * 4;
-	if (kad_op_list[20](s, KAD_SYNC_DIM) < 0) {
-		free(aux); free(s->child); free(s);
-		return 0;
-	}
-	return s;
-}
-
-kad_node_t *kad_switch(int n, kad_node_t **p)
-{
-	kad_node_t *s;
-	int32_t i, *aux;
-	aux = (int32_t*)calloc(1, 4);
-	s = kad_new_core(0, 12, n);
+	s = kad_new_core(0, op, n);
+	s->flag |= KAD_F_POOLING;
 	for (i = 0; i < n; ++i)
-		s->child[i].p = p[i];
-	s->ptr = aux, s->ptr_size = 4;
-	if (kad_op_list[12](s, KAD_SYNC_DIM) < 0) {
-		free(aux); free(s->child); free(s);
+		s->child[i].p = x[i];
+	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
+		free(s->child); free(s);
 		return 0;
 	}
 	return s;
 }
+
+kad_node_t *kad_avg(int n, kad_node_t **x) { return kad_pooling_general(10, n, x); }
+kad_node_t *kad_max(int n, kad_node_t **x) { return kad_pooling_general(21, n, x); }
 
 /////////// Dimension reduction ///////////
 
@@ -295,6 +261,41 @@ kad_node_t *kad_sample_normal(kad_node_t *x)
 	z = kad_op1_core(24, x);
 	z->ptr = kad_rng();
 	return z;
+}
+
+/////////// Miscellaneous ///////////
+
+kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
+{
+	kad_node_t *s;
+	int32_t *aux;
+	if (end < start || start < 0) return 0;
+	aux = (int32_t*)malloc(3 * 4);
+	aux[0] = dim, aux[1] = start, aux[2] = end;
+	s = kad_new_core(0, 20, 1);
+	s->child[0].p = x;
+	s->ptr = aux, s->ptr_size = 3 * 4;
+	if (kad_op_list[20](s, KAD_SYNC_DIM) < 0) {
+		free(aux); free(s->child); free(s);
+		return 0;
+	}
+	return s;
+}
+
+kad_node_t *kad_switch(int n, kad_node_t **p)
+{
+	kad_node_t *s;
+	int32_t i, *aux;
+	aux = (int32_t*)calloc(1, 4);
+	s = kad_new_core(0, 12, n);
+	for (i = 0; i < n; ++i)
+		s->child[i].p = p[i];
+	s->ptr = aux, s->ptr_size = 4;
+	if (kad_op_list[12](s, KAD_SYNC_DIM) < 0) {
+		free(aux); free(s->child); free(s);
+		return 0;
+	}
+	return s;
 }
 
 /***********************
@@ -1874,7 +1875,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_sub,        // 23: element-wise subtraction
 	kad_op_sample_normal,  // 24: sample from a normal distribution
 	kad_op_reduce_sum,     // 25
-	kad_op_reduce_mean     // 26
+	kad_op_reduce_mean,    // 26
+	kad_op_log         // 27
 };
 
 /**************************
@@ -1891,7 +1893,7 @@ void kad_trap_fe(void)
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
-								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max", "ce_bin", "sub", "sample_normal" };
+								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {

@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r366"
+#define KAD_VERSION "r367"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -184,13 +184,14 @@ kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (el
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
 kad_node_t *kad_softmax(kad_node_t *x);// f_i(x_1,...,x_n) = exp(x_i) / \sum_j exp(x_j) (softmax)
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
+kad_node_t *kad_log(kad_node_t *x);    // f(x) = log(x)
 
 // operators taking an indefinite number of operands (e.g. pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
 kad_node_t *kad_max(int n, kad_node_t **x); // f(x_1,...,x_n) = max{x_1,...,x_n}  (max pooling)
 
 // dimension reduction
-kad_node_t *kad_reduce_sum(kad_node_t *x, int dim);   // reduce dimension by 1 at dimension _dim_ (similar to TensorFlow's reduce_sum()
+kad_node_t *kad_reduce_sum(kad_node_t *x, int dim);   // reduce dimension by 1 at dimension _dim_ (similar to TensorFlow's reduce_sum())
 kad_node_t *kad_reduce_mean(kad_node_t *x, int dim);
 
 // miscellaneous operations on a compiled graph
