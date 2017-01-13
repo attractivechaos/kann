@@ -8,7 +8,7 @@ seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
   | ./examples/rnn-bit -m5 -o add.kan -
 # apply the model (output 1138429, the sum of the two numbers)
 echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
-# learn multiplication to a number between 1 and 100
+# learn multiplication to a number between 1 and 100 (with a bigger model)
 seq 30000 | awk '{a=int(10000*rand());b=int(100*rand())+1;print a,b,a*b}' \
   | ./examples/rnn-bit -m50 -l2 -n160 -o mul100.kan -
 # apply the model to large numbers (answer: 1486734150878261153)

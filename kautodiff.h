@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r363"
+#define KAD_VERSION "r365"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -153,6 +153,7 @@ kad_node_t *kad_feed(int n_d, ...);                    // an input/output; no gr
 
 // operators taking two operands
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y); // f(x,y) = x + y (generalized element-wise addition; f[i*n+j]=x[i*n+j]+y[j], n=kad_len(y), 0<j<n, 0<i<kad_len(x)/n)
+kad_node_t *kad_sub(kad_node_t *x, kad_node_t *y); // f(x,y) = x - y (generalized element-wise subtraction)
 kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y); // f(x,y) = x * y (generalized element-wise product)
 
 kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y);     // f(x,y) = x * y   (general matrix product)
@@ -171,6 +172,8 @@ kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);  // 1
 kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D max pooling
 
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
+kad_node_t *kad_sample_normal(kad_node_t *x);           // f(x) = x * r, where r is drawn from a standard normal distribution
+
 kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end); // a subset on the dim-th dimension
 
 // operators taking one operand

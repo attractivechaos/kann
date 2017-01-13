@@ -87,6 +87,7 @@ static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 #define KAD_FUNC_OP2(fname, op) kad_node_t *fname(kad_node_t *x, kad_node_t *y) { return kad_op2_core((op), x, y); }
 
 KAD_FUNC_OP2(kad_add, 1)
+KAD_FUNC_OP2(kad_sub, 23)
 KAD_FUNC_OP2(kad_mul, 2)
 KAD_FUNC_OP2(kad_cmul, 3)
 KAD_FUNC_OP2(kad_matmul, 9)
@@ -263,6 +264,14 @@ kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y)
 {
 	kad_node_t *z;
 	z = kad_op2_core(15, x, y);
+	z->ptr = kad_rng();
+	return z;
+}
+
+kad_node_t *kad_sample_normal(kad_node_t *x)
+{
+	kad_node_t *z;
+	z = kad_op1_core(24, x);
 	z->ptr = kad_rng();
 	return z;
 }
@@ -885,6 +894,30 @@ int kad_op_add(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_sub(kad_node_t *p, int action)
+{
+	int i, n0, n1;
+	kad_node_t *q[2];
+
+	q[0] = p->child[0].p, n0 = kad_len(q[0]);
+	q[1] = p->child[1].p, n1 = kad_len(q[1]);
+	if (action == KAD_SYNC_DIM) {
+		if (n0 % n1 != 0) return -1;
+		kad_sync_dim1(p, q[0]);
+	} else if (action == KAD_FORWARD) {
+		assert(n0 >= n1);
+		memcpy(p->x, q[0]->x, n0 * sizeof(float));
+		for (i = 0; i < n0; i += n1)
+			kad_saxpy(n1, -1.0f, q[1]->x, p->x + i);
+	} else if (action == KAD_BACKWARD) {
+		if (kad_is_back(q[0])) kad_saxpy(n0, 1.0f, p->g, q[0]->g);
+		if (kad_is_back(q[1]))
+			for (i = 0; i < n0; i += n1)
+				kad_saxpy(n1, -1.0f, p->g + i, q[1]->g);
+	}
+	return 0;
+}
+
 int kad_op_mul(kad_node_t *p, int action)
 {
 	int i, n0, n1;
@@ -1022,11 +1055,36 @@ int kad_op_dropout(kad_node_t *p, int action)
 			p->x[i] = kept? q->x[i] * z : 0.0f;
 			if (flag) flag[i] = kept;
 		}
-	} else if (action == KAD_BACKWARD) {
+	} else if (action == KAD_BACKWARD && kad_is_back(p->child[0].p)) {
 		uint8_t *flag = (uint8_t*)p->child[0].t;
-		if (flag)
-			for (i = 0; i < n; ++i)
-				if (flag[i]) q->g[i] += p->g[i];
+		for (i = 0; i < n; ++i)
+			if (flag[i]) q->g[i] += p->g[i];
+	}
+	return 0;
+}
+
+int kad_op_sample_normal(kad_node_t *p, int action) // not tested
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_ALLOC) {
+		if (kad_is_back(p->child[0].p))
+			p->child[0].t = realloc(p->child[0].t, n * sizeof(float));
+	} else if (action == KAD_FORWARD) {
+		float *r = (float*)p->child[0].t;
+		for (i = 0; i < n; ++i) {
+			float z;
+			z = (float)kad_drand_normal(p->ptr);
+			p->x[i] = q->x[i] * z;
+			if (r) r[i] = z;
+		}
+	} else if (action == KAD_BACKWARD && kad_is_back(p->child[0].p)) {
+		float *r = (float*)p->child[0].t;
+		for (i = 0; i < n; ++i)
+			q->g[i] += p->g[i] * r[i];
 	}
 	return 0;
 }
@@ -1718,7 +1776,9 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_max1d,      // 19: 1D max pooling (for 1D ConvNet)
 	kad_op_split,      // 20: split data at a dimension
 	kad_op_max,        // 21: general max pooling
-	kad_op_ce_bin      // 22: binary cross-entropy for (0,1)
+	kad_op_ce_bin,     // 22: binary cross-entropy for (0,1)
+	kad_op_sub,        // 23: element-wise subtraction
+	kad_op_sample_normal  // 24: sample from a normal distribution
 };
 
 /**************************
