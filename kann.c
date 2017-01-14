@@ -301,6 +301,15 @@ kann_t *kann_load(const char *fn)
  *** @@LAYER: layers and model generation ***
  **********************************************/
 
+kad_node_t *kann_const_scalar(float x)
+{
+	kad_node_t *t;
+	t = kad_const(0, 0);
+	t->x = (float*)calloc(1, sizeof(float));
+	*t->x = x;
+	return t;
+}
+
 kad_node_t *kann_new_weight(int n_row, int n_col)
 {
 	kad_node_t *w;

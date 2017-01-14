@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 INCLUDES=	-I.
 EXE=		examples/mlp examples/mnist-cnn examples/inspect examples/textgen examples/rnn-bit \
-			examples/ae examples/rnn-lyap
+			examples/ae examples/vae examples/rnn-lyap
 LIBS=		-lm -lz
 
 ifdef CBLAS
@@ -27,6 +27,9 @@ examples/mlp:examples/mlp.o kautodiff.o kann.o kann_extra/kann_data.o
 		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 examples/ae:examples/ae.o kautodiff.o kann.o kann_extra/kann_data.o
+		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
+
+examples/vae:examples/vae.o kautodiff.o kann.o kann_extra/kann_data.o
 		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
 examples/textgen:examples/textgen.o kautodiff.o kann.o
@@ -62,3 +65,4 @@ examples/mnist-cnn.o: kann_extra/kann_data.h kann.h kautodiff.h
 examples/rnn-bit.o: kann.h kautodiff.h
 examples/rnn-lyap.o: kann.h kautodiff.h
 examples/textgen.o: kann.h kautodiff.h
+examples/vae.o: kann.h kautodiff.h kann_extra/kann_data.h

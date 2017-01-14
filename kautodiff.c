@@ -1027,7 +1027,7 @@ int kad_op_square(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0].p;
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		p->n_d = 0;
+		kad_sync_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->x[i] = q->x[i] * q->x[i];
