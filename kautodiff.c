@@ -449,21 +449,24 @@ int kad_size_const(int n, kad_node_t *const* v)
  * Computate values and gradients *
  **********************************/
 
-static void kad_mark_compute(int n, kad_node_t **a)
+static void kad_propagate_marks(int n, kad_node_t **a)
 {
 	int i, j;
-	for (i = n - 1; i >= 0; --i)
-		if (a[i]->tmp)
-			for (j = 0; j < a[i]->n_child; ++j)
-				a[i]->child[j].p->tmp = 1;
+	for (i = n - 1; i >= 0; --i) {
+		kad_node_t *p = a[i];
+		if (p->tmp > 0)
+			for (j = 0; j < p->n_child; ++j)
+				if (p->child[j].p->tmp == 0)
+					p->child[j].p->tmp = 1;
+	}
 }
 
-void kad_eval_core(int n, kad_node_t **a)
+void kad_eval_marked(int n, kad_node_t **a)
 {
 	int i;
-	kad_mark_compute(n, a);
+	kad_propagate_marks(n, a);
 	for (i = 0; i < n; ++i)
-		if (a[i]->n_child && a[i]->tmp)
+		if (a[i]->n_child && a[i]->tmp > 0)
 			kad_op_list[a[i]->op](a[i], KAD_FORWARD);
 	for (i = 0; i < n; ++i) a[i]->tmp = 0;
 }
@@ -473,7 +476,7 @@ const float *kad_eval_at(int n, kad_node_t **a, int from)
 	int i;
 	if (from < 0 || from >= n) from = n - 1;
 	for (i = 0; i < n; ++i) a[i]->tmp = (i == from);
-	kad_eval_core(n, a);
+	kad_eval_marked(n, a);
 	return a[from]->x;
 }
 
@@ -483,11 +486,12 @@ void kad_grad(int n, kad_node_t **a, int from)
 	if (from < 0 || from >= n) from = n - 1;
 	assert(a[from]->n_d == 0);
 	for (i = 0; i < n; ++i) a[i]->tmp = (i == from);
-	kad_mark_compute(n, a);
+	kad_propagate_marks(n, a);
 	for (i = 0; i <= from; ++i) // set all grandients to zero
-		if (a[i]->g && a[i]->tmp) memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
+		if (a[i]->g && a[i]->tmp > 0)
+			memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
 	for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
-		if (a[i]->n_child && a[i]->tmp)
+		if (a[i]->n_child && a[i]->tmp > 0)
 			kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	for (i = 0; i <= from; ++i) a[i]->tmp = 0;
 }

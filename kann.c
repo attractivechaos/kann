@@ -188,7 +188,7 @@ int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
 	for (i = k = 0; i < a->n; ++i)
 		if (chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
 			++k, a->v[i]->tmp = 1;
-	kad_eval_core(a->n, a->v); // kad_node_t::tmp will be reset to 0 by kad_eval_core()
+	kad_eval_marked(a->n, a->v);
 	return k;
 }
 

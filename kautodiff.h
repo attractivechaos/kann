@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r367"
+#define KAD_VERSION "r369"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -60,6 +60,9 @@ typedef struct {
 #define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_F_CONSTANT))
 #define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_F_CONSTANT))
 #define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_F_POOLING))
+
+#define kad_eval_enable(p) ((p)->tmp = 1)
+#define kad_eval_disable(p) ((p)->tmp = -1)
 
 // a node in the computational graph
 struct kad_node_t {
@@ -109,7 +112,7 @@ void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized grap
  */
 const float *kad_eval_at(int n, kad_node_t **a, int from);
 
-void kad_eval_core(int n, kad_node_t **a);
+void kad_eval_marked(int n, kad_node_t **a);
 
 /**
  * Compute gradient
