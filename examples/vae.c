@@ -25,14 +25,15 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 
 	// latent loss
 	s = kad_add(kad_square(sigma), kann_const_scalar(1e-6f)); // sigma^2, plus a pseudo-count
-	s = kad_sub(s, kad_log(s));
-	s = kad_add(s, kad_square(mu));
-	s = kad_sub(s, kann_const_scalar(1.0f));
+	s = kad_sub(s, kad_log(s));              // sigma^2 - log(sigma^2)
+	s = kad_add(s, kad_square(mu));          // mu^2 + sigma^2 - log(sigma^2)
+	s = kad_sub(s, kann_const_scalar(1.0f)); // mu^2 + sigma^2 - log(sigma^2) - 1
 	s = kad_reduce_sum(s, 1);
 	s = kad_mul(s, kann_const_scalar(0.5f));
 	s = kad_reduce_mean(s, 0);
 
-	t = kad_add(t, s), t->ext_flag |= KANN_F_COST;
+	t = kad_add(t, s);
+	t = kad_mul(t, kann_const_scalar(1.0f / (n_in + 2 * n_code))), t->ext_flag |= KANN_F_COST;
 	return kann_new(t, 0);
 }
 
@@ -45,7 +46,7 @@ int main(int argc, char *argv[])
 	char *out_fn = 0, *in_fn = 0;
 	float lr = 0.01f, frac_val = 0.1f;
 
-	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:Ag:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:Ag:c:")) >= 0) {
 		if (c == 'n') n_hidden = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') in_fn = optarg;
@@ -54,6 +55,7 @@ int main(int argc, char *argv[])
 		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'B') mini_size = atoi(optarg);
 		else if (c == 'A') to_apply = 1;
+		else if (c == 'c') n_code = atoi(optarg);
 		else if (c == 'g') n_gen = atoi(optarg);
 	}
 	if (argc - optind < 1 && in_fn == 0 && n_gen == 0) {
@@ -65,10 +67,14 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -o FILE     save trained model to FILE []\n");
 		fprintf(fp, "    -s INT      random seed [%d]\n", seed);
 		fprintf(fp, "    -n INT      number of hidden neurons [%d]\n", n_hidden);
+		fprintf(fp, "    -c INT      number of codes [%d]\n", n_code);
 		fprintf(fp, "  Model training:\n");
 		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", lr);
 		fprintf(fp, "    -m INT      max number of epochs [%d]\n", max_epoch);
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mini_size);
+		fprintf(fp, "  Prediction and generation:\n");
+		fprintf(fp, "    -A          reconstruct input\n");
+		fprintf(fp, "    -g INT      generate INT samples [%d]\n", n_gen);
 		return 1;
 	}
 
