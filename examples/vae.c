@@ -12,7 +12,7 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 
 	// encoder
 	x = kad_feed(2, 1, n_in), x->ext_flag |= KANN_F_IN | KANN_F_TRUTH;
-	t = kann_layer_linear(x, n_hidden);
+	t = kad_tanh(kann_layer_linear(x, n_hidden));
 	mu = kann_layer_linear(t, n_code);
 	sigma = kad_relu(kann_layer_linear(t, n_code));
 	t = kad_add(kad_sample_normal(sigma), mu), t->ext_label = 1;
@@ -103,10 +103,10 @@ int main(int argc, char *argv[])
 		kann_set_batch_size(ann, 1);
 		out = ann->v[kann_find(ann, KANN_F_OUT, 0)];
 		t = ann->v[kann_find(ann, 0, 1)];
-		kad_eval_disable(t);
 		n_code = kad_len(t);
 		n_out = kad_len(out);
 		for (j = 0; j < n_gen; ++j) {
+			kad_eval_disable(t);
 			for (i = 0; i < n_code; ++i)
 				t->x[i] = kad_drand_normal(0);
 			kann_eval(ann, KANN_F_OUT, 0);
