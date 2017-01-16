@@ -14,6 +14,15 @@ This directory contains examples on using KANN as a library.
   `mlp.c`. This example shows how to construct a neural network with shared
   weights.
 
+* [vae.c](vae.c): variational autoencoder. It uses sampling and a complex cost
+  function.
+  ```sh
+  curl -s https://url/to/mnist-data.tar | tar xf -
+  ./vae -o mnist-vae.kan -c 2 mnist-train-x.snd.gz   # code dimension is 2
+  ./vae -i mnist-vae.kan -A mnist-test-x.snd.gz | ./mnist-ascii.pl # reconstruction
+  ./vae -i mnist-vae.kan -g 10 | ./mnist-ascii.pl    # generate 10 random images
+  ```
+
 * [mnist-cnn.c](mnist-cnn.c): ConvNet for MNIST data.
   ```sh
   curl -s https://url/to/mnist-data.tar | tar xf -
@@ -22,8 +31,8 @@ This directory contains examples on using KANN as a library.
   ```
 
 * [rnn-bit.c](rnn-bit.c): learn simple arithmetic with an RNN. This example can
-  learn addition and simple things like `a*53+b*17` (NB: 53 and 17 are small
-  numbers). However, it fails when input bits are moved around more
+  learn addition and simple arithmetic like `a\*b`, where `b` is a number no
+  larger than 100. However, it fails when input bits are moved around more
   dramatically.
   ```sh
   seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
