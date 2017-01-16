@@ -40,7 +40,7 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 int main(int argc, char *argv[])
 {
 	int max_epoch = 50, mini_size = 64, max_drop_streak = 10;
-	int i, j, c, n_hidden = 64, n_code = 16, seed = 11, to_apply = 0, n_gen = 0;
+	int i, j, c, n_hidden = 64, n_code = 2, seed = 11, to_apply = 0, n_gen = 0;
 	kann_data_t *in = 0;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
