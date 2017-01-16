@@ -118,6 +118,6 @@ int main(int argc, char *argv[])
 	}
 
 	kann_delete(ann);
-	kann_data_free(in);
+	if (in) kann_data_free(in);
 	return 0;
 }
