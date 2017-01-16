@@ -39,13 +39,13 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 int main(int argc, char *argv[])
 {
 	int max_epoch = 50, mini_size = 64, max_drop_streak = 10;
-	int i, j, c, n_hidden = 64, n_code = 16, seed = 11, to_apply = 0;
+	int i, j, c, n_hidden = 64, n_code = 16, seed = 11, to_apply = 0, n_gen = 0;
 	kann_data_t *in = 0;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
 	float lr = 0.01f, frac_val = 0.1f;
 
-	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:A")) >= 0) {
+	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:Ag:")) >= 0) {
 		if (c == 'n') n_hidden = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') in_fn = optarg;
@@ -54,8 +54,9 @@ int main(int argc, char *argv[])
 		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'B') mini_size = atoi(optarg);
 		else if (c == 'A') to_apply = 1;
+		else if (c == 'g') n_gen = atoi(optarg);
 	}
-	if (argc - optind < 1) {
+	if (argc - optind < 1 && in_fn == 0 && n_gen == 0) {
 		FILE *fp = stdout;
 		fprintf(fp, "Usage: vae [options] <in.knd>\n");
 		fprintf(fp, "Options:\n");
@@ -73,19 +74,19 @@ int main(int argc, char *argv[])
 
 	kad_trap_fe();
 	kann_srand(seed);
-	in = kann_data_read(argv[optind]);
+	if (argc - optind >= 1)
+		in = kann_data_read(argv[optind]);
 	if (in_fn) {
 		ann = kann_load(in_fn);
-		assert(kann_dim_in(ann) == in->n_col);
+		if (in) assert(kann_dim_in(ann) == in->n_col);
 	}
 
-	if (!to_apply) { // train
+	if (!to_apply && n_gen == 0) { // train
 		if (!ann)
 			ann = model_gen(in->n_col, n_hidden, n_code);
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, in->x);
 		if (out_fn) kann_save(out_fn, ann);
-	} else { // apply
-		kann_switch(ann, 0);
+	} else if (to_apply) { // apply
 		for (i = 0; i < in->n_row; ++i) {
 			const float *y;
 			y = kann_apply1(ann, in->x[i]);
@@ -94,6 +95,24 @@ int main(int argc, char *argv[])
 				if (j) putchar('\t');
 				printf("%.3g", y[j] + 1.0f - 1.0f);
 			}
+			putchar('\n');
+		}
+	} else {
+		kad_node_t *t, *out;
+		int j, n_out;
+		kann_set_batch_size(ann, 1);
+		out = ann->v[kann_find(ann, KANN_F_OUT, 0)];
+		t = ann->v[kann_find(ann, 0, 1)];
+		kad_eval_disable(t);
+		n_code = kad_len(t);
+		n_out = kad_len(out);
+		for (j = 0; j < n_gen; ++j) {
+			for (i = 0; i < n_code; ++i)
+				t->x[i] = kad_drand_normal(0);
+			kann_eval(ann, KANN_F_OUT, 0);
+			printf("%d", j + 1);
+			for (i = 0; i < n_out; ++i)
+				printf("\t%g", out->x[i] + 1.0f - 1.0f);
 			putchar('\n');
 		}
 	}
