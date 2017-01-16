@@ -31,7 +31,7 @@ This directory contains examples on using KANN as a library.
   ```
 
 * [rnn-bit.c](rnn-bit.c): learn simple arithmetic with an RNN. This example can
-  learn addition and simple arithmetic like `a\*b`, where `b` is a number no
+  learn addition and simple arithmetic like `a*b`, where `b` is a number no
   larger than 100. However, it fails when input bits are moved around more
   dramatically.
   ```sh
