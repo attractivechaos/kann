@@ -18,12 +18,16 @@ echo 15327156194621249 97 | ./examples/rnn-bit -Ai mul100.kan -
 ## Introduction
 
 KANN is a standalone 4-file library in C for constructing and training
-small to medium artificial neural networks such as [MLP][mlp], [CNN][cnn] and
-[LSTM][lstm]. It implements generic reverse-mode [automatic
-differentiation][ad] based on the concept of computational graph and allows to
-construct topologically complex neural networks with shared weights, multiple
-inputs/outputs and recurrence. KANN is flexible, portable, small and fairly
-efficient for its size.
+small to medium artificial neural networks such as [multi-layer
+perceptrons][mlp], [convolutional neural networks][cnn], [recurrent neural
+networks][rnn] (including [LSTM][lstm] and [GRU][gru]). It implements generic
+reverse-mode [automatic differentiation][ad] based on the concept of
+computational graph and allows to build topologically complex neural networks
+with recurrent, shared weights and multiple inputs/outputs/costs (e.g.
+[variational autoencoder][vae]). KANN is flexible, portable, small and fairly
+efficient for its size. It can be used in research to experiment non-standard
+models or in production to deploy not-so-large neural networks with no extra
+dependencies other than the standard C library.
 
 ### Background and motivations
 
@@ -33,14 +37,8 @@ BLAS, ProtoBuf and HDF5. This makes it hard to deploy on older machines and
 difficult for general programmers to understand the internals. While there are
 several lightweight frameworks, they are still fairly heavy and lack important
 features (e.g. RNN) and flexibility (e.g. arbitrary weight sharing) of
-mainstream frameworks. It is non-trivial and sometimes impossible to use these
+mainstream frameworks. It is cumbersome and sometimes impossible to use these
 lightweight frameworks to construct non-standard neural networks.
-
-We developed KANN, 1) to fully understand the algorithms behind deep learning
-frameworks; 2) to have a foundation flexible enough to experiment our own
-small but contrived models; 3) to give other C/C++ programmers a tiny and
-efficient library that can be integrated into their tools without worrying
-about [dependency hell][dh].
 
 ### Features
 
@@ -157,6 +155,10 @@ int main(void)
 
 [mlp]: https://en.wikipedia.org/wiki/Multilayer_perceptron
 [cnn]: https://en.wikipedia.org/wiki/Convolutional_neural_network
+[rnn]: https://en.wikipedia.org/wiki/Recurrent_neural_network
+[gru]: https://en.wikipedia.org/wiki/Gated_recurrent_unit
 [lstm]: https://en.wikipedia.org/wiki/Long_short-term_memory
 [ad]: https://en.wikipedia.org/wiki/Automatic_differentiation
 [dh]: https://en.wikipedia.org/wiki/Dependency_hell
+[ae]: https://en.wikipedia.org/wiki/Autoencoder
+[vae]: https://en.wikipedia.org/wiki/Autoencoder#Variational_autoencoder_.28VAE.29
