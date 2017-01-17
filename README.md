@@ -17,16 +17,23 @@ echo 15327156194621249 97 | ./examples/rnn-bit -Ai mul100.kan -
 
 ## Introduction
 
-KANN is a standalone 4-file library in C for constructing and training small to
-medium artificial neural networks such as [multi-layer perceptrons][mlp],
-[convolutional neural networks][cnn], [recurrent neural networks][rnn]
-(including [LSTM][lstm] and [GRU][gru]). It implements graph-based reverse-mode
-[automatic differentiation][ad] and allows to build topologically complex
-neural networks with recurrence, shared weights and multiple
-inputs/outputs/costs (e.g. [variational autoencoder][vae]). KANN is flexible,
-portable, small and fairly efficient for its size. It can be used in research
-to experiment non-standard models or in production to deploy not-so-large
-neural networks with no extra dependencies other than the standard C library.
+KANN is a standalone and lightweight library in C for constructing and training
+small to medium artificial neural networks such as [multi-layer
+perceptrons][mlp], [convolutional neural networks][cnn], [recurrent neural
+networks][rnn] (including [LSTM][lstm] and [GRU][gru]). It implements
+graph-based reverse-mode [automatic differentiation][ad] and allows to build
+topologically complex neural networks with recurrence, shared weights and
+multiple inputs/outputs/costs (e.g. with [variational autoencoder][vae]). In
+comparison to mainstream deep learning frameworks such as [TensorFlow][tf],
+KANN is not as scalable, but it is almost as flexible, has a much smaller code
+base and only depends on the standard C library. In comparison to other
+lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, more
+efficient and much more versatile, supporting RNN, VAE and non-standard neural
+networks that often lack in these lightweight frameworks.
+
+KANN could be potentially useful when you want to experiment small to medium
+neural networks in C/C++, to deploy no-so-large models without worrying about
+[dependency hell][dh], or to learn the internals of deep learning libraries.
 
 ### Features
 
@@ -43,8 +50,8 @@ neural networks with no extra dependencies other than the standard C library.
 
 ### Limitations
 
-* CPU only; no parallelization. KANN does not support GPU or multithreading for
-  now. As such, KANN is **not** intended for training huge neural networks.
+* CPU only; no parallelization for now. As such, KANN is **not** intended for
+  training huge neural networks.
 
 * No bidirectional RNN (achievable by manually unrolling RNN, but tedious and
   not general enough). No batch normalization.
@@ -150,3 +157,5 @@ int main(void)
 [dh]: https://en.wikipedia.org/wiki/Dependency_hell
 [ae]: https://en.wikipedia.org/wiki/Autoencoder
 [vae]: https://en.wikipedia.org/wiki/Autoencoder#Variational_autoencoder_.28VAE.29
+[tf]: https://www.tensorflow.org
+[td]: https://github.com/tiny-dnn/tiny-dnn
