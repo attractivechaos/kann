@@ -17,28 +17,16 @@ echo 15327156194621249 97 | ./examples/rnn-bit -Ai mul100.kan -
 
 ## Introduction
 
-KANN is a standalone 4-file library in C for constructing and training
-small to medium artificial neural networks such as [multi-layer
-perceptrons][mlp], [convolutional neural networks][cnn], [recurrent neural
-networks][rnn] (including [LSTM][lstm] and [GRU][gru]). It implements generic
-reverse-mode [automatic differentiation][ad] based on the concept of
-computational graph and allows to build topologically complex neural networks
-with recurrent, shared weights and multiple inputs/outputs/costs (e.g.
-[variational autoencoder][vae]). KANN is flexible, portable, small and fairly
-efficient for its size. It can be used in research to experiment non-standard
-models or in production to deploy not-so-large neural networks with no extra
-dependencies other than the standard C library.
-
-### Background and motivations
-
-Mainstream deep learning frameworks often consist of over 100k lines of code by
-itself and additionally have multiple non-trivial dependencies such as Python,
-BLAS, ProtoBuf and HDF5. This makes it hard to deploy on older machines and
-difficult for general programmers to understand the internals. While there are
-several lightweight frameworks, they are still fairly heavy and lack important
-features (e.g. RNN) and flexibility (e.g. arbitrary weight sharing) of
-mainstream frameworks. It is cumbersome and sometimes impossible to use these
-lightweight frameworks to construct non-standard neural networks.
+KANN is a standalone 4-file library in C for constructing and training small to
+medium artificial neural networks such as [multi-layer perceptrons][mlp],
+[convolutional neural networks][cnn], [recurrent neural networks][rnn]
+(including [LSTM][lstm] and [GRU][gru]). It implements graph-based reverse-mode
+[automatic differentiation][ad] and allows to build topologically complex
+neural networks with recurrence, shared weights and multiple
+inputs/outputs/costs (e.g. [variational autoencoder][vae]). KANN is flexible,
+portable, small and fairly efficient for its size. It can be used in research
+to experiment non-standard models or in production to deploy not-so-large
+neural networks with no extra dependencies other than the standard C library.
 
 ### Features
 
@@ -50,7 +38,7 @@ lightweight frameworks to construct non-standard neural networks.
   deep learning frameworks. KANN may optionally work with BLAS libraries,
   enabled with the `HAVE_CBLAS` macro.
 
-* Small. As of now, KANN has less than 3000 coding lines in four source code
+* Small. As of now, KANN has less than 3000 lines of code in four source code
   files, with no non-standard dependencies by default.
 
 ### Limitations
