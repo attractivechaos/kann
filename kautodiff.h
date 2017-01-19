@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r369"
+#define KAD_VERSION "r380"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -53,6 +53,7 @@ typedef struct {
 #define KAD_F_WITH_PD  0x1 // PD = partial derivative
 #define KAD_F_CONSTANT 0x2
 #define KAD_F_POOLING  0x4
+#define KAD_F_INST_FOR 0x8
 
 #define kad_is_back(p)  ((p)->flag & KAD_F_WITH_PD)
 #define kad_is_ext(p)   ((p)->n_child == 0)
@@ -100,6 +101,8 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 kad_node_t **kad_compile(int *n_node, int n_roots, ...); // an alternative API to above
 void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized graph
 
+void kad_delete1(kad_node_t *root);
+
 /**
  * Compute the value at a node
  * 
@@ -122,6 +125,8 @@ void kad_eval_marked(int n, kad_node_t **a);
  * @param from    the function node; must be a scalar (compute \nabla a[from])
  */
 void kad_grad(int n, kad_node_t **a, int from);
+
+void kad_grad1(kad_node_t *root);
 
 /**
  * Test if a computational graph can be unrolled

@@ -57,22 +57,46 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 	kad_node_t *p;
 	va_list ap;
 	va_start(ap, n_d);
-	p = kad_new_external(x, 0, n_d, ap);
+	p = kad_new_external(x, g, n_d, ap);
 	va_end(ap);
 	p->flag |= KAD_F_WITH_PD;
 	return p;
 }
+
+static inline kad_node_t *kad_finalize_node(kad_node_t *s) // a helper function
+{
+	int i, n;
+	if (kad_op_list[s->op](s, KAD_SYNC_DIM) < 0) { // check dimension
+		if (s->ptr) free(s->ptr);
+		free(s->child); free(s);
+		return 0;
+	}
+	for (i = 0; i < s->n_child; ++i)
+		if (kad_is_back(s->child[i].p))
+			break;
+	if (i < s->n_child) s->flag |= KAD_F_WITH_PD;
+	for (i = 0; i < s->n_child; ++i)
+		if ((s->child[i].p->flag & KAD_F_INST_FOR) == 0)
+			break;
+	if (i == s->n_child) { // forward computation right away
+		n = kad_len(s);
+		s->x = (float*)calloc(n, sizeof(float));
+		if (kad_is_back(s)) s->g = (float*)calloc(n, sizeof(float));
+		kad_op_list[s->op](s, KAD_ALLOC);
+		kad_op_list[s->op](s, KAD_FORWARD);
+		s->flag |= KAD_F_INST_FOR;
+	}
+	return s;
+}
+
+/////////// Simple arithmetic ///////////
 
 static inline kad_node_t *kad_op2_core(int op, kad_node_t *x, kad_node_t *y)
 {
 	kad_node_t *s;
 	s = kad_new_core(0, op, 2);
 	s->child[0].p = x, s->child[1].p = y;
-	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
-		free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
@@ -80,8 +104,7 @@ static inline kad_node_t *kad_op1_core(int op, kad_node_t *x)
 	kad_node_t *s;
 	s = kad_new_core(0, op, 1);
 	s->child[0].p = x;
-	kad_op_list[op](s, KAD_SYNC_DIM);
-	return s;
+	return kad_finalize_node(s);
 }
 
 #define KAD_FUNC_OP2(fname, op) kad_node_t *fname(kad_node_t *x, kad_node_t *y) { return kad_op2_core((op), x, y); }
@@ -143,11 +166,7 @@ kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int stride_r, int stride_c,
 	s->child[0].p = x, s->child[1].p = w;
 	s->ptr = conv2d_gen_aux(x->d[2], x->d[3], w->d[2], w->d[3], stride_r, stride_c, top_pad, left_pad);
 	s->ptr_size = sizeof(conv_conf_t) * 2;
-	if (kad_op_list[16](s, KAD_SYNC_DIM) < 0) {
-		free(s->ptr); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 kad_node_t *kad_max2d(kad_node_t *x, int kernel_r, int kernel_c, int stride_r, int stride_c, int top_pad, int left_pad)
@@ -158,11 +177,7 @@ kad_node_t *kad_max2d(kad_node_t *x, int kernel_r, int kernel_c, int stride_r, i
 	s->child[0].p = x;
 	s->ptr = conv2d_gen_aux(x->d[2], x->d[3], kernel_r, kernel_c, stride_r, stride_c, top_pad, left_pad);
 	s->ptr_size = sizeof(conv_conf_t) * 2;
-	if (kad_op_list[17](s, KAD_SYNC_DIM) < 0) {
-		free(s->ptr); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 static inline conv_conf_t *conv1d_gen_aux(int in_col, int kernel_c, int stride_c, int left_pad)
@@ -182,11 +197,7 @@ kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int left_pad)
 	s->child[0].p = x, s->child[1].p = w;
 	s->ptr = conv1d_gen_aux(x->d[2], w->d[2], stride, left_pad);
 	s->ptr_size = sizeof(conv_conf_t);
-	if (kad_op_list[18](s, KAD_SYNC_DIM) < 0) {
-		free(s->ptr); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
@@ -197,11 +208,7 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
 	s->child[0].p = x;
 	s->ptr = conv1d_gen_aux(x->d[2], kernel_size, stride, left_pad);
 	s->ptr_size = sizeof(conv_conf_t);
-	if (kad_op_list[19](s, KAD_SYNC_DIM) < 0) {
-		free(s->ptr); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 /////////// Multi-node pooling ///////////
@@ -214,11 +221,7 @@ static kad_node_t *kad_pooling_general(int op, int n, kad_node_t **x)
 	s->flag |= KAD_F_POOLING;
 	for (i = 0; i < n; ++i)
 		s->child[i].p = x[i];
-	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
-		free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 kad_node_t *kad_avg(int n, kad_node_t **x) { return kad_pooling_general(10, n, x); }
@@ -235,11 +238,7 @@ static kad_node_t *kad_reduce_general(int op, kad_node_t *x, int dim)
 	s = kad_new_core(0, op, 1);
 	s->child[0].p = x;
 	s->ptr = aux, s->ptr_size = 4;
-	if (kad_op_list[op](s, KAD_SYNC_DIM) < 0) {
-		free(aux); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 kad_node_t *kad_reduce_sum(kad_node_t *x, int dim)  { return kad_reduce_general(25, x, dim); }
@@ -275,11 +274,7 @@ kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
 	s = kad_new_core(0, 20, 1);
 	s->child[0].p = x;
 	s->ptr = aux, s->ptr_size = 3 * 4;
-	if (kad_op_list[20](s, KAD_SYNC_DIM) < 0) {
-		free(aux); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 kad_node_t *kad_switch(int n, kad_node_t **p)
@@ -291,11 +286,7 @@ kad_node_t *kad_switch(int n, kad_node_t **p)
 	for (i = 0; i < n; ++i)
 		s->child[i].p = p[i];
 	s->ptr = aux, s->ptr_size = 4;
-	if (kad_op_list[12](s, KAD_SYNC_DIM) < 0) {
-		free(aux); free(s->child); free(s);
-		return 0;
-	}
-	return s;
+	return kad_finalize_node(s);
 }
 
 /***********************
@@ -305,10 +296,13 @@ kad_node_t *kad_switch(int n, kad_node_t **p)
 static void kad_mark_back(int n, kad_node_t **v)
 {
 	int i, j;
-	for (i = 0; i < n; ++i)
+	for (i = 0; i < n; ++i) {
 		for (j = 0; j < v[i]->n_child; ++j)
 			if (kad_is_back(v[i]->child[j].p))
-				v[i]->flag |= KAD_F_WITH_PD;
+				break;
+		if (j < v[i]->n_child) v[i]->flag |= KAD_F_WITH_PD;
+		else v[i]->flag &= ~KAD_F_WITH_PD;
+	}
 }
 
 static void kad_allocate_internal(int n, kad_node_t **v)
@@ -341,7 +335,7 @@ static void kad_allocate_internal(int n, kad_node_t **v)
 typedef struct kad_node_t *kad_node_p;
 
 // IMPORTANT: kad_node_t::tmp MUST BE set to zero before calling this function
-kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
+kad_node_t **kad_compile_array_core(int *n_node, int n_roots, kad_node_t **roots)
 {
 	int i;
 	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
@@ -379,15 +373,22 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 		a.a[i]->tmp = 0;
 	}
 
-	// post-processing: reverse, mark back flag and allocate memory for internal nodes
+	// reverse
 	for (i = 0; i < (int)a.n>>1; ++i) { // reverse a.a[]
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
-	kad_allocate_internal(a.n, a.a);
 
 	*n_node = a.n;
 	return a.a;
+}
+
+kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
+{
+	kad_node_t **a;
+	a = kad_compile_array_core(n_node, n_roots, roots);
+	kad_allocate_internal(*n_node, a);
+	return a;
 }
 
 kad_node_t **kad_compile(int *n_node, int n_roots, ...)
@@ -425,6 +426,14 @@ void kad_delete(int n, kad_node_t **a)
 		free(p);
 	}
 	free(a);
+}
+
+void kad_delete1(kad_node_t *root)
+{
+	int n;
+	kad_node_t **a;
+	a = kad_compile_array_core(&n, 1, &root);
+	kad_delete(n, a);
 }
 
 int kad_size_var(int n, kad_node_t *const* v)
@@ -494,6 +503,15 @@ void kad_grad(int n, kad_node_t **a, int from)
 		if (a[i]->n_child && a[i]->tmp > 0)
 			kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	for (i = 0; i <= from; ++i) a[i]->tmp = 0;
+}
+
+void kad_grad1(kad_node_t *root)
+{
+	int n;
+	kad_node_t **a;
+	a = kad_compile_array_core(&n, 1, &root);
+	kad_grad(n, a, n - 1);
+	free(a);
 }
 
 /***********************
