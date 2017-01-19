@@ -20,14 +20,14 @@ static inline kad_node_t *kad_new_core(int n_d, int op, int n_child)
 	return s;
 }
 
-static inline kad_node_t *kad_new_external(float *x, float *g, int n_d, va_list ap)
+static inline kad_node_t *kad_new_external(float *x, float *g, int flag, int n_d, va_list ap)
 {
 	kad_node_t *p;
 	int i;
 	p = kad_new_core(n_d, 0, 0);
 	for (i = 0; i < n_d; ++i)
 		p->d[i] = va_arg(ap, int);
-	p->x = x, p->g = g;
+	p->x = x, p->g = g, p->flag = flag;
 	return p;
 }
 
@@ -35,10 +35,7 @@ kad_node_t *kad_const(float *x, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d);
-	p = kad_new_external(x, 0, n_d, ap);
-	va_end(ap);
-	p->flag |= KAD_F_CONSTANT;
+	va_start(ap, n_d); p = kad_new_external(x, 0, KAD_F_CONSTANT, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -46,9 +43,7 @@ kad_node_t *kad_feed(int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d);
-	p = kad_new_external(0, 0, n_d, ap);
-	va_end(ap);
+	va_start(ap, n_d); p = kad_new_external(0, 0, 0, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -56,10 +51,23 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d);
-	p = kad_new_external(x, g, n_d, ap);
-	va_end(ap);
-	p->flag |= KAD_F_WITH_PD;
+	va_start(ap, n_d); p = kad_new_external(x, g, KAD_F_WITH_PD, n_d, ap); va_end(ap);
+	return p;
+}
+
+kad_node_t *kad_const_inst(float *x, int n_d, ...)
+{
+	kad_node_t *p;
+	va_list ap;
+	va_start(ap, n_d); p = kad_new_external(x, 0, KAD_F_CONSTANT | KAD_F_INST_FOR, n_d, ap); va_end(ap);
+	return p;
+}
+
+kad_node_t *kad_var_inst(float *x, float *g, int n_d, ...)
+{
+	kad_node_t *p;
+	va_list ap;
+	va_start(ap, n_d); p = kad_new_external(x, g, KAD_F_WITH_PD | KAD_F_INST_FOR, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -297,6 +305,7 @@ static void kad_mark_back(int n, kad_node_t **v)
 {
 	int i, j;
 	for (i = 0; i < n; ++i) {
+		if (v[i]->n_child == 0) continue;
 		for (j = 0; j < v[i]->n_child; ++j)
 			if (kad_is_back(v[i]->child[j].p))
 				break;
