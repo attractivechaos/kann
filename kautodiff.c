@@ -1759,7 +1759,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 				for (c0 = 0; c0 < w->d[1]; ++c0) { /* input channel */ \
 					float *_ww = &(_w)[(c1 * w->d[1] + c0) * w->d[2]]; \
 					float *_xx = &(_x)[(n  * q->d[1] + c0) * q->d[2]]; \
-					float *_yy = &(_y)[(c1 * p->d[1] + c1) * p->d[2]]; \
+					float *_yy = &(_y)[(n  * p->d[1] + c1) * p->d[2]]; \
 					if (x_padded) { \
 						memcpy(x_padded + aux->pad[0], _xx, q->d[2] * sizeof(float)); \
 						_xx = x_padded + aux->pad[0]; \
