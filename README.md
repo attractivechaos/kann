@@ -29,7 +29,7 @@ KANN is not as scalable, but it is almost as flexible, has a much smaller code
 base and only depends on the standard C library. In comparison to other
 lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, more
 efficient and much more versatile, supporting RNN, VAE and non-standard neural
-networks that often lack in these lightweight frameworks.
+networks that often fail these lightweight frameworks.
 
 KANN could be potentially useful when you want to experiment small to medium
 neural networks in C/C++, to deploy no-so-large models without worrying about
