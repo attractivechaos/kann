@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r382"
+#define KAD_VERSION "r384"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -181,6 +181,7 @@ kad_node_t *kad_conv2d(kad_node_t *x, kad_node_t *w, int r_stride, int c_stride,
 kad_node_t *kad_max2d(kad_node_t *x, int kernel_h, int kernel_w, int r_stride, int c_stride, int r_pad, int c_pad); // 2D max pooling
 kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);  // 1D convolution with weight flipped
 kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D max pooling
+kad_node_t *kad_avg1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D average pooling
 
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 kad_node_t *kad_sample_normal(kad_node_t *x);           // f(x) = x * r, where r is drawn from a standard normal distribution

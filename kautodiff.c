@@ -219,6 +219,17 @@ kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
 	return kad_finalize_node(s);
 }
 
+kad_node_t *kad_avg1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
+{
+	kad_node_t *s;
+	if (x->n_d != 3) return 0;
+	s = kad_new_core(0, 28, 1);
+	s->child[0].p = x;
+	s->ptr = conv1d_gen_aux(x->d[2], kernel_size, stride, left_pad);
+	s->ptr_size = sizeof(conv_conf_t);
+	return kad_finalize_node(s);
+}
+
 /////////// Multi-node pooling ///////////
 
 static kad_node_t *kad_pooling_general(int op, int n, kad_node_t **x)
@@ -1877,6 +1888,46 @@ int kad_op_max1d(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_avg1d(kad_node_t *p, int action)
+{
+	conv_conf_t *aux = (conv_conf_t*)p->ptr;
+	kad_node_t *q = p->child[0].p;
+	if (action == KAD_SYNC_DIM) {
+		if (q->n_d != 3) return -1;
+		p->n_d = 3;
+		p->d[0] = q->d[0], p->d[1] = q->d[1], p->d[2] = conv_out_size(q->d[2], aux);
+	} else if (action == KAD_ALLOC) {
+		p->child[0].t = realloc(p->child[0].t, kad_len(p) * sizeof(int));
+	} else if (action == KAD_FORWARD) {
+		int rest = 1, len, t, i;
+		int *f = (int*)p->child[0].t;
+		len = kad_len(p);
+		for (i = 0; i < len; ++i) p->x[i] = 0.0f, f[i] = 0;
+		for (i = 0; i < p->n_d - 1; ++i) rest *= p->d[i];
+		for (t = 0; t < rest; ++t) {
+			int j, l, p_width = p->d[p->n_d - 1];
+			int u = t * p_width, v, v0 = t * q->d[p->n_d - 1], v_end = v0 + q->d[p->n_d - 1];
+			for (l = 0; l < aux->kernel_size; ++l)
+				for (j = 0, v = v0 + (l > aux->pad[0]? l - aux->pad[0] : 0); j < p_width && v < v_end; ++j, v += aux->stride)
+					p->x[u + j] += q->x[v], ++f[u + j];
+		}
+		for (i = 0; i < len; ++i) p->x[i] /= f[i];
+	} else if (action == KAD_BACKWARD) {
+		int rest = 1, len, t, i;
+		int *f = (int*)p->child[0].t;
+		len = kad_len(p);
+		for (i = 0; i < p->n_d - 1; ++i) rest *= p->d[i];
+		for (t = 0; t < rest; ++t) {
+			int j, l, p_width = p->d[p->n_d - 1];
+			int u = t * p_width, v, v0 = t * q->d[p->n_d - 1], v_end = v0 + q->d[p->n_d - 1];
+			for (l = 0; l < aux->kernel_size; ++l)
+				for (j = 0, v = v0 + (l > aux->pad[0]? l - aux->pad[0] : 0); j < p_width && v < v_end; ++j, v += aux->stride)
+					q->g[v] += p->g[u + j] / f[u + j];
+		}
+	}
+	return 0;
+}
+
 /////////// List of operators ///////////
 
 kad_op_f kad_op_list[KAD_MAX_OP] = {
@@ -1907,7 +1958,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_sample_normal,  // 24: sample from a normal distribution
 	kad_op_reduce_sum,     // 25
 	kad_op_reduce_mean,    // 26
-	kad_op_log         // 27
+	kad_op_log,        // 27
+	kad_op_avg1d       // 28: 1D average pooling (for 1D ConvNet)
 };
 
 /**************************
