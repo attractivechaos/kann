@@ -668,6 +668,35 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 	return i;
 }
 
+float kann_cost_fnn1(kann_t *ann, int n, float **x, float **y)
+{
+	int n_in, n_out, n_proc = 0, mini_size = 64 < n? 64 : n;
+	float *x1, *y1;
+	double cost = 0.0;
+
+	n_in = kann_dim_in(ann);
+	n_out = kann_dim_out(ann);
+	if (n <= 0 || n_in < 0 || n_out < 0) return 0.0;
+
+	x1 = (float*)malloc(n_in  * mini_size * sizeof(float));
+	y1 = (float*)malloc(n_out * mini_size * sizeof(float));
+	kann_feed_bind(ann, KANN_F_IN,    0, &x1);
+	kann_feed_bind(ann, KANN_F_TRUTH, 0, &y1);
+	kann_switch(ann, 0);
+	while (n_proc < n) {
+		int b, ms = n - n_proc < mini_size? n - n_proc : mini_size;
+		for (b = 0; b < ms; ++b) {
+			memcpy(&x1[b*n_in],  x[n_proc+b], n_in  * sizeof(float));
+			memcpy(&y1[b*n_out], y[n_proc+b], n_out * sizeof(float));
+		}
+		kann_set_batch_size(ann, ms);
+		cost += kann_cost(ann, 0, 0) * ms;
+		n_proc += ms;
+	}
+	free(y1); free(x1);
+	return (float)(cost / n);
+}
+
 const float *kann_apply1(kann_t *a, float *x)
 {
 	int i_out;

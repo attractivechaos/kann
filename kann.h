@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r385"
+#define KANN_VERSION "r386"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
@@ -113,7 +113,7 @@ void kann_set_batch_size(kann_t *a, int B);
 int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x);
 
 /**
- * Compute the cost and optionall gradients
+ * Compute the cost and optionally gradients
  *
  * @param a          network
  * @param cost_label required external label
@@ -201,6 +201,7 @@ void kann_normal_array(float sigma, int n, float *x);
 
 // operations on network with a single input node and a single output node
 int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y);
+float kann_cost_fnn1(kann_t *a, int n, float **x, float **y);
 const float *kann_apply1(kann_t *a, float *x);
 
 // model I/O
