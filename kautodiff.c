@@ -125,6 +125,7 @@ KAD_FUNC_OP2(kad_matmul, 9)
 KAD_FUNC_OP2(kad_ce_multi, 13)
 KAD_FUNC_OP2(kad_ce_bin, 22)
 KAD_FUNC_OP2(kad_ce_bin_neg, 4)
+KAD_FUNC_OP2(kad_mse, 29)
 
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
@@ -1274,7 +1275,30 @@ int kad_op_switch(kad_node_t *p, int action) // TODO: not used or tested yet!!!
 	return 0;
 }
 
-/////////// Binary and multi-class cross-entropy ///////////
+/////////// Cost functions ///////////
+
+int kad_op_mse(kad_node_t *p, int action)
+{
+	kad_node_t *y1 = p->child[0].p; // test
+	kad_node_t *y0 = p->child[1].p; // truth
+	int i, n;
+
+	n = kad_len(y0);
+	if (action == KAD_SYNC_DIM) {
+		if (n != kad_len(y1)) return -1;
+		p->n_d = 0;
+	} else if (action == KAD_FORWARD) {
+		double cost = 0.0;
+		for (i = 0; i < n; ++i)
+			cost += (y1->x[i] - y0->x[i]) * (y1->x[i] - y0->x[i]);
+		p->x[0] = (float)(cost / n);
+	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
+		float t = 2.0f * p->g[0] / n;
+		for (i = 0; i < n; ++i)
+			y1->g[i] += t * (y1->x[i] - y0->x[i]);
+	}
+	return 0;
+}
 
 int kad_op_ce_bin(kad_node_t *p, int action)
 {
@@ -1959,7 +1983,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_reduce_sum,     // 25
 	kad_op_reduce_mean,    // 26
 	kad_op_log,        // 27
-	kad_op_avg1d       // 28: 1D average pooling (for 1D ConvNet)
+	kad_op_avg1d,      // 28: 1D average pooling (for 1D ConvNet)
+	kad_op_mse         // 29: mean square error
 };
 
 /**************************

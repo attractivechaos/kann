@@ -1,7 +1,7 @@
 /*
   The MIT License
 
-  Copyright (c) 2016  Broad Institute
+  Copyright (c) 2016, 2017  Broad Institute
 
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the
@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r368"
+#define KANN_VERSION "r385"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
@@ -39,6 +39,7 @@
 #define KANN_C_CEB      1   // binary cross-entropy cost, used with sigmoid
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
 #define KANN_C_CEB_NEG  3   // binary cross-enytopy-like cost, used with tanh
+#define KANN_C_MSE      4   // mean square error
 
 #define KANN_L_TEMP_INV (-1)
 

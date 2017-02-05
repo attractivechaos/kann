@@ -473,10 +473,12 @@ kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride,
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 {
 	kad_node_t *cost = 0, *truth = 0;
-	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG);
+	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG || cost_type == KANN_C_MSE);
 	t = kann_layer_linear(t, n_out);
 	truth = kad_feed(2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
-	if (cost_type == KANN_C_CEB) {
+	if (cost_type == KANN_C_MSE) {
+		cost = kad_mse(t, truth);
+	} else if (cost_type == KANN_C_CEB) {
 		t = kad_sigm(t);
 		cost = kad_ce_bin(t, truth);
 	} else if (cost_type == KANN_C_CEB_NEG) {
