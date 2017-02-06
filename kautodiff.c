@@ -6,6 +6,8 @@
 #include <math.h>
 #include "kautodiff.h"
 
+typedef struct kad_node_t *kad_node_p;
+
 /**********************
  * Graph construction *
  **********************/
@@ -297,7 +299,7 @@ kad_node_t *kad_slice(kad_node_t *x, int dim, int start, int end)
 	return kad_finalize_node(s);
 }
 
-kad_node_t *kad_concat(int dim, int n, kad_node_t **p)
+kad_node_t *kad_concat_array(int dim, int n, kad_node_t **p)
 {
 	kad_node_t *s;
 	int32_t i, *aux;
@@ -308,6 +310,20 @@ kad_node_t *kad_concat(int dim, int n, kad_node_t **p)
 		s->child[i].p = p[i];
 	s->ptr = aux, s->ptr_size = 4;
 	return kad_finalize_node(s);
+}
+
+kad_node_t *kad_concat(int dim, int n, ...)
+{
+	int i;
+	kad_node_t **p, *s;
+	va_list ap;
+	p = (kad_node_t**)malloc(n * sizeof(kad_node_t*));
+	va_start(ap, n);
+	for (i = 0; i < n; ++i) p[i] = va_arg(ap, kad_node_p);
+	va_end(ap);
+	s = kad_concat_array(dim, n, p);
+	free(p);
+	return s;
 }
 
 kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d)
@@ -379,8 +395,6 @@ static void kad_allocate_internal(int n, kad_node_t **v)
 		} \
 		(v).a[(v).n++] = (x); \
 	} while (0)
-
-typedef struct kad_node_t *kad_node_p;
 
 // IMPORTANT: kad_node_t::tmp MUST BE set to zero before calling this function
 kad_node_t **kad_compile_array_core(int *n_node, int n_roots, kad_node_t **roots)

@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r387"
+#define KAD_VERSION "r388"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -208,9 +208,10 @@ kad_node_t *kad_reduce_mean(kad_node_t *x, int dim);
 
 // special operators
 kad_node_t *kad_slice(kad_node_t *x, int dim, int start, int end); // take a slice on the dim-th dimension
-kad_node_t *kad_concat(int dim, int n, kad_node_t **p);            // concatenate on the dim-th dimension
-kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d);
-kad_node_t *kad_switch(int n, kad_node_t **p); // manually (as a hyperparameter) choose one input, default to 0
+kad_node_t *kad_concat(int dim, int n, ...);                       // concatenate on the dim-th dimension
+kad_node_t *kad_concat_array(int dim, int n, kad_node_t **p);      // the array version of concat
+kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d);           // reshape; similar behavior to TensorFlow's reshape()
+kad_node_t *kad_switch(int n, kad_node_t **p);                     // manually (as a hyperparameter) choose one input, default to 0
 
 // miscellaneous operations on a compiled graph
 int kad_size_var(int n, kad_node_t *const* v);   // total size of all variables
