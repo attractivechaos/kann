@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r385"
+#define KAD_VERSION "r387"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -61,6 +61,8 @@ typedef struct {
 #define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_F_CONSTANT))
 #define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_F_CONSTANT))
 #define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_F_POOLING))
+
+#define kad_child(q, i) ((q)->child[(i)].p)
 
 #define kad_eval_enable(p) ((p)->tmp = 1)
 #define kad_eval_disable(p) ((p)->tmp = -1)
@@ -187,9 +189,6 @@ kad_node_t *kad_avg1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
 kad_node_t *kad_sample_normal(kad_node_t *x);           // f(x) = x * r, where r is drawn from a standard normal distribution
 
-kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end); // a subset on the dim-th dimension
-kad_node_t *kad_switch(int n, kad_node_t **p); // manually (as a hyperparameter) choose one input
-
 // operators taking one operand
 kad_node_t *kad_square(kad_node_t *x); // f(x) = x^2                         (element-wise square)
 kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (element-wise sigmoid)
@@ -206,6 +205,12 @@ kad_node_t *kad_max(int n, kad_node_t **x); // f(x_1,...,x_n) = max{x_1,...,x_n}
 // dimension reduction
 kad_node_t *kad_reduce_sum(kad_node_t *x, int dim);   // reduce dimension by 1 at dimension _dim_ (similar to TensorFlow's reduce_sum())
 kad_node_t *kad_reduce_mean(kad_node_t *x, int dim);
+
+// special operators
+kad_node_t *kad_slice(kad_node_t *x, int dim, int start, int end); // take a slice on the dim-th dimension
+kad_node_t *kad_concat(int dim, int n, kad_node_t **p);            // concatenate on the dim-th dimension
+kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d);
+kad_node_t *kad_switch(int n, kad_node_t **p); // manually (as a hyperparameter) choose one input, default to 0
 
 // miscellaneous operations on a compiled graph
 int kad_size_var(int n, kad_node_t *const* v);   // total size of all variables

@@ -284,7 +284,7 @@ kad_node_t *kad_sample_normal(kad_node_t *x)
 
 /////////// Miscellaneous ///////////
 
-kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
+kad_node_t *kad_slice(kad_node_t *x, int dim, int start, int end)
 {
 	kad_node_t *s;
 	int32_t *aux;
@@ -294,6 +294,33 @@ kad_node_t *kad_split(kad_node_t *x, int dim, int start, int end)
 	s = kad_new_core(0, 20, 1);
 	s->child[0].p = x;
 	s->ptr = aux, s->ptr_size = 3 * 4;
+	return kad_finalize_node(s);
+}
+
+kad_node_t *kad_concat(int dim, int n, kad_node_t **p)
+{
+	kad_node_t *s;
+	int32_t i, *aux;
+	aux = (int32_t*)malloc(4);
+	aux[0] = dim;
+	s = kad_new_core(0, 31, n);
+	for (i = 0; i < n; ++i)
+		s->child[i].p = p[i];
+	s->ptr = aux, s->ptr_size = 4;
+	return kad_finalize_node(s);
+}
+
+kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d)
+{
+	kad_node_t *s;
+	int32_t i, *aux = 0;
+	if (d != 0) {
+		aux = (int32_t*)malloc(n_d * 4);
+		for (i = 0; i < n_d; ++i) aux[i] = d[i];
+	} else n_d = 0;
+	s = kad_new_core(0, 30, 1);
+	s->child[0].p = x;
+	s->ptr = aux, s->ptr_size = n_d * 4;
 	return kad_finalize_node(s);
 }
 
@@ -1227,14 +1254,14 @@ int kad_op_sample_normal(kad_node_t *p, int action) // not tested
 	return 0;
 }
 
-int kad_op_split(kad_node_t *p, int action)
+int kad_op_slice(kad_node_t *p, int action)
 {
 	kad_node_t *q = p->child[0].p;
 	int32_t *aux, *range;
 	int i, dim, d0, d1;
 
 	assert(p->ptr);
-	aux = (int*)p->ptr, dim = aux[0], range = aux + 1;
+	aux = (int32_t*)p->ptr, dim = aux[0], range = aux + 1;
 	if (dim < 0 || dim >= q->n_d) return -1;
 	for (i = 0, d0 = 1; i < dim; ++i) d0 *= q->d[i];
 	for (i = dim + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
@@ -1248,6 +1275,75 @@ int kad_op_split(kad_node_t *p, int action)
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
 		for (i = 0; i < d0; ++i)
 			kad_saxpy((range[1] - range[0]) * d1, 1.0f, &p->g[i * p->d[dim] * d1], &q->g[(i * q->d[dim] + range[0]) * d1]);
+	}
+	return 0;
+}
+
+int kad_op_concat(kad_node_t *p, int action)
+{
+	kad_node_t *q = p->child[0].p;
+	int32_t *aux;
+	int i, j, k, dim, d0, d1;
+
+	assert(p->ptr);
+	aux = (int32_t*)p->ptr, dim = aux[0];
+	for (i = 0, d0 = 1; i < dim; ++i) d0 *= q->d[i];
+	for (i = dim + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
+	if (action == KAD_SYNC_DIM) {
+		for (i = 1; i < p->n_child; ++i) {
+			if (p->child[i].p->n_d != q->n_d) return -1;
+			for (j = 0; j < q->n_d; ++j)
+				if (j != dim && q->d[j] != p->child[i].p->d[j]) return -1;
+		}
+		kad_sync_dim1(p, q);
+		for (i = 1; i < p->n_child; ++i)
+			p->d[dim] += p->child[i].p->d[dim];
+	} else if (action == KAD_FORWARD) {
+		for (i = 0; i < d0; ++i)
+			for (j = k = 0; j < p->n_child; ++j, k += kad_child(p, j)->d[dim])
+				memcpy(&p->x[(i * p->d[dim] + k) * d1], &kad_child(p, j)->x[i * kad_child(p, j)->d[dim] * d1], kad_child(p, j)->d[dim] * d1 * sizeof(float));
+	} else if (action == KAD_BACKWARD) {
+		for (i = 0; i < d0; ++i)
+			for (j = k = 0; j < p->n_child; ++j, k += kad_child(p, j)->d[dim])
+				if (kad_is_back(kad_child(p, j)))
+					kad_saxpy(kad_child(p, j)->d[dim] * d1, 1.0f, &p->g[(i * p->d[dim] + k) * d1], &kad_child(p, j)->g[i * kad_child(p, j)->d[dim] * d1]);
+	}
+	return 0;
+}
+
+int kad_op_reshape(kad_node_t *p, int action)
+{
+	kad_node_t *q = p->child[0].p;
+
+	if (action == KAD_SYNC_DIM) {
+		if (p->ptr) {
+			int32_t *aux = (int32_t*)p->ptr;
+			int i, len = 1, n_missing = 0;
+			p->n_d = p->ptr_size / 4;
+			for (i = 0; i < p->n_d; ++i) p->d[i] = aux[i];
+			for (i = 0; i < p->n_d; ++i)
+				if (p->d[i] <= 0) ++n_missing;
+				else len *= p->d[i];
+			if (n_missing > 1) return -1;
+			if (n_missing == 0 && len != kad_len(q)) return -1;
+			if (n_missing > 1) { // attempt to infer missing dimensions except the last one
+				for (i = 0; i < p->n_d; ++i)
+					if (p->d[i] <= 0 && i < q->n_d) {
+						p->d[i] = q->d[i], len *= p->d[i];
+						if (--n_missing == 1) break;
+					}
+				if (n_missing > 1) return -1;
+			}
+			if (n_missing == 1) { // infer the last missing dimension
+				if (kad_len(q) % len != 0) return -1;
+				for (i = 0; i < p->n_d; ++i)
+					if (p->d[i] <= 0) p->d[i] = kad_len(q) / len;
+			}
+		} else kad_sync_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		memcpy(p->x, q->x, kad_len(p) * sizeof(float));
+	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
+		kad_saxpy(kad_len(p), 1.0f, p->g, q->g);
 	}
 	return 0;
 }
@@ -1975,7 +2071,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_max2d,      // 17: 2D max pooling (for 2D ConvNet)
 	kad_op_conv1d,     // 18: 1D convolution
 	kad_op_max1d,      // 19: 1D max pooling (for 1D ConvNet)
-	kad_op_split,      // 20: split data at a dimension
+	kad_op_slice,      // 20: slice data at a dimension
 	kad_op_max,        // 21: general max pooling
 	kad_op_ce_bin,     // 22: binary cross-entropy for (0,1)
 	kad_op_sub,        // 23: element-wise subtraction
@@ -1984,7 +2080,9 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_reduce_mean,    // 26
 	kad_op_log,        // 27
 	kad_op_avg1d,      // 28: 1D average pooling (for 1D ConvNet)
-	kad_op_mse         // 29: mean square error
+	kad_op_mse,        // 29: mean square error
+	kad_op_reshape,    // 30
+	kad_op_concat      // 31
 };
 
 /**************************
@@ -2001,7 +2099,8 @@ void kad_trap_fe(void)
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
-								"dropout", "conv2d", "max2d", "conv1d", "max1d", "split", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log" };
+								"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
+								"avg1d", "mse", "reshape", "concat" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
