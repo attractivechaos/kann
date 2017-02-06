@@ -1314,13 +1314,19 @@ int kad_op_concat(kad_node_t *p, int action)
 			p->d[dim] += p->child[i].p->d[dim];
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < d0; ++i)
-			for (j = k = 0; j < p->n_child; ++j, k += kad_child(p, j)->d[dim])
-				memcpy(&p->x[(i * p->d[dim] + k) * d1], &kad_child(p, j)->x[i * kad_child(p, j)->d[dim] * d1], kad_child(p, j)->d[dim] * d1 * sizeof(float));
+			for (j = k = 0; j < p->n_child; ++j) {
+				q = p->child[j].p;
+				memcpy(&p->x[(i * p->d[dim] + k) * d1], &q->x[i * q->d[dim] * d1], q->d[dim] * d1 * sizeof(float));
+				k += q->d[dim];
+			}
 	} else if (action == KAD_BACKWARD) {
 		for (i = 0; i < d0; ++i)
-			for (j = k = 0; j < p->n_child; ++j, k += kad_child(p, j)->d[dim])
-				if (kad_is_back(kad_child(p, j)))
-					kad_saxpy(kad_child(p, j)->d[dim] * d1, 1.0f, &p->g[(i * p->d[dim] + k) * d1], &kad_child(p, j)->g[i * kad_child(p, j)->d[dim] * d1]);
+			for (j = k = 0; j < p->n_child; ++j) {
+				q = p->child[j].p;
+				if (!kad_is_back(q)) continue;
+				kad_saxpy(q->d[dim] * d1, 1.0f, &p->g[(i * p->d[dim] + k) * d1], &q->g[i * q->d[dim] * d1]);
+				k += q->d[dim];
+			}
 	}
 	return 0;
 }

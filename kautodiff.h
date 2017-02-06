@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r388"
+#define KAD_VERSION "r389"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -61,8 +61,6 @@ typedef struct {
 #define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_F_CONSTANT))
 #define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_F_CONSTANT))
 #define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_F_POOLING))
-
-#define kad_child(q, i) ((q)->child[(i)].p)
 
 #define kad_eval_enable(p) ((p)->tmp = 1)
 #define kad_eval_disable(p) ((p)->tmp = -1)
