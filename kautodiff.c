@@ -330,10 +330,10 @@ kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d)
 {
 	kad_node_t *s;
 	int32_t i, *aux = 0;
-	if (d != 0) {
+	if (n_d > 0) {
 		aux = (int32_t*)malloc(n_d * 4);
-		for (i = 0; i < n_d; ++i) aux[i] = d[i];
-	} else n_d = 0;
+		for (i = 0; i < n_d; ++i) aux[i] = d? d[i] : -1;
+	}
 	s = kad_new_core(0, 30, 1);
 	s->child[0].p = x;
 	s->ptr = aux, s->ptr_size = n_d * 4;
