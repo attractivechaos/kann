@@ -1344,7 +1344,6 @@ int kad_op_reshape(kad_node_t *p, int action)
 			for (i = 0; i < p->n_d; ++i)
 				if (p->d[i] <= 0) ++n_missing;
 				else len *= p->d[i];
-			if (n_missing > 1) return -1;
 			if (n_missing == 0 && len != kad_len(q)) return -1;
 			if (n_missing > 1) { // attempt to infer missing dimensions except the last one
 				for (i = 0; i < p->n_d; ++i)
