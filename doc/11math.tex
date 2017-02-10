@@ -1,0 +1,68 @@
+\documentclass[10pt]{article}
+
+\usepackage{amssymb}
+
+\begin{document}
+
+\section{Back Propagations}
+
+\subsection{Matrix product}
+
+\emph{Without proof}, we note that if ${\bf C}={\bf A}\cdot{\bf B}$, we can backprop
+the gradient of ${\bf C}$ to ${\bf A}$ and ${\bf B}$ as follows:
+\[
+\frac{\partial F}{\partial {\bf A}}\gets\frac{\partial F}{\partial {\bf C}}\cdot {\bf B}^\intercal
+\]
+\[
+\frac{\partial F}{\partial {\bf B}}\gets{\bf A}^\intercal\cdot\frac{\partial F}{\partial {\bf C}}
+\]
+Similarly, if ${\bf Y}={\bf X}\cdot{\bf W}^\intercal$, the backprop rule is:
+\[
+\frac{\partial F}{\partial {\bf X}}\gets\frac{\partial F}{\partial {\bf Y}}\cdot {\bf W}
+\]
+\[
+\frac{\partial F}{\partial {\bf W}}\gets\left(\frac{\partial F}{\partial {\bf Y}}\right)^\intercal\cdot{\bf X}
+\]
+We use `$\gets$' instead of an equal sign because matrix ${\bf A}$ (and others)
+may be used elsewhere, which also contributes to ${\bf A}$'s gradient.
+
+\subsection{Layer normalization}
+
+Given an input vector ${\bf x}$, we compute the normalized output ${\bf z}$ as
+follows (i.e. the forward pass):
+\[
+y_k = x_k - \frac{1}{n}\sum_{i=1}^n x_i
+\]
+\[
+\sigma^2 = \frac{1}{n}\sum_i y_i^2
+\]
+\[
+z_k = \frac{y_k}{\sigma}
+\]
+The derivatives of intermediate variables ${\bf y}$ and $\sigma$ are:
+\[
+\frac{\partial y_i}{\partial x_k} = \delta_{ik}-\frac{1}{n}
+\]
+\[
+\frac{\partial\sigma}{\partial y_k} = \frac{y_k}{n\sigma}
+\]
+Backprop from ${\bf z}$ to ${\bf y}$ (we use `$=$' here because ${\bf y}$ is a transient variable):
+\[
+\frac{\partial F}{\partial y_k}=\sum_i\frac{\partial F}{\partial z_i}\frac{\partial z_i}{\partial y_k}
+=\frac{1}{\sigma}\left(\frac{\partial F}{\partial z_k}-\frac{z_k}{n}\sum_iz_i\frac{\partial F}{\partial z_i}\right)
+\]
+and from ${\bf y}$ to the input ${\bf x}$:
+\begin{eqnarray*}
+\frac{\partial F}{\partial x_k}&\gets&\frac{\partial F}{\partial y_k} - \frac{1}{n}\sum_i\frac{\partial F}{\partial y_i}\\
+&=&\frac{1}{\sigma}\left(\frac{\partial F}{\partial z_k}-\frac{z_k}{n}\sum_iz_i\frac{\partial F}{\partial z_i}\right)
+-\frac{1}{n\sigma}\sum_i\left(\frac{\partial F}{\partial z_i}-\frac{z_i}{n}\sum_jz_j\frac{\partial F}{\partial z_j}\right)
+\end{eqnarray*}
+As $\sum_i z_i=0$, we have backprop from ${\bf z}$ to ${\bf x}$:
+\[
+\frac{\partial F}{\partial x_k}
+\gets\frac{1}{\sigma}\left(\frac{\partial F}{\partial z_k}-\frac{1}{n}\sum_i\frac{\partial F}{\partial z_i}-\frac{z_k}{n}\sum_iz_i\frac{\partial F}{\partial z_i}\right)
+\]
+The two sums can be pre-calculated, so the total time complexity is linear in
+$n$, the dimension of ${\bf x}$.
+
+\end{document}
