@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r392"
+#define KAD_VERSION "r393"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -195,6 +195,8 @@ kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (el
 kad_node_t *kad_softmax(kad_node_t *x);// f_i(x_1,...,x_n) = exp(x_i) / \sum_j exp(x_j) (softmax)
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
 kad_node_t *kad_log(kad_node_t *x);    // f(x) = log(x)
+
+kad_node_t *kad_layernorm(kad_node_t *x); // layer normalization
 
 // operators taking an indefinite number of operands (e.g. pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
