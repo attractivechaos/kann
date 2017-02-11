@@ -138,7 +138,7 @@ KAD_FUNC_OP1(kad_tanh, 7)
 KAD_FUNC_OP1(kad_relu, 8)
 KAD_FUNC_OP1(kad_1minus, 11)
 KAD_FUNC_OP1(kad_softmax, 14)
-KAD_FUNC_OP1(kad_layernorm, 32)
+KAD_FUNC_OP1(kad_stdnorm, 32)
 
 /////////// Convolution ///////////
 
@@ -1514,34 +1514,42 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 
 /////////// Normalization ///////////
 
-int kad_op_layernorm(kad_node_t *p, int action)
+int kad_op_stdnorm(kad_node_t *p, int action)
 {
-	static const float tiny = 0;
-	int i, n;
+	int i, j, n, m;
 	kad_node_t *q = p->child[0].p;
-	n = kad_len(q);
+	assert(q->n_d > 0);
+	if (q->n_d == 1) m = 1, n = kad_len(q);
+	else m = q->d[0], n = kad_len(q) / m;
 	if (action == KAD_SYNC_DIM) {
 		kad_sync_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
-		p->child[0].t = malloc(1 * sizeof(float));
+		p->child[0].t = realloc(p->child[0].t, m * sizeof(float));
 	} else if (action == KAD_FORWARD) {
-		float avg, std_inv;
-		double s;
-		for (i = 0, s = 0.0; i < n; ++i) s += q->x[i];
-		avg = (float)(s / n);
-		for (i = 0; i < n; ++i) p->x[i] = q->x[i] - avg;
-		for (i = 0, s = 0.0; i < n; ++i) s += p->x[i] * p->x[i];
-		std_inv = (float)(1.0 / sqrt(s / n + tiny));
-		for (i = 0; i < n; ++i) p->x[i] *= std_inv;
-		*(float*)p->child[0].t = std_inv;
+		float *si = (float*)p->child[0].t;
+		for (j = 0; j < m; ++j) {
+			float *px = &p->x[j * n], *qx = &q->x[j * n];
+			float avg, std_inv;
+			double s;
+			for (i = 0, s = 0.0; i < n; ++i) s += qx[i];
+			avg = (float)(s / n);
+			for (i = 0; i < n; ++i) px[i] = qx[i] - avg;
+			for (i = 0, s = 0.0; i < n; ++i) s += px[i] * px[i];
+			std_inv = s == 0.0? 1.0f : (float)(1.0 / sqrt(s / n));
+			for (i = 0; i < n; ++i) px[i] *= std_inv;
+			si[j] = std_inv;
+		}
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
-		float std_inv = *(float*)p->child[0].t;
-		double s, t;
-		for (i = 0, s = t = 0.0; i < n; ++i)
-			s += p->g[i], t += p->x[i] * p->g[i];
-		s /= n, t /= n;
-		for (i = 0; i < n; ++i)
-			q->g[i] += std_inv * (p->g[i] - s - p->x[i] * t);
+		float *si = (float*)p->child[0].t;
+		for (j = 0; j < m; ++j) {
+			float *pg = &p->g[j * n], *qg = &q->g[j * n], *px = &p->x[j * n], std_inv = si[j];
+			double s, t;
+			for (i = 0, s = t = 0.0; i < n; ++i)
+				s += pg[i], t += px[i] * pg[i];
+			s /= n, t /= n;
+			for (i = 0; i < n; ++i)
+				qg[i] += std_inv * (pg[i] - s - px[i] * t);
+		}
 	}
 	return 0;
 }
@@ -2134,7 +2142,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_mse,        // 29: mean square error
 	kad_op_reshape,    // 30
 	kad_op_concat,     // 31
-	kad_op_layernorm   // 32: layer normalization
+	kad_op_stdnorm     // 32: layer normalization
 };
 
 /**************************
@@ -2152,7 +2160,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
-								"avg1d", "mse", "reshape", "concat", "layernorm" };
+								"avg1d", "mse", "reshape", "concat", "stdnorm" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {

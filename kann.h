@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r390"
+#define KANN_VERSION "r395"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
@@ -42,6 +42,10 @@
 #define KANN_C_MSE      4   // mean square error
 
 #define KANN_L_TEMP_INV (-1)
+
+#define KANN_RNN_VAR_H0 0x1 // take the initial hidden values as variables
+#define KANN_RNN_NORM   0x2 // apply layer normalization
+
 
 #include "kautodiff.h"
 
@@ -184,9 +188,10 @@ float kann_grad_clip(float thres, int n, float *g);
 kad_node_t *kann_layer_input(int n1);
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r);
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int var_h0);
-kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int var_h0);
-kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int var_h0);
+kad_node_t *kann_layer_layernorm(kad_node_t *in);
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag);
+kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag);
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type);

@@ -86,7 +86,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
 		int tot = 0, n_cerr = 0;
-		for (j = 0; j < d->n; j += mini_size) {
+		for (j = 0; j < d->n - mini_size; j += mini_size) {
 			int i, b, k;
 			for (k = 0; k < d->ulen; ++k) {
 				for (b = 0; b < mini_size; ++b) {
@@ -98,6 +98,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 			}
 			cost += kann_cost(ua, 0, 1) * d->ulen * mini_size;
 			n_cerr += kann_class_error(ua);
+			//kad_check_grad(ua->n, ua->v, ua->n-1);
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			tot += d->ulen * mini_size;
 		}
@@ -132,6 +133,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: rnn-bit [options] <in.txt>\n");
 		return 1;
 	}
+	kad_trap_fe();
 	kann_srand(seed);
 	if (fn_in) ann = kann_load(fn_in);
 
@@ -142,7 +144,7 @@ int main(int argc, char *argv[])
 			kad_node_t *t;
 			t = kann_layer_input(d->n_in);
 			for (i = 0; i < n_h_layers; ++i)
-				t = kann_layer_gru(t, n_h_neurons, 1);
+				t = kann_layer_gru(t, n_h_neurons, KANN_RNN_VAR_H0|KANN_RNN_NORM);
 			ann = kann_new(kann_layer_cost(t, 2, KANN_C_CEM), 0);
 		}
 		train(ann, d, lr, mini_size, max_epoch, fn_out);
