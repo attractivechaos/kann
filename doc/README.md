@@ -4,3 +4,5 @@ This directory contains KANN documentations.
 
 * [02dev.md](02dev.md): for hackers and developers who want to understand the
   internals of KANN.
+
+* 11math.tex (in LaTeX): some math notes.
