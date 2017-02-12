@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r395"
+#define KANN_VERSION "r397"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
@@ -193,6 +193,7 @@ kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad);
+kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride, int pad);
 kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type);
 
