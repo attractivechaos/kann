@@ -276,11 +276,12 @@ kad_node_t *kad_reduce_mean(kad_node_t *x, int dim) { return kad_reduce_general(
 
 /////////// Sampling related ///////////
 
-kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y)
+kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y, int rnn_shared)
 {
 	kad_node_t *z;
 	z = kad_op2_core(15, x, y);
 	z->ptr = kad_rng(), z->ptr_size = sizeof(kad_rng_t);
+	if (rnn_shared) z->flag |= KAD_F_SHARE_RNG;
 	return z;
 }
 
@@ -686,8 +687,12 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	memcpy(q, p, sizeof(kad_node_t));
 	q->pre = 0, q->tmp = 0;
 	if (p->ptr && p->ptr_size > 0) {
-		q->ptr = malloc(p->ptr_size);
-		memcpy(q->ptr, p->ptr, p->ptr_size);
+		if (kad_use_rng(p) && !(p->flag & KAD_F_SHARE_RNG) && p->ptr_size == sizeof(kad_rng_t)) {
+			q->ptr = kad_rng(); // each time step uses a different RNG
+		} else {
+			q->ptr = malloc(p->ptr_size);
+			memcpy(q->ptr, p->ptr, p->ptr_size);
+		}
 	}
 	if (q->n_child) {
 		q->x = q->g = 0;

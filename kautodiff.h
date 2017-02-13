@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r400"
+#define KAD_VERSION "r401"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -50,10 +50,11 @@ typedef struct {
 	void *t;        // temporary data needed for backprop; allocated on heap if not NULL
 } kad_edge_t;
 
-#define KAD_F_WITH_PD  0x1 // PD = partial derivative
-#define KAD_F_CONSTANT 0x2
-#define KAD_F_POOLING  0x4
-#define KAD_F_INST_FOR 0x8
+#define KAD_F_WITH_PD    0x1  // PD = partial derivative
+#define KAD_F_CONSTANT   0x2
+#define KAD_F_POOLING    0x4
+#define KAD_F_INST_FOR   0x8
+#define KAD_F_SHARE_RNG  0x10 // with this flag on, different time step shares the same RNG status after unroll
 
 #define kad_is_back(p)  ((p)->flag & KAD_F_WITH_PD)
 #define kad_is_ext(p)   ((p)->n_child == 0)
@@ -62,6 +63,7 @@ typedef struct {
 #define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_F_CONSTANT))
 #define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_F_POOLING))
 #define kad_is_switch(p) ((p)->op == 12)
+#define kad_use_rng(p)  ((p)->op == 15 || (p)->op == 24)
 
 #define kad_eval_enable(p) ((p)->tmp = 1)
 #define kad_eval_disable(p) ((p)->tmp = -1)
@@ -185,8 +187,8 @@ kad_node_t *kad_conv1d(kad_node_t *x, kad_node_t *w, int stride, int pad);  // 1
 kad_node_t *kad_max1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D max pooling
 kad_node_t *kad_avg1d(kad_node_t *x, int kernel_size, int stride, int pad); // 1D average pooling
 
-kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r);  // dropout at rate r
-kad_node_t *kad_sample_normal(kad_node_t *x);           // f(x) = x * r, where r is drawn from a standard normal distribution
+kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *r, int rnn_shared);      // dropout at rate r
+kad_node_t *kad_sample_normal(kad_node_t *x);                               // f(x) = x * r, where r is drawn from a standard normal distribution
 
 // operators taking one operand
 kad_node_t *kad_square(kad_node_t *x); // f(x) = x^2                         (element-wise square)
