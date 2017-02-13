@@ -61,6 +61,7 @@ typedef struct {
 #define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_F_CONSTANT))
 #define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_F_CONSTANT))
 #define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_F_POOLING))
+#define kad_is_switch(p) ((p)->op == 12)
 
 #define kad_eval_enable(p) ((p)->tmp = 1)
 #define kad_eval_disable(p) ((p)->tmp = -1)

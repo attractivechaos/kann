@@ -8,6 +8,13 @@
 
 typedef struct kad_node_t *kad_node_p;
 
+typedef struct {
+	uint64_t s[2];
+	double n_gset;
+	int n_iset;
+	volatile int lock;
+} kad_rng_t;
+
 /**********************
  * Graph construction *
  **********************/
@@ -273,7 +280,7 @@ kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y)
 {
 	kad_node_t *z;
 	z = kad_op2_core(15, x, y);
-	z->ptr = kad_rng();
+	z->ptr = kad_rng(), z->ptr_size = sizeof(kad_rng_t);
 	return z;
 }
 
@@ -281,7 +288,7 @@ kad_node_t *kad_sample_normal(kad_node_t *x)
 {
 	kad_node_t *z;
 	z = kad_op1_core(24, x);
-	z->ptr = kad_rng();
+	z->ptr = kad_rng(), z->ptr_size = sizeof(kad_rng_t);
 	return z;
 }
 
@@ -526,10 +533,17 @@ static void kad_propagate_marks(int n, kad_node_t **a)
 	int i, j;
 	for (i = n - 1; i >= 0; --i) {
 		kad_node_t *p = a[i];
-		if (p->tmp > 0)
-			for (j = 0; j < p->n_child; ++j)
-				if (p->child[j].p->tmp == 0)
-					p->child[j].p->tmp = 1;
+		if (p->tmp > 0) {
+			if (kad_is_switch(p)) {
+				int32_t *aux = (int32_t*)p->ptr;
+				if (p->child[*aux].p->tmp == 0)
+					p->child[*aux].p->tmp = 1;
+			} else {
+				for (j = 0; j < p->n_child; ++j)
+					if (p->child[j].p->tmp == 0)
+						p->child[j].p->tmp = 1;
+			}
+		}
 	}
 }
 
@@ -881,13 +895,6 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 /***************************
  * Random number generator *
  ***************************/
-
-typedef struct {
-	uint64_t s[2];
-	double n_gset;
-	int n_iset;
-	volatile int lock;
-} kad_rng_t;
 
 static kad_rng_t kad_rng_dat = { {0x50f5647d2380309dULL, 0x91ffa96fc4c62cceULL}, 0.0, 0, 0 };
 

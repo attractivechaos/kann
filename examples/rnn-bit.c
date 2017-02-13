@@ -83,6 +83,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 	kann_set_batch_size(ua, mini_size);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
+	kann_switch(ua, 1);
 	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
 		int tot = 0, n_cerr = 0;
