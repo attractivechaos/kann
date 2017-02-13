@@ -114,12 +114,12 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0;
-	float lr = 0.01f;
+	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0, norm = 0;
+	float lr = 0.01f, dropout = 0.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:A")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:Ad:N")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -128,6 +128,8 @@ int main(int argc, char *argv[])
 		else if (c == 'r') lr = atof(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'A') to_apply = 1;
+		else if (c == 'N') norm = 1;
+		else if (c == 'd') dropout = atof(optarg);
 	}
 	if (optind == argc) {
 		fprintf(stderr, "Usage: rnn-bit [options] <in.txt>\n");
@@ -142,9 +144,11 @@ int main(int argc, char *argv[])
 		d = read_data(argv[optind]);
 		if (ann == 0) { // model generation
 			kad_node_t *t;
+			int rnn_flag = KANN_RNN_VAR_H0;
+			if (norm) rnn_flag |= KANN_RNN_NORM;
 			t = kann_layer_input(d->n_in);
 			for (i = 0; i < n_h_layers; ++i)
-				t = kann_layer_gru(t, n_h_neurons, KANN_RNN_VAR_H0|KANN_RNN_NORM);
+				t = kann_layer_gru(t, n_h_neurons, rnn_flag, dropout);
 			ann = kann_new(kann_layer_cost(t, 2, KANN_C_CEM), 0);
 		}
 		train(ann, d, lr, mini_size, max_epoch, fn_out);

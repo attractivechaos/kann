@@ -180,10 +180,9 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 	kad_node_t *t;
 	t = kann_layer_input(n_char);
 	for (i = 0; i < n_h_layers; ++i) {
-		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, 0);
-		else if (model == 1) t = kann_layer_lstm(t, n_h_neurons, 0);
-		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, 0);
-		t = kann_layer_dropout(t, h_dropout);
+		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, 0, h_dropout);
+		else if (model == 1) t = kann_layer_lstm(t, n_h_neurons, 0, h_dropout);
+		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, 0, h_dropout);
 	}
 	return kann_new(kann_layer_cost(t, n_char, KANN_C_CEM), 0);
 }
