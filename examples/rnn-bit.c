@@ -115,8 +115,8 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0, norm = 0;
-	float lr = 0.01f, dropout = 0.0f;
+	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0, norm = 1;
+	float lr = 0.01f, dropout = 0.2f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 		else if (c == 'r') lr = atof(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'A') to_apply = 1;
-		else if (c == 'N') norm = 1;
+		else if (c == 'N') norm = 0;
 		else if (c == 'd') dropout = atof(optarg);
 	}
 	if (optind == argc) {
