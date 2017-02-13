@@ -1235,7 +1235,7 @@ int kad_op_dropout(kad_node_t *p, int action)
 		if (kad_is_back(p->child[0].p))
 			p->child[0].t = realloc(p->child[0].t, n);
 	} else if (action == KAD_FORWARD) {
-		float r = *p->child[1].p->x, z = 1.0f / (1.0f - r);
+		float r = kad_is_const(q) || kad_is_var(q)? 0.0f : *p->child[1].p->x, z = 1.0f / (1.0f - r);
 		uint8_t *flag = (uint8_t*)p->child[0].t;
 		for (i = 0; i < n; ++i) {
 			int kept = (kad_drand(p->ptr) >= r);

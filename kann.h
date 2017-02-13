@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r398"
+#define KANN_VERSION "r400"
 
 // #define NO_ATOMIC_BUILTIN // use this for VC++
 
@@ -189,9 +189,9 @@ kad_node_t *kann_layer_input(int n1);
 kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r);
 kad_node_t *kann_layer_layernorm(kad_node_t *in);
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag, float dropout); // see Zaremba et al (2015) for dropout
-kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag, float dropout);
-kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag, float dropout);
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag);
+kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag);
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride, int pad);
 kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);

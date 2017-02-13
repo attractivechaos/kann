@@ -148,8 +148,10 @@ int main(int argc, char *argv[])
 			int rnn_flag = KANN_RNN_VAR_H0;
 			if (norm) rnn_flag |= KANN_RNN_NORM;
 			t = kann_layer_input(d->n_in);
-			for (i = 0; i < n_h_layers; ++i)
-				t = kann_layer_gru(t, n_h_neurons, rnn_flag, dropout);
+			for (i = 0; i < n_h_layers; ++i) {
+				t = kann_layer_gru(t, n_h_neurons, rnn_flag);
+				t = kann_layer_dropout(t, dropout);
+			}
 			ann = kann_new(kann_layer_cost(t, 2, KANN_C_CEM), 0);
 		}
 		train(ann, d, lr, mini_size, max_epoch, fn_out);
