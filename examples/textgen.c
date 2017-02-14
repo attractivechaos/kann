@@ -174,15 +174,15 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 	free(g); free(r); free(y); free(x);
 }
 
-static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout)
+static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout, int use_norm)
 {
-	int i;
+	int i, flag = use_norm? KANN_RNN_NORM : 0;
 	kad_node_t *t;
 	t = kann_layer_input(n_char);
 	for (i = 0; i < n_h_layers; ++i) {
-		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, 0);
-		else if (model == 1) t = kann_layer_lstm(t, n_h_neurons, 0);
-		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, 0);
+		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, flag);
+		else if (model == 1) t = kann_layer_lstm(t, n_h_neurons, flag);
+		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, flag);
 		t = kann_layer_dropout(t, h_dropout);
 	}
 	return kann_new(kann_layer_cost(t, n_char, KANN_C_CEM), 0);
@@ -190,12 +190,12 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1, len_gen = 1000, rand_hidden = 0;
-	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
+	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1, len_gen = 1000, rand_hidden = 0, use_norm = 1;
+	float h_dropout = 0.2f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:N")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -211,6 +211,7 @@ int main(int argc, char *argv[])
 		else if (c == 'L') len_gen = atoi(optarg);
 		else if (c == 'R') rand_hidden = 1;
 		else if (c == 'g') grad_clip = atof(optarg);
+		else if (c == 'N') use_norm = 0;
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -219,7 +220,7 @@ int main(int argc, char *argv[])
 	}
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
-		fprintf(fp, "Usage: textgen [options] <in.fq>\n");
+		fprintf(fp, "Usage: textgen [options] <in.txt>\n");
 		fprintf(fp, "Options:\n");
 		fprintf(fp, "  Model construction:\n");
 		fprintf(fp, "    -i FILE     read trained model from FILE []\n");
@@ -228,6 +229,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -l INT      number of hidden layers [%d]\n", n_h_layers);
 		fprintf(fp, "    -n INT      number of hidden neurons per layer [%d]\n", n_h_neurons);
 		fprintf(fp, "    -M STR      model: rnn, lstm or gru [gru]\n");
+		fprintf(fp, "    -N          don't use layer normalization\n");
 		fprintf(fp, "  Model training:\n");
 		fprintf(fp, "    -r FLOAT    learning rate [%g]\n", lr);
 		fprintf(fp, "    -d FLOAT    dropout at the hidden layer(s) [%g]\n", h_dropout);
@@ -249,7 +251,7 @@ int main(int argc, char *argv[])
 		tg_data_t *tg;
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d characters; alphabet size %d\n", tg->len, tg->n_char);
-		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout);
+		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
 		tg_train(ann, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, rand_hidden, len_gen, c2i);
