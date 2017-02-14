@@ -25,11 +25,11 @@ graph-based reverse-mode [automatic differentiation][ad] and allows to build
 topologically complex neural networks with recurrence, shared weights and
 multiple inputs/outputs/costs (e.g. with [variational autoencoder][vae]). In
 comparison to mainstream deep learning frameworks such as [TensorFlow][tf],
-KANN is not as scalable, but it is almost as flexible, has a much smaller code
-base and only depends on the standard C library. In comparison to other
-lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, more
-efficient and much more versatile, supporting RNN, VAE and non-standard neural
-networks that often fail these lightweight frameworks.
+KANN is not as scalable, but it is almost as flexible and extensible, has a
+much smaller code base and only depends on the standard C library. In
+comparison to other lightweight frameworks such as [tiny-dnn][td], KANN is
+still smaller, more efficient and much more versatile, supporting RNN, VAE and
+non-standard neural networks that may fail these lightweight frameworks.
 
 KANN could be potentially useful when you want to experiment small to medium
 neural networks in C/C++, to deploy no-so-large models without worrying about
@@ -42,8 +42,8 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 
 * Reasonably efficient. Support mini-batching. Optimized matrix product and
   convolution, coming close to (though not as fast as) OpenBLAS and mainstream
-  deep learning frameworks. KANN may optionally work with BLAS libraries,
-  enabled with the `HAVE_CBLAS` macro.
+  deep learning frameworks on CPUs. KANN may optionally work with BLAS
+  libraries, enabled with the `HAVE_CBLAS` macro.
 
 * Small. As of now, KANN has less than 3000 lines of code in four source code
   files, with no non-standard dependencies by default.
