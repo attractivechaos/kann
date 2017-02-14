@@ -276,12 +276,11 @@ kad_node_t *kad_reduce_mean(kad_node_t *x, int dim) { return kad_reduce_general(
 
 /////////// Sampling related ///////////
 
-kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y, int rnn_shared)
+kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y)
 {
 	kad_node_t *z;
 	z = kad_op2_core(15, x, y);
 	z->ptr = kad_rng(), z->ptr_size = sizeof(kad_rng_t);
-	if (rnn_shared) z->flag |= KAD_F_SHARE_RNG;
 	return z;
 }
 

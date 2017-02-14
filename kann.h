@@ -27,9 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r401"
-
-// #define NO_ATOMIC_BUILTIN // use this for VC++
+#define KANN_VERSION "r403"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -45,7 +43,6 @@
 
 #define KANN_RNN_VAR_H0 0x1 // take the initial hidden values as variables
 #define KANN_RNN_NORM   0x2 // apply layer normalization
-
 
 #include "kautodiff.h"
 
