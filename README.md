@@ -143,6 +143,7 @@ int main(void)
 		if (max_k != c) ++n_err;
 	}
 	fprintf(stderr, "Test error rate: %.2f%%\n", 100.0 * n_err / n_samples);
+	kann_delete(ann); // TODO: also to free x, y and x1
 	return 0;
 }
 ```
