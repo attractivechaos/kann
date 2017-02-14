@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r411"
+#define VERSION "r412"
 
 typedef struct {
 	int len, n_char;
@@ -119,7 +119,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, int c2i
 
 void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn)
 {
-	int i, k, n_var, n_char;
+	int i, k, n_var, n_char, to_train = 1;
 	float **x, **y, *r, *g;
 	kann_t *ua;
 
@@ -138,9 +138,13 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 	kann_switch(ua, 1);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
-	for (i = 0; i < max_epoch; ++i) {
+	for (i = 0; i <= max_epoch; ++i) {
 		double cost = 0.0;
 		int j, b, tot = 0, n_cerr = 0;
+		if (i == max_epoch) {
+			to_train = 0;
+			kann_switch(ua, 0);
+		}
 		for (j = 1; j + ulen * mbs - 1 < len; j += ulen * mbs) {
 			memset(g, 0, n_var * sizeof(float));
 			for (b = 0; b < mbs; ++b) { // a mini-batch
@@ -150,23 +154,30 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 					x[k][data[j+b*ulen+k-1]] = 1.0f;
 					y[k][data[j+b*ulen+k]] = 1.0f;
 				}
-				cost += kann_cost(ua, 0, 1) * ulen;
+				cost += kann_cost(ua, 0, to_train) * ulen;
 				n_cerr += kann_class_error(ua);
 				tot += ulen;
-				for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
+				if (to_train) for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
 				if (cont_mode) {
 					for (k = 0; k < ua->n; ++k) // keep the cycle rolling
 						if (ua->v[k]->pre)
 							memcpy(ua->v[k]->pre->x, ua->v[k]->x, kad_len(ua->v[k]) * sizeof(float));
 				}
 			}
-			for (k = 0; k < n_var; ++k) g[k] /= mbs;
-			if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, g);
-			kann_RMSprop(n_var, lr, 0, 0.9f, g, ua->x, r);
+			if (to_train) {
+				for (k = 0; k < n_var; ++k) g[k] /= mbs;
+				if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, g);
+				kann_RMSprop(n_var, lr, 0, 0.9f, g, ua->x, r);
+			}
 		}
 		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", i+1, cost / tot, 100.0 * n_cerr / tot);
-		tg_gen(stderr, ann, 0.4f, 0, 100, c2i);
-		if (fn) tg_save(fn, ann, c2i);
+		for (k = 0; k < ann->n; ++k)
+			if (ann->v[k]->pre)
+				memset(ann->v[k]->pre->x, 0, kad_len(ann->v[k]->pre) * sizeof(float));
+		if (to_train) {
+			tg_gen(stderr, ann, 0.4f, 0, 100, c2i);
+			if (fn) tg_save(fn, ann, c2i);
+		}
 	}
 	kann_delete_unrolled(ua);
 
