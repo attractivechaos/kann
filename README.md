@@ -25,11 +25,11 @@ graph-based reverse-mode [automatic differentiation][ad] and allows to build
 topologically complex neural networks with recurrence, shared weights and
 multiple inputs/outputs/costs (e.g. with [variational autoencoder][vae]). In
 comparison to mainstream deep learning frameworks such as [TensorFlow][tf],
-KANN is not as scalable, but it is almost as flexible and extensible, has a
-much smaller code base and only depends on the standard C library. In
-comparison to other lightweight frameworks such as [tiny-dnn][td], KANN is
-still smaller, more efficient and much more versatile, supporting RNN, VAE and
-non-standard neural networks that may fail these lightweight frameworks.
+KANN is not as scalable, but it is close in flexibility, has a much smaller
+code base and only depends on the standard C library. In comparison to other
+lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, more
+efficient and much more versatile, supporting RNN, VAE and non-standard neural
+networks that may fail these lightweight frameworks.
 
 KANN could be potentially useful when you want to experiment small to medium
 neural networks in C/C++, to deploy no-so-large models without worrying about
@@ -42,8 +42,7 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 
 * Reasonably efficient. Support mini-batching. Optimized matrix product and
   convolution, coming close to (though not as fast as) OpenBLAS and mainstream
-  deep learning frameworks on CPUs. KANN may optionally work with BLAS
-  libraries, enabled with the `HAVE_CBLAS` macro.
+  deep learning frameworks on CPUs.
 
 * Small. As of now, KANN has less than 3000 lines of code in four source code
   files, with no non-standard dependencies by default.
@@ -99,7 +98,8 @@ Working with complex models requires to use low-level APIs. Please see
 
 ### A complete example
 
-This example learns addition between two 10-bit integers:
+This example learns to count the number of "1" bits in an integer (i.e.
+popcount):
 ```c
 // to compile and run: gcc -O2 this-prog.c kann.c kautodiff.c && ./a.out
 #include <stdlib.h>
@@ -108,42 +108,41 @@ This example learns addition between two 10-bit integers:
 
 int main(void)
 {
-	int i, k, max_bit = 10, n_samples = 30000, mask, n_err;
-	kann_t *ann;
-	float **x, **y;
+	int i, k, max_bit = 20, n_samples = 30000, mask = (1<<max_bit)-1, n_err, max_k;
+	float **x, **y, max, *x1;
 	kad_node_t *t;
-	// construct an MLP with two hidden layers
-	t = kann_layer_input(max_bit * 2); // two numbers in binary representation
+	kann_t *ann;
+	// construct an MLP with one hidden layers
+	t = kann_layer_input(max_bit);
 	t = kad_relu(kann_layer_linear(t, 64));
-	t = kad_relu(kann_layer_linear(t, 64));
-	t = kann_layer_cost(t, max_bit * 2, KANN_C_CEB); // output uses 1-hot encoding
+	t = kann_layer_cost(t, max_bit, KANN_C_CEM); // output uses 1-hot encoding
 	ann = kann_new(t, 0);
 	// generate training data
 	x = (float**)calloc(n_samples, sizeof(float*));
 	y = (float**)calloc(n_samples, sizeof(float*));
-	mask = (1<<max_bit) - 1;
 	for (i = 0; i < n_samples; ++i) {
-		int a = kann_rand() & (mask>>1);
-		int b = kann_rand() & (mask>>1);
-		int c = (a + b) & mask; // NB: XOR is easier to learn than addition
-		x[i] = (float*)calloc(max_bit * 2, sizeof(float));
-		y[i] = (float*)calloc(max_bit * 2, sizeof(float));
-		for (k = 0; k < max_bit; ++k) {
-			x[i][k*2]   = (float)(a>>k&1);
-			x[i][k*2+1] = (float)(b>>k&1);
-			y[i][k*2 + (c>>k&1)] = 1.0f; // 1-hot encoding
-		}
+		int c, a = kad_rand(0) & (mask>>1);
+		x[i] = (float*)calloc(max_bit, sizeof(float));
+		y[i] = (float*)calloc(max_bit, sizeof(float));
+		for (k = c = 0; k < max_bit; ++k)
+			x[i][k] = (float)(a>>k&1), c += (a>>k&1);
+		y[i][c] = 1.0f;
 	}
 	// train
-	kann_train_fnn1(ann, 0.01f, 64, 25, 10, 0.1f, n_samples, x, y);
+	kann_train_fnn1(ann, 0.001f, 64, 50, 10, 0.1f, n_samples, x, y);
 	// predict
-	for (i = 0, n_err = 0; i < n_samples; ++i) {
-		const float *y1 = kann_apply1(ann, x[i]);
-		for (k = 0; k < max_bit; ++k)
-			if ((y1[k*2] < y1[k*2+1]) != (y[i][k*2] < y[i][k*2+1]))
-				++n_err;
+	x1 = (float*)calloc(max_bit, sizeof(float));
+	for (i = n_err = 0; i < n_samples; ++i) {
+		int c, a = kad_rand(0) & (mask>>1); // generating a new number
+		const float *y1;
+		for (k = c = 0; k < max_bit; ++k)
+			x1[k] = (float)(a>>k&1), c += (a>>k&1);
+		y1 = kann_apply1(ann, x1);
+		for (k = 0, max_k = -1, max = -1.0f; k < max_bit; ++k) // find the max
+			if (max < y1[k]) max = y1[k], max_k = k;
+		if (max_k != c) ++n_err;
 	}
-	fprintf(stderr, "Error rate per bit: %.2f%%\n", 100.0 * n_err / n_samples / max_bit);
+	fprintf(stderr, "Test error rate: %.2f%%\n", 100.0 * n_err / n_samples);
 	return 0;
 }
 ```
