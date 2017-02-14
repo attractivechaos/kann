@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include "kann.h"
 
+#define VERSION "r411"
+
 typedef struct {
 	int len, n_char;
 	uint8_t *data;
@@ -133,6 +135,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 	g = (float*)calloc(n_var, sizeof(float));
 
 	ua = kann_unroll(ann, ulen);
+	kann_switch(ua, 1);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
 	for (i = 0; i < max_epoch; ++i) {
@@ -243,6 +246,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	fprintf(stderr, "Version: %s\n", VERSION);
 	kann_srand(seed);
 	kad_trap_fe();
 	if (fn_in) ann = tg_load(fn_in, c2i);
