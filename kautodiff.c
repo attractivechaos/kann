@@ -139,6 +139,7 @@ KAD_FUNC_OP2(kad_mse, 29)
 #define KAD_FUNC_OP1(fname, op) kad_node_t *fname(kad_node_t *x) { return kad_op1_core((op), x); }
 
 KAD_FUNC_OP1(kad_log, 27)
+KAD_FUNC_OP1(kad_exp, 33)
 KAD_FUNC_OP1(kad_square, 5)
 KAD_FUNC_OP1(kad_sigm, 6)
 KAD_FUNC_OP1(kad_tanh, 7)
@@ -1149,6 +1150,22 @@ int kad_op_1minus(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_exp(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q = p->child[0].p;
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		kad_sync_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		for (i = 0; i < n; ++i) p->x[i] = expf(q->x[i]);
+	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
+		for (i = 0; i < n; ++i)
+			q->g[i] += p->g[i] * p->x[i];
+	}
+	return 0;
+}
+
 int kad_op_log(kad_node_t *p, int action)
 {
 	int i, n;
@@ -2148,12 +2165,13 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_sample_normal,  // 24: sample from a normal distribution
 	kad_op_reduce_sum,     // 25
 	kad_op_reduce_mean,    // 26
-	kad_op_log,        // 27
+	kad_op_log,        // 27: log()
 	kad_op_avg1d,      // 28: 1D average pooling (for 1D ConvNet)
 	kad_op_mse,        // 29: mean square error
 	kad_op_reshape,    // 30
 	kad_op_concat,     // 31
-	kad_op_stdnorm     // 32: layer normalization
+	kad_op_stdnorm,    // 32: layer normalization
+	kad_op_exp         // 33: exp()
 };
 
 /**************************
@@ -2171,7 +2189,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
-								"avg1d", "mse", "reshape", "concat", "stdnorm" };
+								"avg1d", "mse", "reshape", "concat", "stdnorm", "exp" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {

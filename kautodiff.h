@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r403"
+#define KAD_VERSION "r414"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -197,6 +197,7 @@ kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (el
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
 kad_node_t *kad_softmax(kad_node_t *x);// f_i(x_1,...,x_n) = exp(x_i) / \sum_j exp(x_j) (softmax)
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
+kad_node_t *kad_exp(kad_node_t *x);    // f(x) = exp(x)
 kad_node_t *kad_log(kad_node_t *x);    // f(x) = log(x)
 
 kad_node_t *kad_stdnorm(kad_node_t *x); // layer normalization
