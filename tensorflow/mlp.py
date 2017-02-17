@@ -24,8 +24,18 @@ def mlp_data_read(fn):
 			_process_fp(fp)
 	return np.array(x).astype('float32'), row_names, col_names
 
+def mlp_model_gen(n_in, n_out, n_layer, n_hidden):
+	t = tf.placeholder(tf.float32, [None, n_in], name="in")
+	for i in range(n_layer):
+		t = tf.layers.dense(t, n_hidden, activation=tf.nn.relu)
+	t = tf.layers.dense(t, n_out)
+	out = tf.nn.softmax(t, name="out")
+	truth = tf.placeholder(tf.float32, [None, n_out], name="truth")
+	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=t, labels=truth), name="cost")
+	return cost
+
 def main(argv):
-	n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outdir, indir = 64, 20, 64, .001, 11, 0.0, None, None
+	n_layer, n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outdir, indir = 1, 64, 20, 64, .001, 11, 0.0, None, None
 
 	def train_help():
 		print("Usage: mlp.py [options] <input.knd> [output.knd]")
@@ -34,6 +44,7 @@ def main(argv):
 		print("    -i DIR     load trained model from DIR []")
 		print("    -o DIR     save trained model to DIR []")
 		print("    -s INT     random seed [11]")
+		print("    -l INT     number of hidden layers [1]")
 		print("    -n INT     number of hidden neurons per layer [64]")
 		print("    -d FLOAT   dropout at the hidden layer(s) [0.0]")
 		print("  Model training:")
@@ -43,7 +54,7 @@ def main(argv):
 		sys.exit(1)
 
 	try:
-		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:")
+		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:l:")
 	except getopt.GetoptError:
 		train_help()
 	if len(args) < 1:
@@ -51,6 +62,7 @@ def main(argv):
 
 	for opt, arg in opts:
 		if opt == '-n': n_hidden = int(arg)
+		elif opt == '-l': n_layer = int(arg)
 		elif opt == '-m': max_epoch = int(arg)
 		elif opt == '-B': minibatch = int(arg)
 		elif opt == '-i': indir = arg
@@ -69,12 +81,7 @@ def main(argv):
 		y_dat, y_rnames, y_cnames = mlp_data_read(args[1])
 
 		sys.stderr.write("Training...\n")
-		x = tf.placeholder(tf.float32, [None, len(x_dat[0])], name="in")
-		y = tf.placeholder(tf.float32, [None, len(y_dat[0])])
-		t = tf.layers.dense(x, n_hidden, activation=tf.nn.relu)
-		t = tf.layers.dense(t, len(y_dat[0]))
-		out = tf.nn.softmax(t, name="out")
-		cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=t, labels=y))
+		cost = mlp_model_gen(len(x_dat[0]), len(y_dat[0]), n_layer, n_hidden)
 		optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost)
 
 		with tf.Session(config=conf) as sess:
@@ -85,7 +92,7 @@ def main(argv):
 					mb = minibatch
 					if mb > len(x_dat) - off: mb = len(x_dat) - off
 					xb, yb = x_dat[off:off+mb], y_dat[off:off+mb]
-					_, c = sess.run([optimizer, cost], { x:xb, y:yb })
+					_, c = sess.run([optimizer, cost], { "in:0":xb, "truth:0":yb })
 					tot_cost += c
 					off += mb
 				avg_cost = tot_cost / len(x_dat)
