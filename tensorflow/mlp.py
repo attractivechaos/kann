@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, getopt, re, gzip
+import sys, getopt, os, re, gzip
 import numpy as np
 import tensorflow as tf
 
@@ -25,13 +25,14 @@ def mlp_data_read(fn):
 	return np.array(x).astype('float32'), row_names, col_names
 
 def main(argv):
-	n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outfn = 64, 20, 64, .001, 11, 0.0, None
+	n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outdir, indir = 64, 20, 64, .001, 11, 0.0, None, None
 
 	def train_help():
 		print("Usage: mlp.py [options] <input.knd> [output.knd]")
 		print("Options:")
 		print("  Model construction:")
-		print("    -o FILE    save trained model to FILE []")
+		print("    -i DIR     load trained model from DIR []")
+		print("    -o DIR     save trained model to DIR []")
 		print("    -s INT     random seed [11]")
 		print("    -n INT     number of hidden neurons per layer [64]")
 		print("    -d FLOAT   dropout at the hidden layer(s) [0.0]")
@@ -42,7 +43,7 @@ def main(argv):
 		sys.exit(1)
 
 	try:
-		opts, args = getopt.getopt(argv[1:], "n:m:B:o:r:T:s:d:")
+		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:")
 	except getopt.GetoptError:
 		train_help()
 	if len(args) < 1:
@@ -50,32 +51,32 @@ def main(argv):
 
 	for opt, arg in opts:
 		if opt == '-n': n_hidden = int(arg)
-		elif opt == '-m': max_epochs = int(arg)
+		elif opt == '-m': max_epoch = int(arg)
 		elif opt == '-B': minibatch = int(arg)
-		elif opt == '-o': outfn = arg
+		elif opt == '-i': indir = arg
+		elif opt == '-o': outdir = arg
 		elif opt == '-r': lr = float(arg)
-		elif opt == '-T': heldout = float(arg)
 		elif opt == '-d': r_hidden = float(arg)
 		elif opt == '-s': seed = int(arg)
 
 	tf.set_random_seed(seed)
-	print("Reading input...")
+	sys.stderr.write("Reading input...\n")
 	x_dat, x_rnames, x_cnames = mlp_data_read(args[0])
+
+	conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
 	if len(args) >= 2: # training
-		print("Reading truth...")
+		sys.stderr.write("Reading truth...\n")
 		y_dat, y_rnames, y_cnames = mlp_data_read(args[1])
 
-		print("Constructing model...")
-		x = tf.placeholder(tf.float32, [None, len(x_dat[0])])
+		sys.stderr.write("Training...\n")
+		x = tf.placeholder(tf.float32, [None, len(x_dat[0])], name="in")
 		y = tf.placeholder(tf.float32, [None, len(y_dat[0])])
 		t = tf.layers.dense(x, n_hidden, activation=tf.nn.relu)
-		pred = tf.layers.dense(t, len(y_dat[0]))
-		cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+		t = tf.layers.dense(t, len(y_dat[0]))
+		out = tf.nn.softmax(t, name="out")
+		cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=t, labels=y))
 		optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost)
 
-		saver = tf.train.Saver()
-		conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
-		print("Training...")
 		with tf.Session(config=conf) as sess:
 			sess.run(tf.global_variables_initializer())
 			for epoch in range(max_epoch):
@@ -83,16 +84,25 @@ def main(argv):
 				while off < len(x_dat):
 					mb = minibatch
 					if mb > len(x_dat) - off: mb = len(x_dat) - off
-					inp, out = x_dat[off:off+mb], y_dat[off:off+mb]
-					_, c = sess.run([optimizer, cost], { x:inp, y:out })
+					xb, yb = x_dat[off:off+mb], y_dat[off:off+mb]
+					_, c = sess.run([optimizer, cost], { x:xb, y:yb })
 					tot_cost += c
 					off += mb
 				avg_cost = tot_cost / len(x_dat)
-				print "epoch: %d; cost: %f" % (epoch+1, avg_cost)
+				sys.stderr.write("epoch: " + str(epoch+1) + "; cost: " + str(avg_cost) + "\n")
 
-			correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
-			accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-			print "Accuracy: ", accuracy.eval({x:x_dat, y:y_dat})
+			if outdir:
+				if outdir and not os.path.isdir(outdir): os.mkdir(outdir)
+				saver = tf.train.Saver()
+				saver.save(sess, outdir + "/model")
+	elif indir:
+		with tf.Session(config=conf) as sess:
+			saver = tf.train.import_meta_graph(indir + "/model.meta")
+			saver.restore(sess, tf.train.latest_checkpoint(indir))
+			out = tf.get_default_graph().get_tensor_by_name("out:0")
+			for i in range(len(x_dat)):
+				y1 = out.eval({ "in:0":x_dat[i:i+1] })
+				print '{}\t{}'.format(x_rnames[i], "\t".join(map(str, y1[0])))
 
 if __name__ == "__main__":
 	main(sys.argv)
