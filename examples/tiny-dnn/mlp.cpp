@@ -30,15 +30,17 @@ int main(int argc, char *argv[])
 {
 	int c, n_layer = 1, n_hidden = 64, minibatch = 64, max_epoch = 20;
 	kann_data_t *kdx;
+	float lr = 0.001f;
 	char *fn_out = 0, *fn_in = 0;
 
-	while ((c = getopt(argc, argv, "i:o:m:B:l:n:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:B:l:n:r:")) >= 0) {
 		if (c == 'o') fn_out = optarg;
 		else if (c == 'i') fn_in = optarg;
 		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'B') minibatch = atoi(optarg);
 		else if (c == 'l') n_layer = atoi(optarg);
 		else if (c == 'n') n_hidden = atoi(optarg);
+		else if (c == 'r') lr = atof(optarg);
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: mlp [options] <in.knd> [out.knd]\n");
@@ -57,7 +59,7 @@ int main(int argc, char *argv[])
 		mlp_float2vec(dy, n, n_out, kdx->x);
 
 		adagrad optimizer;
-		optimizer.alpha *= std::min(tiny_dnn::float_t(4), static_cast<tiny_dnn::float_t>(std::sqrt(minibatch)));
+		optimizer.alpha = lr;
 
 		progress_display disp(static_cast<unsigned long>(n));
 		auto on_enumerate_epoch = [&]() { disp.restart(static_cast<unsigned long>(n)); };
