@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, getopt, os, re, gzip
+import sys, getopt, os, re, gzip, time
 import numpy as np
 import tensorflow as tf
 
@@ -81,6 +81,7 @@ def main(argv):
 		y_dat, y_rnames, y_cnames = mlp_data_read(args[1])
 
 		sys.stderr.write("Training...\n")
+		t_cpu = time.clock()
 		cost = mlp_model_gen(len(x_dat[0]), len(y_dat[0]), n_layer, n_hidden)
 		optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost)
 
@@ -102,14 +103,16 @@ def main(argv):
 				if outdir and not os.path.isdir(outdir): os.mkdir(outdir)
 				saver = tf.train.Saver()
 				saver.save(sess, outdir + "/model")
-	elif indir:
+
+		sys.stderr.write("CPU time for training: " + str(time.clock() - t_cpu) + " sec\n")
+	elif indir: # prediction
 		with tf.Session(config=conf) as sess:
 			saver = tf.train.import_meta_graph(indir + "/model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(indir))
 			out = tf.get_default_graph().get_tensor_by_name("out:0")
+			y_dat = out.eval({ "in:0":x_dat })
 			for i in range(len(x_dat)):
-				y1 = out.eval({ "in:0":x_dat[i:i+1] })
-				print '{}\t{}'.format(x_rnames[i], "\t".join(map(str, y1[0])))
+				print '{}\t{}'.format(x_rnames[i], "\t".join(map(str, y_dat[i])))
 
 if __name__ == "__main__":
 	main(sys.argv)
