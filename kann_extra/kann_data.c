@@ -30,14 +30,15 @@ kann_data_t *kann_data_read(const char *fn)
 
 	d = (kann_data_t*)calloc(1, sizeof(kann_data_t));
 	while (ks_getuntil(ks, KS_SEP_LINE, &str, &dret) >= 0) {
-		int st, i, k;
+		int st, k;
+		size_t i;
 		if (str.s[0] == '#') {
-			for (i = k = 0; i < str.l; ++i)
+			for (i = 0, k = 0; i < str.l; ++i)
 				if (str.s[i] == '\t') ++k;
 			if (k > 0) {
 				d->n_col = k;
 				d->cname = (char**)malloc(d->n_col * sizeof(char*));
-				for (i = k = st = 0; i <= str.l; ++i) {
+				for (i = 0, k = st = 0; i <= str.l; ++i) {
 					if (i == str.l || str.s[i] == '\t') {
 						if (k > 0) str.s[i] = 0, d->cname[k-1] = strdup(&str.s[st]);
 						++k, st = i + 1;
@@ -55,7 +56,7 @@ kann_data_t *kann_data_read(const char *fn)
 			grp_size = 0;
 			continue;
 		}
-		for (i = k = 0; i < str.l; ++i)
+		for (i = 0, k = 0; i < str.l; ++i)
 			if (str.s[i] == '\t') ++k;
 		if (d->n_col == 0) d->n_col = k;
 		if (k != d->n_col) continue; // TODO: throw a warning/error
@@ -65,7 +66,7 @@ kann_data_t *kann_data_read(const char *fn)
 			d->rname = (char**)realloc(d->rname, m_row * sizeof(char*));
 		}
 		d->x[d->n_row] = (float*)malloc(d->n_col * sizeof(float));
-		for (i = k = st = 0; i <= str.l; ++i) {
+		for (i = 0, k = st = 0; i <= str.l; ++i) {
 			if (i == str.l || str.s[i] == '\t') {
 				char *p;
 				if (k == 0) {

@@ -1,5 +1,5 @@
 CC=			gcc
-CFLAGS=		-g -Wall -Wc++-compat -O2
+CFLAGS=		-g -Wall -Wextra -Wc++-compat -O2
 CPPFLAGS=
 INCLUDES=	-I.
 EXE=		examples/mlp examples/mnist-cnn examples/inspect examples/textgen examples/rnn-bit \
