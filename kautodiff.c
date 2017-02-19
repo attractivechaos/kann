@@ -2137,9 +2137,8 @@ int kad_op_avg1d(kad_node_t *p, int action)
 		}
 		for (i = 0; i < len; ++i) p->x[i] /= f[i];
 	} else if (action == KAD_BACKWARD) {
-		int rest = 1, len, t, i;
+		int rest = 1, t, i;
 		int *f = (int*)p->child[0].t;
-		len = kad_len(p);
 		for (i = 0; i < p->n_d - 1; ++i) rest *= p->d[i];
 		for (t = 0; t < rest; ++t) {
 			int j, l, p_width = p->d[p->n_d - 1];
