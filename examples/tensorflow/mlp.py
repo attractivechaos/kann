@@ -24,18 +24,20 @@ def mlp_data_read(fn):
 			_process_fp(fp)
 	return np.array(x).astype('float32'), row_names, col_names
 
-def mlp_model_gen(n_in, n_out, n_layer, n_hidden):
+def mlp_model_gen(n_in, n_out, n_layer, n_hidden, use_multi_ce):
 	t = tf.placeholder(tf.float32, [None, n_in], name="in")
 	for i in range(n_layer):
 		t = tf.layers.dense(t, n_hidden, activation=tf.nn.relu)
 	t = tf.layers.dense(t, n_out)
 	out = tf.nn.softmax(t, name="out")
 	truth = tf.placeholder(tf.float32, [None, n_out], name="truth")
-	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=t, labels=truth), name="cost")
+	if use_multi_ce: t = tf.nn.softmax_cross_entropy_with_logits(logits=t, labels=truth)
+	else: t = tf.nn.sigmoid_cross_entropy_with_logits(logits=t, labels=truth)
+	cost = tf.reduce_mean(t, name="cost")
 	return cost
 
 def main(argv):
-	n_layer, n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outdir, indir = 1, 64, 20, 64, .001, 11, 0.0, None, None
+	n_layer, n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outdir, indir, use_multi_ce = 1, 64, 20, 64, .001, 11, 0.0, None, None, False
 
 	def train_help():
 		print("Usage: mlp.py [options] <input.knd> [output.knd]")
@@ -47,6 +49,7 @@ def main(argv):
 		print("    -l INT     number of hidden layers [1]")
 		print("    -n INT     number of hidden neurons per layer [64]")
 		print("    -d FLOAT   dropout at the hidden layer(s) [0.0]")
+		print("    -M         use multi-class cross-entropy")
 		print("  Model training:")
 		print("    -r FLOAT   learning rate [0.001]")
 		print("    -m INT     number of epochs [50]")
@@ -54,7 +57,7 @@ def main(argv):
 		sys.exit(1)
 
 	try:
-		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:l:")
+		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:l:M")
 	except getopt.GetoptError:
 		train_help()
 	if len(args) < 1:
@@ -70,6 +73,7 @@ def main(argv):
 		elif opt == '-r': lr = float(arg)
 		elif opt == '-d': r_hidden = float(arg)
 		elif opt == '-s': seed = int(arg)
+		elif opt == '-M': use_multi_ce = True
 
 	tf.set_random_seed(seed)
 	sys.stderr.write("Reading input...\n")
@@ -82,7 +86,7 @@ def main(argv):
 
 		sys.stderr.write("Training...\n")
 		t_cpu = time.clock()
-		cost = mlp_model_gen(len(x_dat[0]), len(y_dat[0]), n_layer, n_hidden)
+		cost = mlp_model_gen(len(x_dat[0]), len(y_dat[0]), n_layer, n_hidden, use_multi_ce)
 		optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost)
 
 		with tf.Session(config=conf) as sess:
