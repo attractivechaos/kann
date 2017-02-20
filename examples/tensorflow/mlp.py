@@ -109,7 +109,7 @@ def main(argv):
 				saver.save(sess, outdir + "/model")
 
 		sys.stderr.write("CPU time for training: " + str(time.clock() - t_cpu) + " sec\n")
-	elif indir: # prediction
+	elif len(args) == 1 and indir: # prediction
 		with tf.Session(config=conf) as sess:
 			saver = tf.train.import_meta_graph(indir + "/model.meta")
 			saver.restore(sess, tf.train.latest_checkpoint(indir))
