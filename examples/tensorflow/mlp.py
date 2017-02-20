@@ -101,14 +101,14 @@ def main(argv):
 					tot_cost += c
 					off += mb
 				avg_cost = tot_cost / len(x_dat)
-				sys.stderr.write("epoch: " + str(epoch+1) + "; cost: " + str(avg_cost) + "\n")
+				sys.stderr.write("epoch: {}; cost: {:.6f}\n".format(epoch+1, avg_cost))
 
 			if outdir:
 				if outdir and not os.path.isdir(outdir): os.mkdir(outdir)
 				saver = tf.train.Saver()
 				saver.save(sess, outdir + "/model")
 
-		sys.stderr.write("CPU time for training: " + str(time.clock() - t_cpu) + " sec\n")
+		sys.stderr.write("CPU time for training: {:.2f}\n".format(time.clock() - t_cpu))
 	elif len(args) == 1 and indir: # prediction
 		with tf.Session(config=conf) as sess:
 			saver = tf.train.import_meta_graph(indir + "/model.meta")
@@ -116,7 +116,7 @@ def main(argv):
 			out = tf.get_default_graph().get_tensor_by_name("out:0")
 			y_dat = out.eval({ "in:0":x_dat })
 			for i in range(len(x_dat)):
-				print '{}\t{}'.format(x_rnames[i], "\t".join(map(str, y_dat[i])))
+				print('{}\t{}'.format(x_rnames[i], "\t".join(map(str, y_dat[i]))))
 
 if __name__ == "__main__":
 	main(sys.argv)
