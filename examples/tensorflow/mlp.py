@@ -52,7 +52,7 @@ def main(argv):
 		print("    -M         use multi-class cross-entropy")
 		print("  Model training:")
 		print("    -r FLOAT   learning rate [0.001]")
-		print("    -m INT     number of epochs [50]")
+		print("    -m INT     number of epochs [20]")
 		print("    -B INT     minibatch size [64]")
 		sys.exit(1)
 

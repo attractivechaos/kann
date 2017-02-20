@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, getopt, re, gzip
+import sys, getopt, re, gzip, time
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
@@ -28,7 +28,7 @@ def mlp_data_read(fn):
 	return np.array(x).astype('float32'), row_names, col_names
 
 def main(argv):
-	n_hidden, n_epochs, minibatch, lr, heldout, seed, r_hidden, outfn, infn, use_multi_ce = 64, 20, 64, .001, .1, 11, 0.0, None, None, False
+	n_hidden, n_epochs, minibatch, lr, heldout, seed, r_hidden, outfn, infn, use_multi_ce = 64, 20, 64, .001, 0.1, 11, 0.0, None, None, False
 
 	def train_help():
 		print("Usage: mlp.py [options] <input.knd> [output.knd]")
@@ -42,7 +42,7 @@ def main(argv):
 		print("    -M         use multi-class cross-entropy")
 		print("  Model training:")
 		print("    -r FLOAT   learning rate [0.001]")
-		print("    -v FLOAT   fraction of held-out data [0.1]")
+		print("    -v FLOAT   fraction of held-out data [0.0]")
 		print("    -m INT     number of epochs [20]")
 		print("    -B INT     minibatch size [64]")
 		sys.exit(1)
@@ -70,6 +70,7 @@ def main(argv):
 	x, x_rnames, x_cnames = mlp_data_read(args[0])
 	if len(args) >= 2: # training
 		y, y_rnames, y_cnames = mlp_data_read(args[1])
+		t_cpu = time.clock()
 		model = Sequential()
 		model.add(Dense(n_hidden, input_dim=len(x[0]), activation='relu'))
 		if r_hidden > 0.0 and r_hidden < 1.0: model.add(Dropout(r_hidden))
@@ -81,6 +82,7 @@ def main(argv):
 			model.compile(loss='binary_crossentropy', optimizer=RMSprop(lr=lr), metrics=['accuracy'])
 		model.fit(x, y, nb_epoch=n_epochs, batch_size=minibatch, validation_split=heldout)
 		if outfn: model.save(outfn)
+		sys.stderr.write("CPU time for training: " + str(time.clock() - t_cpu) + " sec\n")
 	elif len(args) == 1 and infn:
 		model = load_model(infn)
 		y = model.predict(x)
