@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r425"
+#define VERSION "r434"
 
 typedef struct {
 	int len, n_char;
@@ -117,7 +117,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, int c2i
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f;
 }
 
-void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn)
+void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn, int batch_len)
 {
 	int i, epoch, k, n_var, n_char;
 	float **x, **y, *r, *g;
@@ -141,7 +141,7 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
 		int j, b, tot = 0, n_cerr = 0, n_batches;
-		n_batches = len / (ulen * mbs) + 1;
+		n_batches = (batch_len <= 0? len : batch_len) / (ulen * mbs) + 1;
 		for (i = 0; i < n_batches; ++i) {
 			j = (int)((len - ulen * mbs - 1) * kad_drand(0)) + 1; // randomly draw a position
 			memset(g, 0, n_var * sizeof(float));
@@ -198,13 +198,14 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1, len_gen = 1000, rand_hidden = 0, use_norm = 1;
+	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1, len_gen = 1000, rand_hidden = 0, use_norm = 1, batch_len = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:N")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:Nj:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
+		else if (c == 'j') batch_len = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') fn_in = optarg;
@@ -252,6 +253,10 @@ int main(int argc, char *argv[])
 	}
 
 	fprintf(stderr, "Version: %s\n", VERSION);
+	fprintf(stderr, "Command line:");
+	for (c = 0; c < argc; ++c)
+		fprintf(stderr, " %s", argv[c]);
+	fprintf(stderr, "\n");
 	kann_srand(seed);
 	kad_trap_fe();
 	if (fn_in) ann = tg_load(fn_in, c2i);
@@ -261,7 +266,7 @@ int main(int argc, char *argv[])
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d characters; alphabet size %d\n", tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
-		tg_train(ann, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, tg->len, tg->data, tg->c2i, fn_out);
+		tg_train(ann, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, tg->len, tg->data, tg->c2i, fn_out, batch_len);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, rand_hidden, len_gen, c2i);
 
