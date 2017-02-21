@@ -7,11 +7,11 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r434"
+#define VERSION "r435"
 
 typedef struct {
-	int len, n_char;
-	uint8_t *data;
+	int len, n_char, n_para, *para_len;
+	uint8_t *data, **para;
 	int c2i[256];
 } tg_data_t;
 
@@ -44,7 +44,7 @@ uint8_t *tg_read_file(const char *fn, int *_len)
 
 tg_data_t *tg_init(const char *fn)
 {
-	int i, j;
+	int i, j, st, k;
 	tg_data_t *tg;
 	tg = (tg_data_t*)calloc(1, sizeof(tg_data_t));
 	tg->data = tg_read_file(fn, &tg->len);
@@ -54,32 +54,45 @@ tg_data_t *tg_init(const char *fn)
 		if (tg->c2i[i] == 0) tg->c2i[i] = -1;
 		else tg->c2i[i] = j++;
 	tg->n_char = j;
+	for (i = 1, st = 0, tg->n_para = 0; i < tg->len; ++i)
+		if (tg->data[i] == '\n' && tg->data[i-1] == '\n' && i - st > 1)
+			++tg->n_para, st = i + 1;
+	if (i - st > 1) ++tg->n_para;
+	tg->para = (uint8_t**)calloc(tg->n_para, sizeof(uint8_t*));
+	tg->para_len = (int*)calloc(tg->n_para, sizeof(int));
+	for (i = 1, st = k = 0; i < tg->len; ++i)
+		if (tg->data[i] == '\n' && tg->data[i-1] == '\n' && i - st > 1)
+			tg->para[k] = &tg->data[st], tg->para_len[k++] = i - st, st = i + 1;
+	if (i - st > 1) tg->para[k] = &tg->data[st], tg->para_len[k++] = i - st;
 	for (i = 0; i < tg->len; ++i)
 		tg->data[i] = tg->c2i[tg->data[i]];
 	return tg;
 }
 
-void tg_save(const char *fn, kann_t *ann, int c2i[256])
+void tg_save(const char *fn, kann_t *ann, const int c2i[256], int para_mode)
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
 	kann_save_fp(fp, ann);
 	fwrite(c2i, sizeof(int), 256, fp);
+	fwrite(&para_mode, sizeof(int), 1, fp);
 	fclose(fp);
 }
 
-kann_t *tg_load(const char *fn, int c2i[256])
+kann_t *tg_load(const char *fn, int c2i[256], int *para_mode)
 {
 	FILE *fp;
 	kann_t *ann;
+	*para_mode = 0;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
 	ann = kann_load_fp(fp);
 	fread(c2i, sizeof(int), 256, fp);
+	fwrite(para_mode, sizeof(int), 1, fp);
 	fclose(fp);
 	return ann;
 }
 
-void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, int c2i[256])
+void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, const int c2i[256])
 {
 	int i, c, n_char, i2c[256], i_temp;
 	memset(i2c, 0, 256 * sizeof(int));
@@ -117,7 +130,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, int c2i
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f;
 }
 
-void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, int len, const uint8_t *data, int c2i[256], const char *fn, int batch_len)
+void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, const char *fn, int batch_len, int para_mode)
 {
 	int i, epoch, k, n_var, n_char;
 	float **x, **y, *r, *g;
@@ -141,16 +154,23 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
 		int j, b, tot = 0, n_cerr = 0, n_batches;
-		n_batches = (batch_len <= 0? len : batch_len) / (ulen * mbs) + 1;
+		n_batches = (batch_len <= 0? tg->len : batch_len) / (ulen * mbs) + 1;
 		for (i = 0; i < n_batches; ++i) {
-			j = (int)((len - ulen * mbs - 1) * kad_drand(0)) + 1; // randomly draw a position
+			if (para_mode) {
+				j = (int)(tg->n_para * kad_drand(0));
+				if (tg->para_len[j] <= ulen * mbs) {
+					--i;
+					continue;
+				}
+				j = (tg->para[j] - tg->data) + (int)((tg->para_len[j] - ulen * mbs - 1) * kad_drand(0)) + 1;
+			} else j = (int)((tg->len - ulen * mbs - 1) * kad_drand(0)) + 1; // randomly draw a position
 			memset(g, 0, n_var * sizeof(float));
 			for (b = 0; b < mbs; ++b) { // a mini-batch
 				for (k = 0; k < ulen; ++k) {
 					memset(x[k], 0, n_char * sizeof(float));
 					memset(y[k], 0, n_char * sizeof(float));
-					x[k][data[j+b*ulen+k-1]] = 1.0f;
-					y[k][data[j+b*ulen+k]] = 1.0f;
+					x[k][tg->data[j+b*ulen+k-1]] = 1.0f;
+					y[k][tg->data[j+b*ulen+k]] = 1.0f;
 				}
 				cost += kann_cost(ua, 0, 1) * ulen;
 				n_cerr += kann_class_error(ua);
@@ -170,8 +190,8 @@ void tg_train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, float gra
 					memset(ann->v[k]->pre->x, 0, kad_len(ann->v[k]->pre) * sizeof(float));
 		}
 		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0 * n_cerr / tot);
-		tg_gen(stderr, ann, 0.4f, 0, 100, c2i);
-		if (fn) tg_save(fn, ann, c2i);
+		tg_gen(stderr, ann, 0.4f, 0, 100, tg->c2i);
+		if (fn) tg_save(fn, ann, tg->c2i, para_mode);
 	}
 	kann_delete_unrolled(ua);
 
@@ -198,12 +218,13 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256], cont_mode = 1, len_gen = 1000, rand_hidden = 0, use_norm = 1, batch_len = 0;
+	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
+	int cont_mode = 1, len_gen = 1000, rand_hidden = 0, use_norm = 1, batch_len = 0, para_mode = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:Nj:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:Nj:p")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'j') batch_len = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -221,6 +242,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rand_hidden = 1;
 		else if (c == 'g') grad_clip = atof(optarg);
 		else if (c == 'N') use_norm = 0;
+		else if (c == 'p') para_mode = 1;
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -246,9 +268,12 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mbs);
 		fprintf(fp, "    -u INT      max unroll [%d]\n", ulen);
 		fprintf(fp, "    -g FLOAT    gradient clipping threshold [%g]\n", grad_clip);
+		fprintf(fp, "    -j INT      size of a batch [input text length]\n");
+		fprintf(fp, "    -p          paragraph mode\n");
 		fprintf(fp, "  Text generation:\n");
 		fprintf(fp, "    -T FLOAT    temperature [%g]\n", temp);
 		fprintf(fp, "    -L INT      length of text to generate [%d]\n", len_gen);
+		fprintf(fp, "    -R          random initial hidden vector\n");
 		return 1;
 	}
 
@@ -259,14 +284,14 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "\n");
 	kann_srand(seed);
 	kad_trap_fe();
-	if (fn_in) ann = tg_load(fn_in, c2i);
+	if (fn_in) ann = tg_load(fn_in, c2i, &para_mode);
 
 	if (argc - optind >= 1) { // train
 		tg_data_t *tg;
 		tg = tg_init(argv[optind]);
-		fprintf(stderr, "Read %d characters; alphabet size %d\n", tg->len, tg->n_char);
+		fprintf(stderr, "Read %d paragraphs and %d characters; alphabet size %d\n", tg->n_para, tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
-		tg_train(ann, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, tg->len, tg->data, tg->c2i, fn_out, batch_len);
+		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, fn_out, batch_len, para_mode);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, rand_hidden, len_gen, c2i);
 
