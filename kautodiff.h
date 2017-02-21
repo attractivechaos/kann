@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r426"
+#define KAD_VERSION "r433"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -49,6 +49,12 @@ typedef struct {
 	kad_node_t *p;  // child node, not allocated
 	void *t;        // temporary data needed for backprop; allocated on heap if not NULL
 } kad_edge_t;
+
+typedef enum {
+	KAD_CONST = 1,
+	KAD_VAR,
+	KAD_FEED
+} kad_leaftype_t;
 
 #define KAD_F_WITH_PD    0x1  // PD = partial derivative
 #define KAD_F_CONSTANT   0x2
@@ -162,8 +168,8 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...); // a variable; gradients 
 kad_node_t *kad_const(float *x, int n_d, ...);         // a constant; no gradients computed; not unrolled
 kad_node_t *kad_feed(int n_d, ...);                    // an input/output; no gradients computed; unrolled
 
-kad_node_t *kad_var_inst(float *x, float *g, int n_d, ...);
-kad_node_t *kad_const_inst(float *x, int n_d, ...);
+kad_node_t *kad_leaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n_d, ...);
+kad_node_t *kad_leaf0(kad_leaftype_t type, int is_dyn, float x);
 
 // operators taking two operands
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y); // f(x,y) = x + y (generalized element-wise addition; f[i*n+j]=x[i*n+j]+y[j], n=kad_len(y), 0<j<n, 0<i<kad_len(x)/n)

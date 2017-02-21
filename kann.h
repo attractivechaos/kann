@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r403"
+#define KANN_VERSION "r433"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -194,8 +194,6 @@ kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride,
 kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type);
 
-kad_node_t *kann_const_scalar(float x);
-kad_node_t *kann_var_scalar(float x);
 kad_node_t *kann_new_weight(int n_row, int n_col);
 kad_node_t *kann_new_bias(int n);
 kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_row, int k_col);

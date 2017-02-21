@@ -22,21 +22,47 @@ typedef struct {
 static inline kad_node_t *kad_new_core(int n_d, int op, int n_child)
 {
 	kad_node_t *s;
-	if (n_d > KAD_MAX_DIM) return 0;
+	if (n_d >= KAD_MAX_DIM) return 0;
 	s = (kad_node_t*)calloc(1, sizeof(kad_node_t));
 	s->n_d = n_d, s->op = op, s->n_child = n_child;
 	if (s->n_child) s->child = (kad_edge_t*)calloc(s->n_child, sizeof(kad_edge_t));
 	return s;
 }
 
-static inline kad_node_t *kad_new_external(float *x, float *g, int flag, int n_d, va_list ap)
+kad_node_t *kad_vleaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n_d, va_list ap)
+{
+	int i;
+	kad_node_t *p;
+	if (n_d >= KAD_MAX_DIM) return 0;
+	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
+	p->n_d = n_d;
+	for (i = 0; i < n_d; ++i)
+		p->d[i] = va_arg(ap, int32_t);
+	p->x = x, p->g = g, p->flag = is_dyn? KAD_F_INST_FOR : 0;
+	if (type == KAD_VAR) p->flag |= KAD_F_WITH_PD;
+	else if (type == KAD_CONST) p->flag |= KAD_F_CONSTANT;
+	return p;
+}
+
+kad_node_t *kad_leaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n_d, ...)
 {
 	kad_node_t *p;
-	int i;
-	p = kad_new_core(n_d, 0, 0);
-	for (i = 0; i < n_d; ++i)
-		p->d[i] = va_arg(ap, int);
-	p->x = x, p->g = g, p->flag = flag;
+	va_list ap;
+	va_start(ap, n_d);
+	p = kad_vleaf(type, is_dyn, x, g, n_d, ap);
+	va_end(ap);
+	return p;
+}
+
+kad_node_t *kad_leaf0(kad_leaftype_t type, int is_dyn, float x)
+{
+	kad_node_t *p;
+	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
+	p->n_d = 0;
+	p->x = (float*)calloc(1, sizeof(float));
+	*p->x = x, p->flag = is_dyn? KAD_F_INST_FOR : 0;
+	if (type == KAD_VAR) p->flag |= KAD_F_WITH_PD;
+	else if (type == KAD_CONST) p->flag |= KAD_F_CONSTANT;
 	return p;
 }
 
@@ -44,7 +70,7 @@ kad_node_t *kad_const(float *x, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_new_external(x, 0, KAD_F_CONSTANT, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_CONST, 0, x, 0, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -52,7 +78,7 @@ kad_node_t *kad_feed(int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_new_external(0, 0, 0, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_FEED, 0, 0, 0, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -60,23 +86,7 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_new_external(x, g, KAD_F_WITH_PD, n_d, ap); va_end(ap);
-	return p;
-}
-
-kad_node_t *kad_const_inst(float *x, int n_d, ...)
-{
-	kad_node_t *p;
-	va_list ap;
-	va_start(ap, n_d); p = kad_new_external(x, 0, KAD_F_CONSTANT | KAD_F_INST_FOR, n_d, ap); va_end(ap);
-	return p;
-}
-
-kad_node_t *kad_var_inst(float *x, float *g, int n_d, ...)
-{
-	kad_node_t *p;
-	va_list ap;
-	va_start(ap, n_d); p = kad_new_external(x, g, KAD_F_WITH_PD | KAD_F_INST_FOR, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_VAR, 0, x, g, n_d, ap); va_end(ap);
 	return p;
 }
 

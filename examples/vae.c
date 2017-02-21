@@ -6,6 +6,8 @@
 #include "kann.h"
 #include "kann_extra/kann_data.h"
 
+#define const_scalar(x) kad_leaf0(KAD_CONST, 0, (x))
+
 static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 {
 	kad_node_t *x, *t, *s, *mu, *sigma;
@@ -21,19 +23,19 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 	t = kad_tanh(kann_layer_linear(t, n_hidden));
 	t = kad_sigm(kann_layer_linear(t, n_in)), t->ext_flag = KANN_F_OUT;
 	t = kad_ce_bin(t, x);
-	t = kad_mul(t, kann_const_scalar((float)n_in));
+	t = kad_mul(t, const_scalar((float)n_in));
 
 	// latent loss
-	s = kad_add(kad_square(sigma), kann_const_scalar(1e-6f)); // sigma^2, plus a pseudo-count
+	s = kad_add(kad_square(sigma), const_scalar(1e-6f)); // sigma^2, plus a pseudo-count
 	s = kad_sub(s, kad_log(s));              // sigma^2 - log(sigma^2)
 	s = kad_add(s, kad_square(mu));          // mu^2 + sigma^2 - log(sigma^2)
-	s = kad_sub(s, kann_const_scalar(1.0f)); // mu^2 + sigma^2 - log(sigma^2) - 1
+	s = kad_sub(s, const_scalar(1.0f));      // mu^2 + sigma^2 - log(sigma^2) - 1
 	s = kad_reduce_sum(s, 1);
-	s = kad_mul(s, kann_const_scalar(0.5f));
+	s = kad_mul(s, const_scalar(0.5f));
 	s = kad_reduce_mean(s, 0);
 
 	t = kad_add(t, s);
-	t = kad_mul(t, kann_const_scalar(1.0f / (n_in + 2 * n_code))), t->ext_flag |= KANN_F_COST;
+	t = kad_mul(t, const_scalar(1.0f / (n_in + 2 * n_code))), t->ext_flag |= KANN_F_COST;
 	return kann_new(t, 0);
 }
 

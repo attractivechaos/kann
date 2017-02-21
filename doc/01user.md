@@ -9,7 +9,6 @@
 * [Training a Neural Network](#training-a-neural-network)
   - [Training a simple feedforward neural network (FNN)](#training-a-simple-feedforward-neural-network-fnn)
   - [Training a recurrent neural network (RNN)](#training-a-recurrent-neural-network-rnn)
-* [Working with Automatic Differentiation](#working-with-automatic-differentiation)
 
 
 
@@ -214,61 +213,5 @@ void train(kann_t *ann, float lr, int ulen, int mbs, int max_epoch, int len, con
 
 	for (k = 0; k < ulen; ++k) { free(x[k]); free(y[k]); }
 	free(g); free(r); free(y); free(x);
-}
-```
-
-
-
-## Working with Automatic Differentiation
-
-Automatic differentiation is the backbone of KANN.  There are two ways to use
-this library: statically and dynamically. In the static mode, we construct the
-graph topology without actual computation. We compile the graph after
-construction and then evaluate. The KANN library is only using the static mode.
-In the dynamic mode, we compute the value while we construct the graph. We get
-the final result immediately after graph construction. The dynamic mode can be
-useful to construct dynamic neural networks for time series data, though this
-requires considerable user code to work.
-
-We will use two examples to show the differences between the static and the
-dynamic modes. Here is for the static mode:
-```c
-#include "kautodiff.h"
-int main(void)
-{
-	float x = 2.0f, dx, y = 2.5f, dy, a = 2.0;
-	kad_node_t *nx, *ny, *na, *nf, **v;
-	int n;
-	nx = kad_var(&x, &dx, 0);
-	ny = kad_var(&y, &dy, 0);
-	na = kad_const(&a, 0);
-	nf = kad_sub(kad_log(kad_add(kad_square(nx), kad_square(ny))), kad_mul(na, ny));
-	v = kad_compile(&n, 1, nf);
-	kad_eval_at(n, v, n-1);
-	printf("f(x,y;a) = log(x^2+y^2) - a*y\n");
-	printf("f(%g,%g;%g) = %g\n", x, y, a, *nf->x);
-	kad_grad(n, v, n-1);
-	printf("df/dx = %g, df/dy = %g\n", dx, dy);
-	kad_delete(n, v);
-	return 0;
-}
-```
-And here is for the dynamic mode:
-```c
-#include "kautodiff.h"
-int main(void)
-{
-	float x = 2.0f, dx, y = 2.5f, dy, a = 2.0;
-	kad_node_t *nx, *ny, *na, *nf;
-	nx = kad_var_inst(&x, &dx, 0);
-	ny = kad_var_inst(&y, &dy, 0);
-	na = kad_const_inst(&a, 0);
-	nf = kad_sub(kad_log(kad_add(kad_square(nx), kad_square(ny))), kad_mul(na, ny));
-	printf("f(x,y;a) = log(x^2+y^2) - a*y\n");
-	printf("f(%g,%g;%g) = %g\n", x, y, a, *nf->x);
-	kad_grad1(nf);
-	printf("df/dx = %g, df/dy = %g\n", dx, dy);
-	kad_delete1(nf);
-	return 0;
 }
 ```
