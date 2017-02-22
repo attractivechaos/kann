@@ -44,7 +44,7 @@ kad_node_t *kad_const(float *x, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_vleaf(KAD_F_CONSTANT, x, 0, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_CONST, x, 0, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -60,7 +60,7 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_vleaf(KAD_F_WITH_PD, x, g, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_VAR, x, g, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -75,7 +75,7 @@ static inline kad_node_t *kad_finalize_node(kad_node_t *s) // a helper function
 	for (i = 0; i < s->n_child; ++i)
 		if (kad_is_back(s->child[i]))
 			break;
-	if (i < s->n_child) s->flag |= KAD_F_WITH_PD;
+	if (i < s->n_child) s->flag |= KAD_VAR;
 	return s;
 }
 
@@ -223,7 +223,7 @@ static kad_node_t *kad_pooling_general(int op, int n, kad_node_t **x)
 	int i;
 	kad_node_t *s;
 	s = kad_new_core(0, op, n);
-	s->flag |= KAD_F_POOLING;
+	s->flag |= KAD_POOL;
 	for (i = 0; i < n; ++i)
 		s->child[i] = x[i];
 	return kad_finalize_node(s);
@@ -347,8 +347,8 @@ static void kad_mark_back(int n, kad_node_t **v)
 		for (j = 0; j < v[i]->n_child; ++j)
 			if (kad_is_back(v[i]->child[j]))
 				break;
-		if (j < v[i]->n_child) v[i]->flag |= KAD_F_WITH_PD;
-		else v[i]->flag &= ~KAD_F_WITH_PD;
+		if (j < v[i]->n_child) v[i]->flag |= KAD_VAR;
+		else v[i]->flag &= ~KAD_VAR;
 	}
 }
 
@@ -380,7 +380,7 @@ static void kad_allocate_internal(int n, kad_node_t **v)
 	} while (0)
 
 // IMPORTANT: kad_node_t::tmp MUST BE set to zero before calling this function
-kad_node_t **kad_compile_array_core(int *n_node, int n_roots, kad_node_t **roots)
+kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 {
 	int i;
 	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
@@ -423,17 +423,10 @@ kad_node_t **kad_compile_array_core(int *n_node, int n_roots, kad_node_t **roots
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
+	kad_allocate_internal(a.n, a.a);
 
 	*n_node = a.n;
 	return a.a;
-}
-
-kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
-{
-	kad_node_t **a;
-	a = kad_compile_array_core(n_node, n_roots, roots);
-	kad_allocate_internal(*n_node, a);
-	return a;
 }
 
 kad_node_t **kad_compile(int *n_node, int n_roots, ...)
@@ -639,7 +632,7 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	memcpy(q, p, sizeof(kad_node_t));
 	q->pre = 0, q->tmp = 0;
 	if (p->ptr && p->ptr_size > 0) {
-		if (kad_use_rng(p) && !(p->flag & KAD_F_SHARE_RNG) && p->ptr_size == sizeof(kad_rng_t)) {
+		if (kad_use_rng(p) && !(p->flag & KAD_SHARE_RNG) && p->ptr_size == sizeof(kad_rng_t)) {
 			q->ptr = kad_rng(); // each time step uses a different RNG
 		} else {
 			q->ptr = malloc(p->ptr_size);

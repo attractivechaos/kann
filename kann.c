@@ -371,7 +371,7 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 {
 	kad_node_t *x[2];
-	x[0] = t, x[1] = kad_dropout(t, kann_leaf0(KAD_F_CONSTANT, r));
+	x[0] = t, x[1] = kad_dropout(t, kann_leaf0(KAD_CONST, r));
 	return kad_switch(2, x);
 }
 

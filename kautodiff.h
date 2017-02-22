@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r437"
+#define KAD_VERSION "r438"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -47,17 +47,17 @@ typedef enum {
 	KAD_FEED
 } kad_leaftype_t;
 
-#define KAD_F_WITH_PD    0x1  // PD = partial derivative
-#define KAD_F_CONSTANT   0x2
-#define KAD_F_POOLING    0x4
-#define KAD_F_SHARE_RNG  0x10 // with this flag on, different time step shares the same RNG status after unroll
+#define KAD_VAR        0x1
+#define KAD_CONST      0x2
+#define KAD_POOL       0x4
+#define KAD_SHARE_RNG  0x10 // with this flag on, different time step shares the same RNG status after unroll
 
-#define kad_is_back(p)  ((p)->flag & KAD_F_WITH_PD)
+#define kad_is_back(p)  ((p)->flag & KAD_VAR)
 #define kad_is_ext(p)   ((p)->n_child == 0)
 #define kad_is_var(p)   (kad_is_ext(p) && kad_is_back(p))
-#define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_F_CONSTANT))
-#define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_F_CONSTANT))
-#define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_F_POOLING))
+#define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_CONST))
+#define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_CONST))
+#define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_POOL))
 #define kad_is_switch(p) ((p)->op == 12)
 #define kad_use_rng(p)  ((p)->op == 15 || (p)->op == 24)
 
@@ -78,7 +78,7 @@ typedef struct kad_node_t {
 	float      *x;              // value; allocated for internal nodes
 	float      *g;              // gradient; allocated for internal nodes
 	void       *ptr;            // for special operators that need additional parameters (e.g. conv2d)
-	void       *gtmp;
+	void       *gtmp;           // temporary data generated at the forward pass but used at the backward pass
 	struct kad_node_t **child;  // operands/child nodes
 	struct kad_node_t  *pre;    // usually NULL; only used for RNN
 } kad_node_t, *kad_node_p;
