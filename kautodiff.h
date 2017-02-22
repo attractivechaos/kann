@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r433"
+#define KAD_VERSION "r436"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -35,20 +35,11 @@
 #define KAD_MAX_DIM 4     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
 
-struct kad_node_t;
-typedef struct kad_node_t kad_node_t;
-
 /* A computational graph is an acyclic directed graph. In the graph, an
  * external node represents a variable, a constant or a feed; an internal node
  * represents an operator; an edge from node v to w indicates v is an operand
  * of w.
  */
-
-// an edge between two nodes in the computational graph
-typedef struct {
-	kad_node_t *p;  // child node, not allocated
-	void *t;        // temporary data needed for backprop; allocated on heap if not NULL
-} kad_edge_t;
 
 typedef enum {
 	KAD_CONST = 1,
@@ -75,7 +66,7 @@ typedef enum {
 #define kad_eval_disable(p) ((p)->tmp = -1)
 
 // a node in the computational graph
-struct kad_node_t {
+typedef struct kad_node_t {
 	uint8_t     n_d;            // number of dimensions; no larger than KAD_MAX_DIM
 	uint8_t     flag;           // type of the node; see KAD_F_* for valid flags
 	uint16_t    op;             // operator; kad_op_list[op] is the actual function
@@ -87,10 +78,11 @@ struct kad_node_t {
 	uint32_t    ext_flag;       // flags for external uses (not modified by the kad_* APIs)
 	float      *x;              // value; allocated for internal nodes
 	float      *g;              // gradient; allocated for internal nodes
-	kad_edge_t *child;          // operands/child nodes
-	kad_node_t *pre;            // usually NULL; only used for RNN
 	void       *ptr;            // for special operators that need additional parameters (e.g. conv2d)
-};
+	void       *gtmp;
+	struct kad_node_t **child;  // operands/child nodes
+	struct kad_node_t  *pre;    // usually NULL; only used for RNN
+} kad_node_t, *kad_node_p;
 
 #ifdef __cplusplus
 extern "C" {
@@ -109,8 +101,6 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots);
 
 kad_node_t **kad_compile(int *n_node, int n_roots, ...); // an alternative API to above
 void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized graph
-
-void kad_delete1(kad_node_t *root);
 
 /**
  * Compute the value at a node
@@ -134,8 +124,6 @@ void kad_eval_marked(int n, kad_node_t **a);
  * @param from    the function node; must be a scalar (compute \nabla a[from])
  */
 void kad_grad(int n, kad_node_t **a, int from);
-
-void kad_grad1(kad_node_t *root);
 
 /**
  * Test if a computational graph can be unrolled

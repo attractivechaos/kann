@@ -219,7 +219,7 @@ int kann_class_error(const kann_t *ann)
 	for (i = 0; i < ann->n; ++i) {
 		kad_node_t *p = ann->v[i];
 		if ((p->op == 13 || p->op == 22) && p->n_child == 2 && p->n_d == 0) { // ce_bin or ce_multi
-			kad_node_t *x = p->child[0].p, *t = p->child[1].p;
+			kad_node_t *x = p->child[0], *t = p->child[1];
 			n = kad_len(t) / t->d[0];
 			for (j = off = 0; j < t->d[0]; ++j, off += n) {
 				float t_sum = 0.0f, t_min = 1.0f, t_max = 0.0f, x_max = 0.0f, x_min = 1.0f;
