@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r436"
+#define KAD_VERSION "r437"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -50,7 +50,6 @@ typedef enum {
 #define KAD_F_WITH_PD    0x1  // PD = partial derivative
 #define KAD_F_CONSTANT   0x2
 #define KAD_F_POOLING    0x4
-#define KAD_F_INST_FOR   0x8
 #define KAD_F_SHARE_RNG  0x10 // with this flag on, different time step shares the same RNG status after unroll
 
 #define kad_is_back(p)  ((p)->flag & KAD_F_WITH_PD)
@@ -155,9 +154,6 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
 kad_node_t *kad_var(float *x, float *g, int n_d, ...); // a variable; gradients to be computed; not unrolled
 kad_node_t *kad_const(float *x, int n_d, ...);         // a constant; no gradients computed; not unrolled
 kad_node_t *kad_feed(int n_d, ...);                    // an input/output; no gradients computed; unrolled
-
-kad_node_t *kad_leaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n_d, ...);
-kad_node_t *kad_leaf0(kad_leaftype_t type, int is_dyn, float x);
 
 // operators taking two operands
 kad_node_t *kad_add(kad_node_t *x, kad_node_t *y); // f(x,y) = x + y (generalized element-wise addition; f[i*n+j]=x[i*n+j]+y[j], n=kad_len(y), 0<j<n, 0<i<kad_len(x)/n)

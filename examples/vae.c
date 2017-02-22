@@ -6,7 +6,7 @@
 #include "kann.h"
 #include "kann_extra/kann_data.h"
 
-#define const_scalar(x) kad_leaf0(KAD_CONST, 0, (x))
+#define const_scalar(x) kann_leaf0(KAD_F_CONSTANT, (x))
 
 static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 {

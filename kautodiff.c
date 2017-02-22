@@ -27,7 +27,7 @@ static inline kad_node_t *kad_new_core(int n_d, int op, int n_child)
 	return s;
 }
 
-kad_node_t *kad_vleaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n_d, va_list ap)
+static inline kad_node_t *kad_vleaf(uint8_t flag, float *x, float *g, int n_d, va_list ap)
 {
 	int i;
 	kad_node_t *p;
@@ -36,31 +36,7 @@ kad_node_t *kad_vleaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n
 	p->n_d = n_d;
 	for (i = 0; i < n_d; ++i)
 		p->d[i] = va_arg(ap, int32_t);
-	p->x = x, p->g = g, p->flag = is_dyn? KAD_F_INST_FOR : 0;
-	if (type == KAD_VAR) p->flag |= KAD_F_WITH_PD;
-	else if (type == KAD_CONST) p->flag |= KAD_F_CONSTANT;
-	return p;
-}
-
-kad_node_t *kad_leaf(kad_leaftype_t type, int is_dyn, float *x, float *g, int n_d, ...)
-{
-	kad_node_t *p;
-	va_list ap;
-	va_start(ap, n_d);
-	p = kad_vleaf(type, is_dyn, x, g, n_d, ap);
-	va_end(ap);
-	return p;
-}
-
-kad_node_t *kad_leaf0(kad_leaftype_t type, int is_dyn, float x)
-{
-	kad_node_t *p;
-	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
-	p->n_d = 0;
-	p->x = (float*)calloc(1, sizeof(float));
-	*p->x = x, p->flag = is_dyn? KAD_F_INST_FOR : 0;
-	if (type == KAD_VAR) p->flag |= KAD_F_WITH_PD;
-	else if (type == KAD_CONST) p->flag |= KAD_F_CONSTANT;
+	p->x = x, p->g = g, p->flag = flag;
 	return p;
 }
 
@@ -68,7 +44,7 @@ kad_node_t *kad_const(float *x, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_vleaf(KAD_CONST, 0, x, 0, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_F_CONSTANT, x, 0, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -76,7 +52,7 @@ kad_node_t *kad_feed(int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_vleaf(KAD_FEED, 0, 0, 0, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(0, 0, 0, n_d, ap); va_end(ap);
 	return p;
 }
 
@@ -84,13 +60,13 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 {
 	kad_node_t *p;
 	va_list ap;
-	va_start(ap, n_d); p = kad_vleaf(KAD_VAR, 0, x, g, n_d, ap); va_end(ap);
+	va_start(ap, n_d); p = kad_vleaf(KAD_F_WITH_PD, x, g, n_d, ap); va_end(ap);
 	return p;
 }
 
 static inline kad_node_t *kad_finalize_node(kad_node_t *s) // a helper function
 {
-	int i, n;
+	int i;
 	if (kad_op_list[s->op](s, KAD_SYNC_DIM) < 0) { // check dimension
 		if (s->ptr) free(s->ptr);
 		free(s->child); free(s);
@@ -100,17 +76,6 @@ static inline kad_node_t *kad_finalize_node(kad_node_t *s) // a helper function
 		if (kad_is_back(s->child[i]))
 			break;
 	if (i < s->n_child) s->flag |= KAD_F_WITH_PD;
-	for (i = 0; i < s->n_child; ++i)
-		if ((s->child[i]->flag & KAD_F_INST_FOR) == 0)
-			break;
-	if (i == s->n_child) { // forward computation right away
-		n = kad_len(s);
-		s->x = (float*)calloc(n, sizeof(float));
-		if (kad_is_back(s)) s->g = (float*)calloc(n, sizeof(float));
-		kad_op_list[s->op](s, KAD_ALLOC);
-		kad_op_list[s->op](s, KAD_FORWARD);
-		s->flag |= KAD_F_INST_FOR;
-	}
 	return s;
 }
 

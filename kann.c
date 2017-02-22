@@ -302,6 +302,16 @@ kann_t *kann_load(const char *fn)
  *** @@LAYER: layers and model generation ***
  **********************************************/
 
+kad_node_t *kann_leaf0(uint8_t flag, float x)
+{
+	kad_node_t *p;
+	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
+	p->n_d = 0;
+	p->x = (float*)calloc(1, sizeof(float));
+	*p->x = x, p->flag = flag;
+	return p;
+}
+
 kad_node_t *kann_new_weight(int n_row, int n_col)
 {
 	kad_node_t *w;
@@ -361,7 +371,7 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
 {
 	kad_node_t *x[2];
-	x[0] = t, x[1] = kad_dropout(t, kad_leaf0(KAD_CONST, 0, r));
+	x[0] = t, x[1] = kad_dropout(t, kann_leaf0(KAD_F_CONSTANT, r));
 	return kad_switch(2, x);
 }
 
