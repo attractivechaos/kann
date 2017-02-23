@@ -10,7 +10,7 @@ seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
 echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
 # learn multiplication to a number between 1 and 100 (with a bigger model)
 seq 30000 | awk '{a=int(10000*rand());b=int(100*rand())+1;print a,b,a*b}' \
-  | ./examples/rnn-bit -m25 -l2 -n160 -o mul100.kan -
+  | ./examples/rnn-bit -m50 -l2 -n160 -o mul100.kan -
 # apply the model to large numbers (answer: 1486734150878261153)
 echo 15327156194621249 97 | ./examples/rnn-bit -Ai mul100.kan -
 ```
@@ -27,8 +27,8 @@ multiple inputs/outputs/costs (e.g. with [variational autoencoder][vae]). In
 comparison to mainstream deep learning frameworks such as [TensorFlow][tf],
 KANN is not as scalable, but it is close in flexibility, has a much smaller
 code base and only depends on the standard C library. In comparison to other
-lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, more
-efficient and much more versatile, supporting RNN, VAE and non-standard neural
+lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, times
+faster and much more versatile, supporting RNN, VAE and non-standard neural
 networks that may fail these lightweight frameworks.
 
 KANN could be potentially useful when you want to experiment small to medium
@@ -49,13 +49,32 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 
 ### Limitations
 
-* CPU only; no parallelization for now. As such, KANN is **not** intended for
-  training huge neural networks.
+* CPU only. No out-of-box support of multi-threading (experimental support on
+  the mt branch). As such, KANN is **not** intended for training huge neural
+  networks.
 
 * Bidirectional RNNs and seq2seq models require manual unrolling, which is
-  complex. No batch normalization.
+  complex and tedious. No batch normalization.
 
 * Verbose APIs for training RNNs.
+
+## Installation
+
+The KANN library is composed of four files: `kautodiff.{h,c}` and `kann.{h,c}`.
+You are encouraged to include these files in your source code tree. No
+installation is needed. To compile examples:
+```sh
+make
+```
+This generates a few binaries in the [examples](examples) directory. If you
+have BLAS installed, you can ask KANN to use BLAS for matrix multiplication:
+```sh
+make CBLAS=/usr/local
+```
+This usually speeds up MLP and RNN, and may take the advantage of multiple CPU
+cores if your BLAS library is compiled with the multi-core support.
+Convolutional networks won't benefit from BLAS as KANN is reducing convolution
+to matrix multiplication.
 
 ## Documentations
 
