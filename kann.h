@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r445"
+#define KANN_VERSION "r451"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -38,8 +38,6 @@
 #define KANN_C_CEM      2   // multi-class cross-entropy cost, used with softmax
 #define KANN_C_CEB_NEG  3   // binary cross-enytopy-like cost, used with tanh
 #define KANN_C_MSE      4   // mean square error
-
-#define KANN_L_TEMP_INV (-1)
 
 #define KANN_RNN_VAR_H0 0x1 // take the initial hidden values as variables
 #define KANN_RNN_NORM   0x2 // apply layer normalization

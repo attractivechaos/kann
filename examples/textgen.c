@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r450"
+#define VERSION "r451"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -96,7 +96,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, const i
 	for (i = 0; i < 256; ++i)
 		if (c2i[i] >= 0) i2c[c2i[i]] = i;
 	n_char = kann_dim_in(ann);
-	i_temp = kann_find(ann, 0, KANN_L_TEMP_INV);
+	i_temp = kann_find(ann, 0, -1);
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f / temp;
 	kann_rnn_start(ann);
 	if (rand_hidden) {
@@ -202,7 +202,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout, int use_norm)
 {
 	int i, flag = use_norm? KANN_RNN_NORM : 0;
-	kad_node_t *t;
+	kad_node_t *t, *t1;
 	t = kann_layer_input(n_char);
 	for (i = 0; i < n_h_layers; ++i) {
 		if (model == 0) t = kann_layer_rnn(t, n_h_neurons, flag);
@@ -210,6 +210,8 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, flag);
 		t = kann_layer_dropout(t, h_dropout);
 	}
+	t1 = kann_leaf0(KAD_CONST, 1.0f), t1->ext_label = -1; // this is for backward compatibility
+	t = kad_mul(t, t1);
 	return kann_new(kann_layer_cost(t, n_char, KANN_C_CEM), 0);
 }
 
