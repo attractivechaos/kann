@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r435"
+#define VERSION "r450"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -69,25 +69,22 @@ tg_data_t *tg_init(const char *fn)
 	return tg;
 }
 
-void tg_save(const char *fn, kann_t *ann, const int c2i[256], int para_mode)
+void tg_save(const char *fn, kann_t *ann, const int c2i[256])
 {
 	FILE *fp;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "wb") : stdout;
 	kann_save_fp(fp, ann);
 	fwrite(c2i, sizeof(int), 256, fp);
-	fwrite(&para_mode, sizeof(int), 1, fp);
 	fclose(fp);
 }
 
-kann_t *tg_load(const char *fn, int c2i[256], int *para_mode)
+kann_t *tg_load(const char *fn, int c2i[256])
 {
 	FILE *fp;
 	kann_t *ann;
-	*para_mode = 0;
 	fp = fn && strcmp(fn, "-")? fopen(fn, "rb") : stdin;
 	ann = kann_load_fp(fp);
 	fread(c2i, sizeof(int), 256, fp);
-	fwrite(para_mode, sizeof(int), 1, fp);
 	fclose(fp);
 	return ann;
 }
@@ -191,7 +188,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 		}
 		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0 * n_cerr / tot);
 		tg_gen(stderr, ann, 0.4f, 0, 100, tg->c2i);
-		if (fn) tg_save(fn, ann, tg->c2i, para_mode);
+		if (fn) tg_save(fn, ann, tg->c2i);
 	}
 	kann_delete_unrolled(ua);
 
@@ -284,7 +281,7 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "\n");
 	kann_srand(seed);
 	kad_trap_fe();
-	if (fn_in) ann = tg_load(fn_in, c2i, &para_mode);
+	if (fn_in) ann = tg_load(fn_in, c2i);
 
 	if (argc - optind >= 1) { // train
 		tg_data_t *tg;
