@@ -73,8 +73,8 @@ make CBLAS=/usr/local
 ```
 This usually speeds up MLP and RNN, and may take the advantage of multiple CPU
 cores if your BLAS library is compiled with the multi-core support.
-Convolutional networks won't benefit from BLAS as KANN is reducing convolution
-to matrix multiplication.
+Convolutional networks won't benefit from BLAS as KANN is not reducing
+convolution to matrix multiplication like Caffe and other libraries.
 
 ## Documentations
 
