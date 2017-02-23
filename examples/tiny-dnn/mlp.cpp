@@ -46,7 +46,6 @@ int main(int argc, char *argv[])
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: mlp [options] <in.knd> [out.knd]\n");
-		fprintf(stderr, "Note: NOT WORKING!!!\n");
 		return 1;
 	}
 
@@ -58,10 +57,10 @@ int main(int argc, char *argv[])
 
 		auto nn = mlp_model_gen(n_in, n_out, n_layer, n_hidden);
 		mlp_float2vec(dx, n, n_in, kdx->x);
-		mlp_float2vec(dy, n, n_out, kdx->x);
+		mlp_float2vec(dy, n, n_out, kdy->x);
 
 		gradient_descent optimizer;
-		optimizer.alpha = lr;
+		optimizer.alpha = lr * minibatch;
 
 		progress_display disp(static_cast<unsigned long>(n));
 		auto on_enumerate_epoch = [&]() { disp.restart(static_cast<unsigned long>(n)); };

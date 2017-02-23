@@ -4,7 +4,7 @@ CXX=		g++
 CXXFLAGS=	-g -Wall -O3 -std=c++11 -ffast-math
 CPPFLAGS=	-DCNN_SINGLE_THREAD
 INCLUDES=	-I../..
-EXE=		mnist-mlp mlp
+EXE=		mlp
 LIBS=		-lm -lz
 
 ifdef TINY_DNN
@@ -26,9 +26,6 @@ all:$(EXE)
 		$(CC) -c $(CFLAGS) -DHAVE_ZLIB $< -o $@
 
 mlp:mlp.o ../../kann_extra/kann_data.o
-		$(CXX) -o $@ $^ $(LIBS)
-
-mnist-mlp:mnist-mlp.o
 		$(CXX) -o $@ $^ $(LIBS)
 
 clean:
