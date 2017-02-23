@@ -630,7 +630,7 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	kad_node_t *q;
 	q = (kad_node_t*)malloc(sizeof(kad_node_t));
 	memcpy(q, p, sizeof(kad_node_t));
-	q->pre = 0, q->tmp = 0;
+	q->pre = 0, q->tmp = 0, q->gtmp = 0;
 	if (p->ptr && p->ptr_size > 0) {
 		if (kad_use_rng(p) && !(p->flag & KAD_SHARE_RNG) && p->ptr_size == sizeof(kad_rng_t)) {
 			q->ptr = kad_rng(); // each time step uses a different RNG
