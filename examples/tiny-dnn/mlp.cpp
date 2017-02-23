@@ -7,14 +7,16 @@
 using namespace tiny_dnn;
 using namespace tiny_dnn::activation;
 
-void mlp_model_gen(network<sequential> &nn, int n_in, int n_out, int n_layer, int n_hidden)
+network<sequential> mlp_model_gen(int n_in, int n_out, int n_layer, int n_hidden)
 {
+	network<sequential> nn;
 	int n_last = n_in;
 	for (int i = 0; i < n_layer; ++i) {
 		nn << fully_connected_layer<relu>(n_last, n_hidden);
 		n_last = n_hidden;
 	}
 	nn << fully_connected_layer<softmax>(n_last, n_out);
+	return nn;
 }
 
 void mlp_float2vec(std::vector<vec_t> &data, int n, int m, float **x)
@@ -44,21 +46,21 @@ int main(int argc, char *argv[])
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: mlp [options] <in.knd> [out.knd]\n");
+		fprintf(stderr, "Note: NOT WORKING!!!\n");
 		return 1;
 	}
 
 	kdx = kann_data_read(argv[optind]);
 	if (argc - optind >= 2) { // training
-		network<sequential> nn;
 		std::vector<vec_t> dx, dy;
 		kann_data_t *kdy = kann_data_read(argv[optind+1]);
 		int n = kdx->n_row, n_in = kdx->n_col, n_out = kdy->n_col;
 
-		mlp_model_gen(nn, n_in, n_out, n_layer, n_hidden);
+		auto nn = mlp_model_gen(n_in, n_out, n_layer, n_hidden);
 		mlp_float2vec(dx, n, n_in, kdx->x);
 		mlp_float2vec(dy, n, n_out, kdx->x);
 
-		adagrad optimizer;
+		gradient_descent optimizer;
 		optimizer.alpha = lr;
 
 		progress_display disp(static_cast<unsigned long>(n));
