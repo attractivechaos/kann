@@ -1,8 +1,8 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CXX=		g++
-CXXFLAGS=	-g -Wall -O3 -std=c++11 -ffast-math
-CPPFLAGS=	-DCNN_SINGLE_THREAD
+CXXFLAGS=	-g -Wall -O3 -std=c++11 -ffast-math -mavx
+CPPFLAGS=	-DCNN_SINGLE_THREAD -DCNN_USE_AVX
 INCLUDES=	-I../..
 EXE=		mlp
 LIBS=		-lm -lz
