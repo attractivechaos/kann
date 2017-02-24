@@ -127,7 +127,7 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int rand_hidden, int len, const i
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f;
 }
 
-void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, int cont_mode, const char *fn, int batch_len)
+void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len)
 {
 	int i, epoch, k, n_var, n_char;
 	float **x, **y, *r, *g;
@@ -166,11 +166,9 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 				n_cerr += kann_class_error(ua);
 				tot += ulen;
 				for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
-				if (cont_mode) {
-					for (k = 0; k < ua->n; ++k) // keep the cycle rolling
-						if (ua->v[k]->pre)
-							memcpy(ua->v[k]->pre->x, ua->v[k]->x, kad_len(ua->v[k]) * sizeof(float));
-				}
+				for (k = 0; k < ua->n; ++k) // keep the cycle rolling
+					if (ua->v[k]->pre)
+						memcpy(ua->v[k]->pre->x, ua->v[k]->x, kad_len(ua->v[k]) * sizeof(float));
 			}
 			for (k = 0; k < n_var; ++k) g[k] /= mbs;
 			if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, g);
@@ -211,12 +209,12 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 int main(int argc, char *argv[])
 {
 	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
-	int cont_mode = 1, len_gen = 1000, rand_hidden = 0, use_norm = 1, batch_len = 0;
+	int len_gen = 1000, rand_hidden = 0, use_norm = 1, batch_len = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:CL:Rg:Nj:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:b:T:M:u:L:Rg:Nj:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'j') batch_len = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -229,7 +227,6 @@ int main(int argc, char *argv[])
 		else if (c == 'd') h_dropout = atof(optarg);
 		else if (c == 'T') temp = atof(optarg);
 		else if (c == 'u') ulen = atoi(optarg);
-		else if (c == 'C') cont_mode = 0;
 		else if (c == 'L') len_gen = atoi(optarg);
 		else if (c == 'R') rand_hidden = 1;
 		else if (c == 'g') grad_clip = atof(optarg);
@@ -281,7 +278,7 @@ int main(int argc, char *argv[])
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d paragraphs and %d characters; alphabet size %d\n", tg->n_para, tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
-		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, cont_mode, fn_out, batch_len);
+		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, rand_hidden, len_gen, c2i);
 
