@@ -201,9 +201,13 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, flag);
 		t = kann_layer_dropout(t, h_dropout);
 	}
-	t1 = kann_leaf0(KAD_CONST, 1.0f), t1->ext_label = -1; // this is for backward compatibility
-	t = kad_mul(t, t1);
-	return kann_new(kann_layer_cost(t, n_char, KANN_C_CEM), 0);
+	t = kann_layer_linear(t, n_char);
+	t1 = kann_leaf0(KAD_CONST, 1.0f), t1->ext_label = -1; // -1 is for backward compatibility
+	t = kad_mul(t, t1); // t1 is the inverse of temperature
+	t = kad_softmax(t), t->ext_flag |= KANN_F_OUT;
+	t1 = kad_feed(2, 1, n_char), t1->ext_flag |= KANN_F_TRUTH;
+	t = kad_ce_multi(t, t1), t->ext_flag |= KANN_F_COST;
+	return kann_new(t, 0);
 }
 
 int main(int argc, char *argv[])
