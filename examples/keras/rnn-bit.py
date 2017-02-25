@@ -80,10 +80,9 @@ def main(argv):
 		model = load_model(infn)
 		y = model.predict(x)
 		for i in range(y.shape[0]):
-			z = 0
+			z, t = 0, 0
 			for j in range(y.shape[1]):
-				if y[i, j, 0] > y[i, j, 1]: z = z<<1 | 0
-				else: z = z<<1 | 1
+				if y[i, j, 1] > y[i, j, 0]: z |= 1<<j;
 			print(z)
 
 if __name__ == "__main__":
