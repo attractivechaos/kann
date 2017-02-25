@@ -72,7 +72,7 @@ def main(argv):
 
 	if not to_apply:
 		model = rb_model_gen(n_in, n_hidden, max_bit, dropout)
-		optimizer = RMSprop(lr=0.01)
+		optimizer = RMSprop(lr=lr)
 		model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 		model.fit(x, y, batch_size=mbs, nb_epoch=max_epoch)
 		if outfn: model.save(outfn)
@@ -80,7 +80,7 @@ def main(argv):
 		model = load_model(infn)
 		y = model.predict(x)
 		for i in range(y.shape[0]):
-			z, t = 0, 0
+			z = 0
 			for j in range(y.shape[1]):
 				if y[i, j, 1] > y[i, j, 0]: z |= 1<<j;
 			print(z)
