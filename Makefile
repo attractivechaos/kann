@@ -9,7 +9,7 @@ LIBS=		-lm -lz
 ifdef CBLAS
 	CPPFLAGS+=-DHAVE_CBLAS
 	INCLUDES+=-I$(CBLAS)/include
-	LIBS+=-L$(CBLAS)/lib -lopenblas
+	LIBS=-fopenmp -pthread -L$(CBLAS)/lib -lopenblas -lz -lm
 endif
 
 .SUFFIXES:.c .o
