@@ -2,9 +2,8 @@
 
 import sys, getopt, re, gzip, time
 import numpy as np
-from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout
-from keras.models import load_model
+from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
 
 def mlp_data_read(fn):

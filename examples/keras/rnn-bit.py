@@ -3,7 +3,7 @@
 import sys, getopt
 import numpy as np
 from keras.layers import Dense, Activation, GRU
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
 
 def rb_read_data(fn):
@@ -30,9 +30,9 @@ def rb_read_data(fn):
 			t = d[k][i]
 			for j in range(max_bit):
 				if i < n_col - 1:
-					x[k][j][i] = t & 1
+					x[k, j, i] = t & 1
 				else:
-					y[k][j * 2 + (t&1)] = 1
+					y[k, j * 2 + (t&1)] = 1
 				t >>= 1
 	return x, y, n_col - 1, max_bit
 
@@ -49,9 +49,10 @@ def rb_usage():
 
 def main(argv):
 	lr, to_apply, mbs, n_hidden, max_epoch, seed, dropout = 0.01, False, 64, 128, 50, 11, 0.0
+	infn, outfn = None, None
 
 	try:
-		opts, args = getopt.getopt(argv[1:], "Ar:n:B:m:d:")
+		opts, args = getopt.getopt(argv[1:], "Ar:n:B:m:d:o:i:")
 	except getopt.GetoptError:
 		rb_usage()
 	if len(args) < 1:
@@ -64,6 +65,8 @@ def main(argv):
 		elif opt == '-B': mbs = int(arg)
 		elif opt == '-m': max_epoch = int(arg)
 		elif opt == '-d': dropout = float(arg)
+		elif opt == '-o': outfn = arg
+		elif opt == '-i': infn = arg
 
 	np.random.seed(seed)
 	x, y, n_in, max_bit = rb_read_data(args[0])
@@ -73,6 +76,16 @@ def main(argv):
 		optimizer = RMSprop(lr=0.01)
 		model.compile(loss='binary_crossentropy', optimizer=optimizer)
 		model.fit(x, y, batch_size=mbs, nb_epoch=max_epoch)
+		if outfn: model.save(outfn)
+	elif infn:
+		model = load_model(infn)
+		y = model.predict(x)
+		for i in range(y.shape[0]):
+			z = 0
+			for j in range(y.shape[1]>>1):
+				if y[i][j<<1|0] > y[i][j<<1|1]: z = z<<1 | 0
+				else: z = z<<1 | 1
+			print(z)
 
 if __name__ == "__main__":
 	main(sys.argv)
