@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -b          use minibatch (run faster but converge slower)\n");
 		fprintf(fp, "    -P          independent paragraphs (force -b)\n");
 		fprintf(fp, "  Text generation:\n");
-		fprintf(fp, "    -p STR      prefix []");
+		fprintf(fp, "    -p STR      prefix []\n");
 		fprintf(fp, "    -T FLOAT    temperature [%g]\n", temp);
 		fprintf(fp, "    -L INT      length of text to generate [%d]\n", len_gen);
 		return 1;
