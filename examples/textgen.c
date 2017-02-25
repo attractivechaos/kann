@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r458"
+#define VERSION "r461"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -142,6 +142,25 @@ void tg_gen(FILE *fp, kann_t *ann, float temp, int len, const int c2i[256], cons
 	if (i_temp >= 0) ann->v[i_temp]->x[0] = 1.0f;
 }
 
+float tg_perplexity(kann_t *ann, const tg_data_t *tg)
+{
+	const float tiny = 1e-6;
+	float x[256], p;
+	double loss = 0.0;
+	int i;
+	kann_rnn_start(ann);
+	for (i = 0; i < tg->len - 1; ++i) {
+		const float *y;
+		memset(x, 0, 256 * sizeof(float));
+		x[tg->data[i]] = 1.0f;
+		y = kann_apply1(ann, x);
+		p = y[tg->data[i+1]];
+		loss += logf(p > tiny? p : tiny);
+	}
+	kann_rnn_end(ann);
+	return (float)exp(-loss / (tg->len - 1));
+}
+
 void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len, int use_mini, int use_para)
 {
 	int i, epoch, k, n_var, n_char, real_mbs = use_mini? mbs : 1;
@@ -224,6 +243,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 		if (fn) tg_save(fn, ann, tg->c2i);
 	}
 	kann_delete_unrolled(ua);
+	fprintf(stderr, "Character-level perplexity: %g\n", tg_perplexity(ann, tg));
 
 	for (k = 0; k < ulen; ++k) {
 		free(x[k]);
