@@ -36,9 +36,11 @@ def rb_read_data(fn):
 				t >>= 1
 	return x, y, n_col - 1, max_bit
 
-def rb_model_gen(n_in, n_hidden, ulen, dropout):
+def rb_model_gen(n_in, n_layer, n_hidden, ulen, dropout):
 	model = Sequential()
 	model.add(GRU(n_hidden, input_shape=(ulen, n_in), dropout_W=dropout, dropout_U=dropout, return_sequences=True))
+	for l in range(n_layer - 1):
+		model.add(GRU(n_hidden, dropout_W=dropout, dropout_U=dropout, return_sequences=True))
 	model.add(TimeDistributed(Dense(2, activation='softmax')))
 	return model
 
@@ -47,11 +49,11 @@ def rb_usage():
 	sys.exit(1)
 
 def main(argv):
-	lr, to_apply, mbs, n_hidden, max_epoch, seed, dropout = 0.01, False, 64, 128, 50, 11, 0.0
+	lr, to_apply, mbs, n_layer, n_hidden, max_epoch, seed, dropout = 0.01, False, 64, 1, 128, 50, 11, 0.0
 	infn, outfn = None, None
 
 	try:
-		opts, args = getopt.getopt(argv[1:], "Ar:n:B:m:d:o:i:")
+		opts, args = getopt.getopt(argv[1:], "Ar:n:B:m:d:o:i:l:")
 	except getopt.GetoptError:
 		rb_usage()
 	if len(args) < 1:
@@ -60,6 +62,7 @@ def main(argv):
 	for opt, arg in opts:
 		if opt == '-r': lr = float(arg)
 		elif opt == '-A': to_apply = True
+		elif opt == '-l': n_layer = int(arg)
 		elif opt == '-n': n_hidden = int(arg)
 		elif opt == '-B': mbs = int(arg)
 		elif opt == '-m': max_epoch = int(arg)
@@ -71,7 +74,7 @@ def main(argv):
 	x, y, n_in, max_bit = rb_read_data(args[0])
 
 	if not to_apply:
-		model = rb_model_gen(n_in, n_hidden, max_bit, dropout)
+		model = rb_model_gen(n_in, n_layer, n_hidden, max_bit, dropout)
 		optimizer = RMSprop(lr=lr)
 		model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 		model.fit(x, y, batch_size=mbs, nb_epoch=max_epoch)
