@@ -2,7 +2,7 @@
 
 import sys, getopt
 import numpy as np
-from keras.layers import Dense, Activation, GRU
+from keras.layers import Dense, Activation, GRU, TimeDistributed
 from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
 
@@ -24,7 +24,7 @@ def rb_read_data(fn):
 				t >>= 1
 	max_bit += 1
 	x = np.zeros((len(d), max_bit, n_col - 1), dtype=np.bool)
-	y = np.zeros((len(d), max_bit * 2), dtype=np.bool)
+	y = np.zeros((len(d), max_bit, 2), dtype=np.bool)
 	for k in range(len(d)):
 		for i in range(n_col):
 			t = d[k][i]
@@ -32,15 +32,14 @@ def rb_read_data(fn):
 				if i < n_col - 1:
 					x[k, j, i] = t & 1
 				else:
-					y[k, j * 2 + (t&1)] = 1
+					y[k, j, t&1] = 1
 				t >>= 1
 	return x, y, n_col - 1, max_bit
 
 def rb_model_gen(n_in, n_hidden, ulen, dropout):
 	model = Sequential()
-	model.add(GRU(n_hidden, input_shape=(ulen, n_in), dropout_W=dropout, dropout_U=dropout))
-	model.add(Dense(ulen * 2))
-	model.add(Activation('sigmoid'))
+	model.add(GRU(n_hidden, input_shape=(ulen, n_in), dropout_W=dropout, dropout_U=dropout, return_sequences=True))
+	model.add(TimeDistributed(Dense(2, activation='softmax')))
 	return model
 
 def rb_usage():
@@ -74,7 +73,7 @@ def main(argv):
 	if not to_apply:
 		model = rb_model_gen(n_in, n_hidden, max_bit, dropout)
 		optimizer = RMSprop(lr=0.01)
-		model.compile(loss='binary_crossentropy', optimizer=optimizer)
+		model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 		model.fit(x, y, batch_size=mbs, nb_epoch=max_epoch)
 		if outfn: model.save(outfn)
 	elif infn:
@@ -82,8 +81,8 @@ def main(argv):
 		y = model.predict(x)
 		for i in range(y.shape[0]):
 			z = 0
-			for j in range(y.shape[1]>>1):
-				if y[i][j<<1|0] > y[i][j<<1|1]: z = z<<1 | 0
+			for j in range(y.shape[1]):
+				if y[i, j, 0] > y[i, j, 1]: z = z<<1 | 0
 				else: z = z<<1 | 1
 			print(z)
 
