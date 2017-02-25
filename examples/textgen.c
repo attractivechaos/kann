@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r457"
+#define VERSION "r458"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -328,7 +328,7 @@ int main(int argc, char *argv[])
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d paragraphs and %d characters; alphabet size %d\n", tg->n_para, tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
-		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch);
+		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch, use_para);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, len_gen, c2i, prefix);
 
