@@ -48,6 +48,7 @@ typedef struct {
 	int n;            // number of nodes in the computational graph
 	kad_node_t **v;   // list of nodes
 	float *x, *g, *c; // collated variable values, gradients and constant values
+	void *mt;
 } kann_t;
 
 extern int kann_verbose;
@@ -116,7 +117,6 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x);
  */
 float kann_cost(kann_t *a, int cost_label, int cal_grad);
 
-float kann_cost_mt(kann_t *a, int cost_label, int cal_grad, int n_threads);
 int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label);
 int kann_class_error(const kann_t *ann);
 
@@ -173,6 +173,8 @@ void kann_switch(kann_t *a, int is_train);
 void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 
 float kann_grad_clip(float thres, int n, float *g);
+
+void kann_set_mt(kann_t *ann, int n_threads, int max_batch_size);
 
 // common layers
 kad_node_t *kann_layer_input(int n1);

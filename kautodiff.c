@@ -368,24 +368,20 @@ static void kad_allocate_internal(int n, kad_node_t **v)
 
 int kad_sync_dim(int n, kad_node_t **v, int batch_size)
 {
-	int i, req_alloc = 0, req_sync = 0, size = -1;
-	if (batch_size > 0) {
-		for (i = 0; i < n; ++i) {
-			if (kad_is_feed(v[i]) && v[i]->d[0] != batch_size)
+	int i, req_alloc = 0, req_sync = 0, old_size = 0;
+	for (i = 0; i < n; ++i) {
+		if (kad_is_feed(v[i])) {
+			old_size = v[i]->d[0]; // TODO: check if all feeds have the same batch size
+			if (batch_size > 0 && v[i]->d[0] != batch_size)
 				v[i]->d[0] = batch_size, req_sync = 1;
-			if (v[i]->n_child > 0 && req_sync)
-				kad_op_list[v[i]->op](v[i], KAD_SYNC_DIM);
-		}
-		size = batch_size;
-	} else {
-		for (i = 0; i < n; ++i)
-			if (kad_is_feed(v[i])) size = v[i]->d[0];
+		} else if (v[i]->n_child > 0 && req_sync)
+			kad_op_list[v[i]->op](v[i], KAD_SYNC_DIM);
 	}
+	if (old_size < batch_size) req_alloc = 1;
 	for (i = 0; i < n; ++i)
 		if (v[i]->n_child > 0 && v[i]->x == 0) req_alloc = 1;
-	if (req_alloc || req_sync)
-		kad_allocate_internal(n, v);
-	return size;
+	if (req_alloc) kad_allocate_internal(n, v);
+	return batch_size > 0? batch_size : old_size;
 }
 
 #define kvec_t(type) struct { size_t n, m; type *a; }

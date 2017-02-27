@@ -112,6 +112,8 @@ kann_t *kann_unroll(kann_t *a, int len)
 
 void kann_delete_unrolled(kann_t *a)
 {
+	extern void kann_mt_destroy(kann_t*);
+	if (a && a->mt) kann_mt_destroy(a);
 	if (a && a->v) kad_delete(a->n, a->v);
 	free(a);
 }
@@ -161,7 +163,7 @@ int kann_feed_dim(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 	return k == 1? n : k == 0? -1 : -2;
 }
 
-float kann_cost(kann_t *a, int cost_label, int cal_grad)
+float kann_cost_core(kann_t *a, int cost_label, int cal_grad)
 {
 	int i_cost;
 	float cost;
@@ -175,61 +177,131 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 
+struct mtaux_t;
+
 typedef struct {
 	kann_t *a;
 	float cost;
-	int size, cal_grad, cost_label;
+	int action;
+	pthread_t tid;
+	struct mtaux_t *g;
+} mtaux1_t;
+
+typedef struct mtaux_t {
+	int n_threads, max_batch_size;
+	int cal_grad, cost_label;
+	volatile int n_idle;
+	pthread_mutex_t mtx;
+	pthread_cond_t cv;
+	mtaux1_t *mt;
 } mtaux_t;
 
 static void *mt_worker(void *data)
 {
-	mtaux_t *mt = (mtaux_t*)data;
-	mt->cost = kann_cost(mt->a, mt->cost_label, mt->cal_grad);
+	mtaux1_t *mt1 = (mtaux1_t*)data;
+	mtaux_t *mt = mt1->g;
+	for (;;) {
+		int action;
+		pthread_mutex_lock(&mt->mtx);
+		mt1->action = 0;
+		++mt->n_idle;
+		while (mt1->action == 0)
+			pthread_cond_wait(&mt->cv, &mt->mtx);
+		action = mt1->action;
+		pthread_mutex_unlock(&mt->mtx);
+		if (action == -1) break;
+
+		mt1->cost = kann_cost_core(mt1->a, mt->cost_label, mt->cal_grad);
+	}
 	pthread_exit(0);
 }
 
-float kann_cost_mt(kann_t *a, int cost_label, int cal_grad, int n_threads)
+void kann_set_mt(kann_t *ann, int n_threads, int max_batch_size)
 {
 	mtaux_t *mt;
+	int i, k;
+	if (n_threads > max_batch_size) n_threads = max_batch_size;
+	if (n_threads <= 1) return;
+
+	mt = (mtaux_t*)calloc(1, sizeof(mtaux_t));
+	mt->n_threads = n_threads, mt->max_batch_size = max_batch_size;
+	pthread_mutex_init(&mt->mtx, 0);
+	pthread_cond_init(&mt->cv, 0);
+	mt->mt = (mtaux1_t*)calloc(n_threads, sizeof(mtaux1_t));
+	for (i = k = 0; i < n_threads; ++i) {
+		int size = (max_batch_size - k) / (n_threads - i);
+		mt->mt[i].a = kann_clone(ann, size);
+		mt->mt[i].g = mt;
+		k += size;
+	}
+	for (i = 1; i < n_threads; ++i)
+		pthread_create(&mt->mt[i].tid, 0, mt_worker, &mt->mt[i]);
+	while (mt->n_idle < n_threads - 1); // busy waiting until all threads in sync
+	ann->mt = mt;
+}
+
+void kann_mt_destroy(kann_t *ann)
+{
+	int i;
+	mtaux_t *mt = (mtaux_t*)ann->mt;
+	if (ann->mt == 0) return;
+	pthread_mutex_lock(&mt->mtx);
+	mt->n_idle = 0;
+	for (i = 1; i < mt->n_threads; ++i) mt->mt[i].action = -1;
+	pthread_cond_broadcast(&mt->cv);
+	pthread_mutex_unlock(&mt->mtx);
+	for (i = 1; i < mt->n_threads; ++i) pthread_join(mt->mt[i].tid, 0);
+	for (i = 0; i < mt->n_threads; ++i) kann_delete(mt->mt[i].a);
+	free(mt->mt);
+	pthread_cond_destroy(&mt->cv);
+	pthread_mutex_destroy(&mt->mtx);
+	free(mt);
+	ann->mt = 0;
+}
+
+float kann_cost(kann_t *a, int cost_label, int cal_grad)
+{
+	mtaux_t *mt = (mtaux_t*)a->mt;
 	int i, j, B, k, n_var;
-	pthread_t *tid;
 	float cost;
 
+	if (mt == 0) return kann_cost_core(a, cost_label, cal_grad);
 	B = kad_sync_dim(a->n, a->v, -1); // get the current batch size
-	if (B < n_threads || n_threads == 1)
-		return kann_cost(a, cost_label, cal_grad);
+	assert(B <= mt->max_batch_size); // TODO: can be relaxed
+	n_var = kann_size_var(a);
 
-	mt = (mtaux_t*)calloc(n_threads, sizeof(mtaux_t));
-	for (i = k = 0; i < n_threads; ++i) {
-		mt[i].size = (B - k) / (n_threads - i);
-		mt[i].a = kann_clone(a, mt[i].size);
-		mt[i].cal_grad = cal_grad, mt[i].cost_label = cost_label;
+	pthread_mutex_lock(&mt->mtx);
+	mt->cost_label = cost_label, mt->cal_grad = cal_grad;
+	for (i = k = 0; i < mt->n_threads; ++i) {
+		int size = (B - k) / (mt->n_threads - i);
 		for (j = 0; j < a->n; ++j)
 			if (kad_is_feed(a->v[j]))
-				mt[i].a->v[j]->x = &a->v[j]->x[k * kad_len(a->v[j]) / a->v[j]->d[0]];
-		k += mt[i].size;
+				mt->mt[i].a->v[j]->x = &a->v[j]->x[k * kad_len(a->v[j]) / a->v[j]->d[0]];
+		kad_sync_dim(mt->mt[i].a->n, mt->mt[i].a->v, size);
+		k += size;
+		memcpy(mt->mt[i].a->x, a->x, n_var * sizeof(float));
+		mt->mt[i].action = 1;
 	}
+	mt->n_idle = 0;
+	pthread_cond_broadcast(&mt->cv);
+	pthread_mutex_unlock(&mt->mtx);
 
-	tid = (pthread_t*)calloc(n_threads, sizeof(pthread_t));
-	for (i = 0; i < n_threads; ++i) pthread_create(&tid[i], 0, mt_worker, &mt[i]);
-	for (i = 0; i < n_threads; ++i) pthread_join(tid[i], 0);
-	free(tid);
+	mt->mt[0].cost = kann_cost_core(mt->mt[0].a, cost_label, cal_grad);
+	while (mt->n_idle < mt->n_threads - 1); // busy waiting until all threads in sync
 
-	n_var = kann_size_var(a);
 	memset(a->g, 0, n_var * sizeof(float));
-	for (i = 0, cost = 0.0f; i < n_threads; ++i) {
-		cost += mt[i].cost * mt[i].size / B;
-		kad_saxpy(n_var, (float)mt[i].size / B, mt[i].a->g, a->g);
-		kann_delete(mt[i].a);
+	for (i = k = 0, cost = 0.0f; i < mt->n_threads; ++i) {
+		int size = (B - k) / (mt->n_threads - i);
+		cost += mt->mt[i].cost * size / B;
+		kad_saxpy(n_var, (float)size / B, mt->mt[i].a->g, a->g);
+		k += size;
 	}
-	free(mt);
 	return cost;
 }
 #else
-float kann_cost_mt(kann_t *a, int cost_label, int cal_grad, int n_threads)
-{
-	return kann_cost(a, cost_label, cal_grad);
-}
+void kann_set_mt(kann_t *ann, int n_threads, int max_batch_size) {}
+void kann_mt_destroy(kann_t *ann) {}
+float kann_cost(kann_t *a, int cost_label, int cal_grad) { return kann_cost_core(a, cost_label, cal_grad); }
 #endif
 
 int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
