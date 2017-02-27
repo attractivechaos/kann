@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r475"
+#define KAD_VERSION "r477"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -114,7 +114,7 @@ void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized grap
 const float *kad_eval_at(int n, kad_node_t **a, int from);
 
 void kad_eval_marked(int n, kad_node_t **a);
-void kad_sync_dim(int n, kad_node_t **v, int batch_size);
+int kad_sync_dim(int n, kad_node_t **v, int batch_size);
 
 /**
  * Compute gradient
@@ -151,7 +151,7 @@ int kad_unrollable(int n, kad_node_t *const* v);
  */
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
 
-kad_node_t **kad_clone(int n, kad_node_t **v);
+kad_node_t **kad_clone(int n, kad_node_t **v, int batch_size);
 
 // define a variable, a constant or a feed (placeholder in TensorFlow)
 kad_node_t *kad_var(float *x, float *g, int n_d, ...); // a variable; gradients to be computed; not unrolled

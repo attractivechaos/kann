@@ -91,12 +91,12 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 	return a;
 }
 
-kann_t *kann_clone(kann_t *a)
+kann_t *kann_clone(kann_t *a, int batch_size)
 {
 	kann_t *b;
 	b = (kann_t*)calloc(1, sizeof(kann_t));
 	b->n = a->n;
-	b->v = kad_clone(a->n, a->v);
+	b->v = kad_clone(a->n, a->v, batch_size);
 	kad_ext_collate(b->n, b->v, &b->x, &b->g, &b->c);
 	return b;
 }
