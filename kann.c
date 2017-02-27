@@ -91,12 +91,12 @@ kann_t *kann_new(kad_node_t *cost, int n_rest, ...)
 	return a;
 }
 
-kann_t *kann_clone(kann_t *a)
+kann_t *kann_clone(kann_t *a, int batch_size)
 {
 	kann_t *b;
 	b = (kann_t*)calloc(1, sizeof(kann_t));
 	b->n = a->n;
-	b->v = kad_clone(a->n, a->v);
+	b->v = kad_clone(a->n, a->v, batch_size);
 	kad_ext_collate(b->n, b->v, &b->x, &b->g, &b->c);
 	return b;
 }
@@ -171,6 +171,66 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 	if (cal_grad) kad_grad(a->n, a->v, i_cost);
 	return cost;
 }
+
+#ifdef HAVE_PTHREAD
+#include <pthread.h>
+
+typedef struct {
+	kann_t *a;
+	float cost;
+	int size, cal_grad, cost_label;
+} mtaux_t;
+
+static void *mt_worker(void *data)
+{
+	mtaux_t *mt = (mtaux_t*)data;
+	mt->cost = kann_cost(mt->a, mt->cost_label, mt->cal_grad);
+	pthread_exit(0);
+}
+
+float kann_cost_mt(kann_t *a, int cost_label, int cal_grad, int n_threads)
+{
+	mtaux_t *mt;
+	int i, j, B, k, n_var;
+	pthread_t *tid;
+	float cost;
+
+	B = kad_sync_dim(a->n, a->v, -1); // get the current batch size
+	if (B < n_threads || n_threads == 1)
+		return kann_cost(a, cost_label, cal_grad);
+
+	mt = (mtaux_t*)calloc(n_threads, sizeof(mtaux_t));
+	for (i = k = 0; i < n_threads; ++i) {
+		mt[i].size = (B - k) / (n_threads - i);
+		mt[i].a = kann_clone(a, mt[i].size);
+		mt[i].cal_grad = cal_grad, mt[i].cost_label = cost_label;
+		for (j = 0; j < a->n; ++j)
+			if (kad_is_feed(a->v[j]))
+				mt[i].a->v[j]->x = &a->v[j]->x[k * kad_len(a->v[j]) / a->v[j]->d[0]];
+		k += mt[i].size;
+	}
+
+	tid = (pthread_t*)calloc(n_threads, sizeof(pthread_t));
+	for (i = 0; i < n_threads; ++i) pthread_create(&tid[i], 0, mt_worker, &mt[i]);
+	for (i = 0; i < n_threads; ++i) pthread_join(tid[i], 0);
+	free(tid);
+
+	n_var = kann_size_var(a);
+	memset(a->g, 0, n_var * sizeof(float));
+	for (i = 0, cost = 0.0f; i < n_threads; ++i) {
+		cost += mt[i].cost * mt[i].size / B;
+		kad_saxpy(n_var, (float)mt[i].size / B, mt[i].a->g, a->g);
+		kann_delete(mt[i].a);
+	}
+	free(mt);
+	return cost;
+}
+#else
+float kann_cost_mt(kann_t *a, int cost_label, int cal_grad, int n_threads)
+{
+	return kann_cost(a, cost_label, cal_grad);
+}
+#endif
 
 int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
 {

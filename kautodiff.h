@@ -31,6 +31,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #define KAD_MAX_DIM 4     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
@@ -114,7 +115,7 @@ void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized grap
 const float *kad_eval_at(int n, kad_node_t **a, int from);
 
 void kad_eval_marked(int n, kad_node_t **a);
-void kad_sync_dim(int n, kad_node_t **v, int batch_size);
+int kad_sync_dim(int n, kad_node_t **v, int batch_size);
 
 /**
  * Compute gradient
@@ -151,7 +152,7 @@ int kad_unrollable(int n, kad_node_t *const* v);
  */
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
 
-kad_node_t **kad_clone(int n, kad_node_t **v);
+kad_node_t **kad_clone(int n, kad_node_t **v, int batch_size);
 
 // define a variable, a constant or a feed (placeholder in TensorFlow)
 kad_node_t *kad_var(float *x, float *g, int n_d, ...); // a variable; gradients to be computed; not unrolled
@@ -225,6 +226,7 @@ void kad_srand(void *d, uint64_t seed);
 uint64_t kad_rand(void *d);
 double kad_drand(void *d);
 double kad_drand_normal(void *d);
+void kad_saxpy(int n, float a, const float *x, float *y);
 
 // debugging routines
 void kad_trap_fe(void); // abort on divide-by-zero and NaN
@@ -248,6 +250,12 @@ static inline int kad_len(const kad_node_t *p) // calculate the size of p->x
 	int n = 1, i;
 	for (i = 0; i < p->n_d; ++i) n *= p->d[i];
 	return n;
+}
+
+static inline void kad_copy_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
+{
+	dst->n_d = src->n_d;
+	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
 }
 
 #endif

@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <float.h>
@@ -367,9 +366,9 @@ static void kad_allocate_internal(int n, kad_node_t **v)
 	}
 }
 
-void kad_sync_dim(int n, kad_node_t **v, int batch_size)
+int kad_sync_dim(int n, kad_node_t **v, int batch_size)
 {
-	int i, req_alloc = 0, req_sync = 0;
+	int i, req_alloc = 0, req_sync = 0, size = -1;
 	if (batch_size > 0) {
 		for (i = 0; i < n; ++i) {
 			if (kad_is_feed(v[i]) && v[i]->d[0] != batch_size)
@@ -377,12 +376,16 @@ void kad_sync_dim(int n, kad_node_t **v, int batch_size)
 			if (v[i]->n_child > 0 && req_sync)
 				kad_op_list[v[i]->op](v[i], KAD_SYNC_DIM);
 		}
+		size = batch_size;
+	} else {
+		for (i = 0; i < n; ++i)
+			if (kad_is_feed(v[i])) size = v[i]->d[0];
 	}
 	for (i = 0; i < n; ++i)
-		if (v[i]->n_child > 0 && v[i]->x == 0)
-			req_alloc = 1;
+		if (v[i]->n_child > 0 && v[i]->x == 0) req_alloc = 1;
 	if (req_alloc || req_sync)
 		kad_allocate_internal(n, v);
+	return size;
 }
 
 #define kvec_t(type) struct { size_t n, m; type *a; }
@@ -664,15 +667,15 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	return q;
 }
 
-kad_node_t **kad_clone(int n, kad_node_t **v)
+kad_node_t **kad_clone(int n, kad_node_t **v, int batch_size)
 {
 	int i, j;
 	kad_node_t **u;
 	u = (kad_node_t**)calloc(n, sizeof(kad_node_t*));
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
-		kad_node_t *p = v[i], *q = u[i];
-		q = kad_dup1(p);
+		kad_node_t *p = v[i], *q;
+		q = u[i] = kad_dup1(p);
 		if (p->pre) q->pre = u[p->pre->tmp];
 		if (p->n_child) {
 			for (j = 0; j < p->n_child; ++j)
@@ -684,7 +687,7 @@ kad_node_t **kad_clone(int n, kad_node_t **v)
 		}
 	}
 	for (i = 0; i < n; ++i) v[i]->tmp = 0;
-	kad_allocate_internal(n, u);
+	kad_sync_dim(n, u, batch_size); // this will allocate x[] and g[] at internal nodes
 	return u;
 }
 
@@ -810,7 +813,7 @@ static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 	s += t[0] + t[1] + t[2] + t[3];
 	return s;
 }
-static inline void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy using SSE
+static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) // BLAS saxpy using SSE
 {
 	int i, n8 = n>>3<<3;
 	__m128 va;
@@ -836,7 +839,7 @@ static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 	for (i = 0; i < n; ++i) s += x[i] * y[i];
 	return s;
 }
-static inline void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
+static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) // BLAS saxpy
 {
 	int i;
 	for (i = 0; i < n; ++i) y[i] += a * x[i];
@@ -848,6 +851,8 @@ void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 	int i;
 	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
+
+void kad_saxpy(int n, float a, const float *x, float *y) { kad_saxpy_inlined(n, a, x, y); }
 
 #ifdef HAVE_CBLAS
 #include <cblas.h>
@@ -875,11 +880,11 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 	} else if (!trans_A && !trans_B) {
 		for (i = 0; i < M; ++i)
 			for (k = 0; k < K; ++k)
-				kad_saxpy(N, A[i*K+k], &B[k*N], &C[i*N]);
+				kad_saxpy_inlined(N, A[i*K+k], &B[k*N], &C[i*N]);
 	} else if (trans_A && !trans_B) {
 		for (k = 0; k < K; ++k)
 			for (i = 0; i < M; ++i)
-				kad_saxpy(N, A[k*M+i], &B[k*N], &C[i*N]);
+				kad_saxpy_inlined(N, A[k*M+i], &B[k*N], &C[i*N]);
 	} else abort(); // not implemented for (trans_A && trans_B)
 }
 #endif
@@ -968,12 +973,6 @@ double kad_drand_normal(void *d)
  * Operators *
  *************/
 
-static inline void kad_sync_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
-{
-	dst->n_d = src->n_d;
-	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
-}
-
 /////////// Arithmetic operations ///////////
 
 int kad_op_add(kad_node_t *p, int action)
@@ -985,7 +984,7 @@ int kad_op_add(kad_node_t *p, int action)
 	q[1] = p->child[1], n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
 		if (n0 % n1 != 0) return -1;
-		kad_sync_dim1(p, q[0]);
+		kad_copy_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
 		assert(n0 >= n1);
 		memcpy(p->x, q[0]->x, n0 * sizeof(float));
@@ -1009,7 +1008,7 @@ int kad_op_sub(kad_node_t *p, int action)
 	q[1] = p->child[1], n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
 		if (n0 % n1 != 0) return -1;
-		kad_sync_dim1(p, q[0]);
+		kad_copy_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
 		assert(n0 >= n1);
 		memcpy(p->x, q[0]->x, n0 * sizeof(float));
@@ -1033,7 +1032,7 @@ int kad_op_mul(kad_node_t *p, int action)
 	q[1] = p->child[1], n1 = kad_len(q[1]);
 	if (action == KAD_SYNC_DIM) {
 		if (n0 % n1 != 0) return -1;
-		kad_sync_dim1(p, q[0]);
+		kad_copy_dim1(p, q[0]);
 	} else if (action == KAD_FORWARD) {
 		assert(n0 >= n1);
 		memset(p->x, 0, n0 * sizeof(float));
@@ -1111,7 +1110,7 @@ int kad_op_square(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->x[i] = q->x[i] * q->x[i];
@@ -1128,7 +1127,7 @@ int kad_op_1minus(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) p->x[i] = 1.0f - q->x[i];
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
@@ -1143,7 +1142,7 @@ int kad_op_exp(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) p->x[i] = expf(q->x[i]);
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
@@ -1159,7 +1158,7 @@ int kad_op_log(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) p->x[i] = logf(q->x[i]);
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
@@ -1238,7 +1237,7 @@ int kad_op_dropout(kad_node_t *p, int action)
 	assert(p->child[1]->n_d == 0);
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
 		if (kad_is_back(p->child[0]))
 			p->gtmp = realloc(p->gtmp, n);
@@ -1264,7 +1263,7 @@ int kad_op_sample_normal(kad_node_t *p, int action) // not tested
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
 		if (kad_is_back(p->child[0]))
 			p->gtmp = realloc(p->gtmp, n * sizeof(float));
@@ -1297,7 +1296,7 @@ int kad_op_slice(kad_node_t *p, int action)
 	for (i = dim + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
 	if (action == KAD_SYNC_DIM) {
 		if (range[0] >= range[1] || range[0] < 0 || range[1] > q->d[dim]) return -1;
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 		p->d[dim] = range[1] - range[0];
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < d0; ++i)
@@ -1325,7 +1324,7 @@ int kad_op_concat(kad_node_t *p, int action)
 			for (j = 0; j < q->n_d; ++j)
 				if (j != dim && q->d[j] != p->child[i]->d[j]) return -1;
 		}
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 		for (i = 1; i < p->n_child; ++i)
 			p->d[dim] += p->child[i]->d[dim];
 	} else if (action == KAD_FORWARD) {
@@ -1374,7 +1373,7 @@ int kad_op_reshape(kad_node_t *p, int action)
 				for (i = 0; i < p->n_d; ++i)
 					if (p->d[i] <= 0) p->d[i] = kad_len(q) / len;
 			}
-		} else kad_sync_dim1(p, q);
+		} else kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->x, q->x, kad_len(p) * sizeof(float));
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
@@ -1397,7 +1396,7 @@ int kad_op_switch(kad_node_t *p, int action) // TODO: not used or tested yet!!!
 			if (p->child[i]->n_d != q->n_d || kad_len(p->child[i]) != n)
 				break;
 		if (i < p->n_child) return -1;
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->x, q->x, n * sizeof(float));
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
@@ -1537,7 +1536,7 @@ int kad_op_stdnorm(kad_node_t *p, int action)
 	if (q->n_d == 1) m = 1, n = kad_len(q);
 	else m = q->d[0], n = kad_len(q) / m;
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
 		p->gtmp = realloc(p->gtmp, m * sizeof(float));
 	} else if (action == KAD_FORWARD) {
@@ -1577,7 +1576,7 @@ int kad_op_sigm(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->x[i] = 1.0f / (1.0f + expf(-q->x[i]));
@@ -1594,7 +1593,7 @@ int kad_op_tanh(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) {
 			if (q->x[i] < -20.0f) p->x[i] = -1.0f;
@@ -1617,7 +1616,7 @@ int kad_op_relu(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i)
 			p->x[i] = q->x[i] > 0.0f? q->x[i] : 0.0f;
@@ -1635,7 +1634,7 @@ int kad_op_sin(kad_node_t *p, int action)
 	kad_node_t *q = p->child[0];
 	n = kad_len(q);
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (i = 0; i < n; ++i) p->x[i] = sinf(q->x[i]);
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
@@ -1653,7 +1652,7 @@ int kad_op_softmax(kad_node_t *p, int action)
 	d0 = q->n_d > 1? q->d[0] : 1;
 	n1 = kad_len(q) / d0;
 	if (action == KAD_SYNC_DIM) {
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		for (j = 0; j < d0; ++j) {
 			float s, max, *x = &q->x[j * n1], *y = &p->x[j * n1];
@@ -1692,7 +1691,7 @@ int kad_op_avg(kad_node_t *p, int action)
 	if (action == KAD_SYNC_DIM) {
 		for (i = 1; i < p->n_child; ++i)
 			if (kad_len(p->child[i]) != n) return -1;
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
 		memcpy(p->x, q->x, n * sizeof(float));
 		for (i = 1; i < p->n_child; ++i)
@@ -1715,7 +1714,7 @@ int kad_op_max(kad_node_t *p, int action)
 		int *max_j;
 		for (i = 1; i < p->n_child; ++i)
 			if (kad_len(p->child[i]) != n) return -1;
-		kad_sync_dim1(p, q);
+		kad_copy_dim1(p, q);
 		max_j = (int*)calloc(n, sizeof(int));
 		p->gtmp = max_j;
 	} else if (action == KAD_FORWARD) {
