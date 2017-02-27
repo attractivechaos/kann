@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 #include <stdarg.h>
 #include <float.h>
@@ -369,24 +368,20 @@ static void kad_allocate_internal(int n, kad_node_t **v)
 
 int kad_sync_dim(int n, kad_node_t **v, int batch_size)
 {
-	int i, req_alloc = 0, req_sync = 0, size = -1;
-	if (batch_size > 0) {
-		for (i = 0; i < n; ++i) {
-			if (kad_is_feed(v[i]) && v[i]->d[0] != batch_size)
+	int i, req_alloc = 0, req_sync = 0, old_size = 0;
+	for (i = 0; i < n; ++i) {
+		if (kad_is_feed(v[i])) {
+			old_size = v[i]->d[0]; // TODO: check if all feeds have the same batch size
+			if (batch_size > 0 && v[i]->d[0] != batch_size)
 				v[i]->d[0] = batch_size, req_sync = 1;
-			if (v[i]->n_child > 0 && req_sync)
-				kad_op_list[v[i]->op](v[i], KAD_SYNC_DIM);
-		}
-		size = batch_size;
-	} else {
-		for (i = 0; i < n; ++i)
-			if (kad_is_feed(v[i])) size = v[i]->d[0];
+		} else if (v[i]->n_child > 0 && req_sync)
+			kad_op_list[v[i]->op](v[i], KAD_SYNC_DIM);
 	}
+	if (old_size < batch_size) req_alloc = 1;
 	for (i = 0; i < n; ++i)
 		if (v[i]->n_child > 0 && v[i]->x == 0) req_alloc = 1;
-	if (req_alloc || req_sync)
-		kad_allocate_internal(n, v);
-	return size;
+	if (req_alloc) kad_allocate_internal(n, v);
+	return batch_size > 0? batch_size : old_size;
 }
 
 #define kvec_t(type) struct { size_t n, m; type *a; }
@@ -814,7 +809,7 @@ static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 	s += t[0] + t[1] + t[2] + t[3];
 	return s;
 }
-static inline void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy using SSE
+static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) // BLAS saxpy using SSE
 {
 	int i, n8 = n>>3<<3;
 	__m128 va;
@@ -840,7 +835,7 @@ static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 	for (i = 0; i < n; ++i) s += x[i] * y[i];
 	return s;
 }
-static inline void kad_saxpy(int n, float a, const float *x, float *y) // BLAS saxpy
+static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) // BLAS saxpy
 {
 	int i;
 	for (i = 0; i < n; ++i) y[i] += a * x[i];
@@ -852,6 +847,8 @@ void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
 	int i;
 	for (i = 0; i < n; ++i) a[i] += b[i] * c[i];
 }
+
+void kad_saxpy(int n, float a, const float *x, float *y) { kad_saxpy_inlined(n, a, x, y); }
 
 #ifdef HAVE_CBLAS
 #include <cblas.h>
@@ -879,11 +876,11 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 	} else if (!trans_A && !trans_B) {
 		for (i = 0; i < M; ++i)
 			for (k = 0; k < K; ++k)
-				kad_saxpy(N, A[i*K+k], &B[k*N], &C[i*N]);
+				kad_saxpy_inlined(N, A[i*K+k], &B[k*N], &C[i*N]);
 	} else if (trans_A && !trans_B) {
 		for (k = 0; k < K; ++k)
 			for (i = 0; i < M; ++i)
-				kad_saxpy(N, A[k*M+i], &B[k*N], &C[i*N]);
+				kad_saxpy_inlined(N, A[k*M+i], &B[k*N], &C[i*N]);
 	} else abort(); // not implemented for (trans_A && trans_B)
 }
 #endif
@@ -971,12 +968,6 @@ double kad_drand_normal(void *d)
 /*************
  * Operators *
  *************/
-
-static inline void kad_copy_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
-{
-	dst->n_d = src->n_d;
-	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
-}
 
 /////////// Arithmetic operations ///////////
 

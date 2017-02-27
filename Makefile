@@ -1,10 +1,10 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wextra -Wc++-compat -O2
-CPPFLAGS=
+CPPFLAGS=	-DHAVE_PTHREAD
 INCLUDES=	-I.
 EXE=		examples/mlp examples/mnist-cnn examples/inspect examples/textgen examples/rnn-bit \
 			examples/ae examples/vae
-LIBS=		-lm -lz
+LIBS=		-lpthread -lz -lm
 
 ifdef CBLAS
 	CPPFLAGS+=-DHAVE_CBLAS

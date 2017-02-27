@@ -64,7 +64,7 @@ static bit_data_t *read_data(const char *fn)
 	return d;
 }
 
-static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_epoch, const char *fn)
+static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_epoch, const char *fn, int n_threads)
 {
 	float **x, **y, *r;
 	int epoch, j, n_var;
@@ -81,6 +81,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 
 	ua = kann_unroll(ann, d->ulen);
 	kann_set_batch_size(ua, mini_size);
+	kann_mt(ua, n_threads, mini_size);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
 	kann_switch(ua, 1);
@@ -115,12 +116,12 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 
 int main(int argc, char *argv[])
 {
-	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0, norm = 1;
+	int i, c, seed = 11, n_h_layers = 1, n_h_neurons = 64, mini_size = 64, max_epoch = 50, to_apply = 0, norm = 1, n_threads = 1;
 	float lr = 0.01f, dropout = 0.2f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
 
-	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:Ad:N")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:l:n:m:r:s:Ad:Nt:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -131,6 +132,7 @@ int main(int argc, char *argv[])
 		else if (c == 'A') to_apply = 1;
 		else if (c == 'N') norm = 0;
 		else if (c == 'd') dropout = atof(optarg);
+		else if (c == 't') n_threads = atoi(optarg);
 	}
 	if (optind == argc) {
 		fprintf(stderr, "Usage: rnn-bit [options] <in.txt>\n");
@@ -154,7 +156,7 @@ int main(int argc, char *argv[])
 			}
 			ann = kann_new(kann_layer_cost(t, 2, KANN_C_CEM), 0);
 		}
-		train(ann, d, lr, mini_size, max_epoch, fn_out);
+		train(ann, d, lr, mini_size, max_epoch, fn_out, n_threads);
 		free(d->x); free(d->y); free(d);
 	} else {
 		FILE *fp;
