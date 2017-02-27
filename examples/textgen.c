@@ -161,7 +161,7 @@ float tg_perplexity(kann_t *ann, const tg_data_t *tg)
 	return (float)exp(-loss / (tg->len - 1));
 }
 
-void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len, int use_mini, int use_para)
+void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len, int use_mini, int use_para, int n_threads)
 {
 	int i, epoch, k, n_var, n_char, real_mbs = use_mini? mbs : 1;
 	float **x, **y, *r, *g;
@@ -179,6 +179,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 	g = (float*)calloc(n_var, sizeof(float));
 
 	ua = kann_unroll(ann, ulen);
+	kann_mt(ua, n_threads, mbs);
 	kann_switch(ua, 1);
 	kann_set_batch_size(ua, real_mbs);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
@@ -349,8 +350,7 @@ int main(int argc, char *argv[])
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d paragraphs and %d characters; alphabet size %d\n", tg->n_para, tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
-		if (n_threads > 1) kann_set_mt(ann, n_threads, mbs);
-		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch, use_para);
+		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch, use_para, n_threads);
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, len_gen, c2i, prefix);
 

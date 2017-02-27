@@ -81,7 +81,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 
 	ua = kann_unroll(ann, d->ulen);
 	kann_set_batch_size(ua, mini_size);
-	kann_set_mt(ua, n_threads, mini_size);
+	kann_mt(ua, n_threads, mini_size);
 	kann_feed_bind(ua, KANN_F_IN,    0, x);
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
 	kann_switch(ua, 1);
@@ -99,7 +99,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 				}
 			}
 			cost += kann_cost(ua, 0, 1) * d->ulen * mini_size;
-//			n_cerr += kann_class_error(ua);
+			n_cerr += kann_class_error(ua);
 			//kad_check_grad(ua->n, ua->v, ua->n-1);
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			tot += d->ulen * mini_size;

@@ -112,8 +112,7 @@ kann_t *kann_unroll(kann_t *a, int len)
 
 void kann_delete_unrolled(kann_t *a)
 {
-	extern void kann_mt_destroy(kann_t*);
-	if (a && a->mt) kann_mt_destroy(a);
+	if (a && a->mt) kann_mt(a, 0, 0);
 	if (a && a->v) kad_delete(a->n, a->v);
 	free(a);
 }
@@ -163,7 +162,7 @@ int kann_feed_dim(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 	return k == 1? n : k == 0? -1 : -2;
 }
 
-float kann_cost_core(kann_t *a, int cost_label, int cal_grad)
+static float kann_cost_core(kann_t *a, int cost_label, int cal_grad)
 {
 	int i_cost;
 	float cost;
@@ -174,12 +173,74 @@ float kann_cost_core(kann_t *a, int cost_label, int cal_grad)
 	return cost;
 }
 
+int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
+{
+	int i, k;
+	for (i = k = 0; i < a->n; ++i)
+		if (chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
+			++k, a->v[i]->tmp = 1;
+	kad_eval_marked(a->n, a->v);
+	return k;
+}
+
+void kann_rnn_start(kann_t *a)
+{
+	int i;
+	kann_set_batch_size(a, 1);
+	for (i = 0; i < a->n; ++i) {
+		kad_node_t *p = a->v[i];
+		if (p->pre) { // NB: BE CAREFUL of the interaction between kann_rnn_start() and kann_set_batch_size()
+			kad_node_t *q = p->pre;
+			if (q->x) memcpy(p->x, q->x, kad_len(p) * sizeof(float));
+			else memset(p->x, 0, kad_len(p) * sizeof(float));
+			q->x = p->x;
+		}
+	}
+}
+
+void kann_rnn_end(kann_t *a)
+{
+	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
+}
+
+static int kann_class_error_core(const kann_t *ann)
+{
+	int i, j, k, n, off, n_err = 0, is_class = 1;
+	for (i = 0; i < ann->n; ++i) {
+		kad_node_t *p = ann->v[i];
+		if ((p->op == 13 || p->op == 22) && p->n_child == 2 && p->n_d == 0) { // ce_bin or ce_multi
+			kad_node_t *x = p->child[0], *t = p->child[1];
+			n = kad_len(t) / t->d[0];
+			for (j = off = 0; j < t->d[0]; ++j, off += n) {
+				float t_sum = 0.0f, t_min = 1.0f, t_max = 0.0f, x_max = 0.0f, x_min = 1.0f;
+				int x_max_k = -1, t_max_k = -1;
+				for (k = 0; k < n; ++k) {
+					float xk = x->x[off+k], tk = t->x[off+k];
+					t_sum += tk;
+					t_min = t_min < tk? t_min : tk;
+					x_min = x_min < xk? x_min : xk;
+					if (t_max < tk) t_max = tk, t_max_k = k;
+					if (x_max < xk) x_max = xk, x_max_k = k;
+				}
+				if (t_sum - 1.0f == 0 && t_min >= 0.0f && x_min >= 0.0f && x_max <= 1.0f)
+					n_err += (x_max_k != t_max_k);
+				else is_class = 0;
+			}
+		}
+	}
+	return is_class? n_err : -1;
+}
+
+/*************************
+ * @@MT: multi-threading *
+ *************************/
+
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 
 struct mtaux_t;
 
-typedef struct {
+typedef struct { // per-worker data
 	kann_t *a;
 	float cost;
 	int action;
@@ -187,16 +248,16 @@ typedef struct {
 	struct mtaux_t *g;
 } mtaux1_t;
 
-typedef struct mtaux_t {
+typedef struct mtaux_t { // cross-worker data
 	int n_threads, max_batch_size;
 	int cal_grad, cost_label;
-	volatile int n_idle;
+	volatile int n_idle; // we will be busy waiting on this, so volatile necessary
 	pthread_mutex_t mtx;
 	pthread_cond_t cv;
 	mtaux1_t *mt;
 } mtaux_t;
 
-static void *mt_worker(void *data)
+static void *mt_worker(void *data) // pthread worker
 {
 	mtaux1_t *mt1 = (mtaux1_t*)data;
 	mtaux_t *mt = mt1->g;
@@ -216,10 +277,32 @@ static void *mt_worker(void *data)
 	pthread_exit(0);
 }
 
-void kann_set_mt(kann_t *ann, int n_threads, int max_batch_size)
+static void mt_destroy(mtaux_t *mt) // de-allocate an entire mtaux_t struct
+{
+	int i;
+	pthread_mutex_lock(&mt->mtx);
+	mt->n_idle = 0;
+	for (i = 1; i < mt->n_threads; ++i) mt->mt[i].action = -1;
+	pthread_cond_broadcast(&mt->cv);
+	pthread_mutex_unlock(&mt->mtx);
+	for (i = 1; i < mt->n_threads; ++i) pthread_join(mt->mt[i].tid, 0);
+	for (i = 0; i < mt->n_threads; ++i) kann_delete(mt->mt[i].a);
+	free(mt->mt);
+	pthread_cond_destroy(&mt->cv);
+	pthread_mutex_destroy(&mt->mtx);
+	free(mt);
+}
+
+void kann_mt(kann_t *ann, int n_threads, int max_batch_size)
 {
 	mtaux_t *mt;
 	int i, k;
+
+	if (n_threads <= 1) {
+		if (ann->mt) mt_destroy((mtaux_t*)ann->mt);
+		ann->mt = 0;
+		return;
+	}
 	if (n_threads > max_batch_size) n_threads = max_batch_size;
 	if (n_threads <= 1) return;
 
@@ -238,25 +321,6 @@ void kann_set_mt(kann_t *ann, int n_threads, int max_batch_size)
 		pthread_create(&mt->mt[i].tid, 0, mt_worker, &mt->mt[i]);
 	while (mt->n_idle < n_threads - 1); // busy waiting until all threads in sync
 	ann->mt = mt;
-}
-
-void kann_mt_destroy(kann_t *ann)
-{
-	int i;
-	mtaux_t *mt = (mtaux_t*)ann->mt;
-	if (ann->mt == 0) return;
-	pthread_mutex_lock(&mt->mtx);
-	mt->n_idle = 0;
-	for (i = 1; i < mt->n_threads; ++i) mt->mt[i].action = -1;
-	pthread_cond_broadcast(&mt->cv);
-	pthread_mutex_unlock(&mt->mtx);
-	for (i = 1; i < mt->n_threads; ++i) pthread_join(mt->mt[i].tid, 0);
-	for (i = 0; i < mt->n_threads; ++i) kann_delete(mt->mt[i].a);
-	free(mt->mt);
-	pthread_cond_destroy(&mt->cv);
-	pthread_mutex_destroy(&mt->mtx);
-	free(mt);
-	ann->mt = 0;
 }
 
 float kann_cost(kann_t *a, int cost_label, int cal_grad)
@@ -298,69 +362,21 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 	}
 	return cost;
 }
-#else
-void kann_set_mt(kann_t *ann, int n_threads, int max_batch_size) {}
-void kann_mt_destroy(kann_t *ann) {}
-float kann_cost(kann_t *a, int cost_label, int cal_grad) { return kann_cost_core(a, cost_label, cal_grad); }
-#endif
-
-int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label)
-{
-	int i, k;
-	for (i = k = 0; i < a->n; ++i)
-		if (chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
-			++k, a->v[i]->tmp = 1;
-	kad_eval_marked(a->n, a->v);
-	return k;
-}
-
-void kann_rnn_start(kann_t *a)
-{
-	int i;
-	kann_set_batch_size(a, 1);
-	for (i = 0; i < a->n; ++i) {
-		kad_node_t *p = a->v[i];
-		if (p->pre) { // NB: BE CAREFUL of the interaction between kann_rnn_start() and kann_set_batch_size()
-			kad_node_t *q = p->pre;
-			if (q->x) memcpy(p->x, q->x, kad_len(p) * sizeof(float));
-			else memset(p->x, 0, kad_len(p) * sizeof(float));
-			q->x = p->x;
-		}
-	}
-}
-
-void kann_rnn_end(kann_t *a)
-{
-	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
-}
 
 int kann_class_error(const kann_t *ann)
 {
-	int i, j, k, n, off, n_err = 0, is_class = 1;
-	for (i = 0; i < ann->n; ++i) {
-		kad_node_t *p = ann->v[i];
-		if ((p->op == 13 || p->op == 22) && p->n_child == 2 && p->n_d == 0) { // ce_bin or ce_multi
-			kad_node_t *x = p->child[0], *t = p->child[1];
-			n = kad_len(t) / t->d[0];
-			for (j = off = 0; j < t->d[0]; ++j, off += n) {
-				float t_sum = 0.0f, t_min = 1.0f, t_max = 0.0f, x_max = 0.0f, x_min = 1.0f;
-				int x_max_k = -1, t_max_k = -1;
-				for (k = 0; k < n; ++k) {
-					float xk = x->x[off+k], tk = t->x[off+k];
-					t_sum += tk;
-					t_min = t_min < tk? t_min : tk;
-					x_min = x_min < xk? x_min : xk;
-					if (t_max < tk) t_max = tk, t_max_k = k;
-					if (x_max < xk) x_max = xk, x_max_k = k;
-				}
-				if (t_sum - 1.0f == 0 && t_min >= 0.0f && x_min >= 0.0f && x_max <= 1.0f)
-					n_err += (x_max_k != t_max_k);
-				else is_class = 0;
-			}
-		}
-	}
-	return is_class? n_err : -1;
+	mtaux_t *mt = (mtaux_t*)ann->mt;
+	int i, n_err = 0;
+	if (mt == 0) return kann_class_error_core(ann);
+	for (i = 0; i < mt->n_threads; ++i)
+		n_err += kann_class_error_core(mt->mt[i].a);
+	return n_err;
 }
+#else
+void kann_mt(kann_t *ann, int n_threads, int max_batch_size) {}
+float kann_cost(kann_t *a, int cost_label, int cal_grad) { return kann_cost_core(a, cost_label, cal_grad); }
+float kann_class_error(const kann_t *a) { return kann_class_error_core(a); }
+#endif
 
 /***********************
  *** @@IO: model I/O ***
