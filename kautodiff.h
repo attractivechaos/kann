@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r474"
+#define KAD_VERSION "r475"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -150,6 +150,8 @@ int kad_unrollable(int n, kad_node_t *const* v);
  * @return list of nodes in the unrolled graph
  */
 kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
+
+kad_node_t **kad_clone(int n, kad_node_t **v);
 
 // define a variable, a constant or a feed (placeholder in TensorFlow)
 kad_node_t *kad_var(float *x, float *g, int n_d, ...); // a variable; gradients to be computed; not unrolled

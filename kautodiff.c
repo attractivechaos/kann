@@ -664,6 +664,30 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	return q;
 }
 
+kad_node_t **kad_clone(int n, kad_node_t **v)
+{
+	int i, j;
+	kad_node_t **u;
+	u = (kad_node_t**)calloc(n, sizeof(kad_node_t*));
+	for (i = 0; i < n; ++i) v[i]->tmp = i;
+	for (i = 0; i < n; ++i) {
+		kad_node_t *p = v[i], *q = u[i];
+		q = kad_dup1(p);
+		if (p->pre) q->pre = u[p->pre->tmp];
+		if (p->n_child) {
+			for (j = 0; j < p->n_child; ++j)
+				q->child[j] = u[p->child[j]->tmp];
+		} else if (!kad_is_feed(p)) {
+			q->x = (float*)malloc(kad_len(p) * sizeof(float));
+			memcpy(q->x, p->x, kad_len(p) * sizeof(float));
+			q->g = 0;
+		}
+	}
+	for (i = 0; i < n; ++i) v[i]->tmp = 0;
+	kad_allocate_internal(n, u);
+	return u;
+}
+
 int kad_unrollable(int n, kad_node_t *const* v)
 {
 	int i, has_pivot = 0, has_recur = 0;
