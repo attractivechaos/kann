@@ -113,27 +113,6 @@ void kann_delete(kann_t *a)
 	kann_delete_unrolled(a);
 }
 
-void kann_set_batch_size(kann_t *a, int B)
-{
-	int i;
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->ext_flag & (KANN_F_IN|KANN_F_TRUTH)) {
-			if (a->v[i]->d[0] != B) break;
-		} else if (a->v[i]->x == 0) break;
-	if (i == a->n) return; // no need to realloc
-	for (i = 0; i < a->n; ++i)
-		if (a->v[i]->ext_flag & (KANN_F_IN|KANN_F_TRUTH))
-			a->v[i]->d[0] = B;
-	for (i = 0; i < a->n; ++i) {
-		kad_node_t *p = a->v[i];
-		if (p == 0 || p->n_child == 0) continue;
-		kad_op_list[p->op](p, KAD_SYNC_DIM);
-		kad_op_list[p->op](p, KAD_ALLOC);
-		p->x = (float*)realloc(p->x, kad_len(p) * sizeof(float));
-		p->g = (float*)realloc(p->g, kad_len(p) * sizeof(float));
-	}
-}
-
 void kann_switch(kann_t *a, int is_train)
 {
 	int i;

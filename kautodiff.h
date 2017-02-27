@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r445"
+#define KAD_VERSION "r474"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -114,6 +114,7 @@ void kad_delete(int n, kad_node_t **a); // deallocate a compiled/linearized grap
 const float *kad_eval_at(int n, kad_node_t **a, int from);
 
 void kad_eval_marked(int n, kad_node_t **a);
+void kad_sync_dim(int n, kad_node_t **v, int batch_size);
 
 /**
  * Compute gradient
