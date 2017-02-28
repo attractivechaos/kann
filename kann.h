@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r482"
+#define KANN_VERSION "r485"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -127,7 +127,7 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x);
 float kann_cost(kann_t *a, int cost_label, int cal_grad);
 
 int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label);
-int kann_class_error(const kann_t *ann);
+int kann_class_error(const kann_t *ann, int *base);
 
 /**
  * Find a node

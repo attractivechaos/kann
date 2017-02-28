@@ -87,7 +87,7 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 	kann_switch(ua, 1);
 	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
-		int tot = 0, n_cerr = 0;
+		int tot = 0, tot_base = 0, n_cerr = 0;
 		for (j = 0; j < d->n - mini_size; j += mini_size) {
 			int i, b, k;
 			for (k = 0; k < d->ulen; ++k) {
@@ -99,12 +99,13 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 				}
 			}
 			cost += kann_cost(ua, 0, 1) * d->ulen * mini_size;
-			n_cerr += kann_class_error(ua);
+			n_cerr += kann_class_error(ua, &k);
+			tot_base += k;
 			//kad_check_grad(ua->n, ua->v, ua->n-1);
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			tot += d->ulen * mini_size;
 		}
-		fprintf(stderr, "epoch: %d; cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0f * n_cerr / tot);
+		fprintf(stderr, "epoch: %d; cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0f * n_cerr / tot_base);
 		if (fn) kann_save(fn, ann);
 	}
 

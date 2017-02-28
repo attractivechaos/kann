@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r484"
+#define VERSION "r485"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -161,7 +161,7 @@ float tg_perplexity(kann_t *ann, const tg_data_t *tg)
 	return (float)exp(-loss / (tg->len - 1));
 }
 
-void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len, int use_mini, int use_para, int n_threads)
+void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len, int use_mini, int use_para, int n_threads)
 {
 	int i, epoch, k, n_var, n_char, real_mbs = use_mini? mbs : 1;
 	float **x, **y, *r, *g;
@@ -186,7 +186,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 	kann_feed_bind(ua, KANN_F_TRUTH, 0, y);
 	for (epoch = 0; epoch < max_epoch; ++epoch) {
 		double cost = 0.0;
-		int j, b, tot = 0, n_cerr = 0, n_batches;
+		int j, b, tot = 0, tot_base = 0, n_cerr = 0, n_batches;
 		n_batches = (batch_len <= 0? tg->len : batch_len) / (ulen * mbs) + 1;
 		for (i = 0; i < n_batches; ++i) {
 			if (use_mini) {
@@ -205,12 +205,13 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 					} else j = (int)((tg->len - ulen - 1) * kad_drand(0)) + 1; // randomly draw a position
 					for (k = 0; k < ulen; ++k) {
 						x[k][b * n_char + tg->data[j + k - 1]] = 1.0f;
-						y[k][b * n_char + tg->data[j + k]] = 1.0f;
+						if (k >= ulen - vlen)
+							y[k][b * n_char + tg->data[j + k]] = 1.0f;
 					}
 				}
 				cost += kann_cost(ua, 0, 1) * ulen * mbs;
-				n_cerr += kann_class_error(ua);
-				tot += ulen * mbs;
+				n_cerr += kann_class_error(ua, &k);
+				tot += vlen * mbs, tot_base += k;
 				if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, ua->g);
 				kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			} else {
@@ -221,11 +222,12 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 						memset(x[k], 0, n_char * sizeof(float));
 						memset(y[k], 0, n_char * sizeof(float));
 						x[k][tg->data[j + b * ulen + k - 1]] = 1.0f;
-						y[k][tg->data[j + b * ulen + k]] = 1.0f;
+						if (k >= ulen - vlen)
+							y[k][tg->data[j + b * ulen + k]] = 1.0f;
 					}
 					cost += kann_cost(ua, 0, 1) * ulen;
-					n_cerr += kann_class_error(ua);
-					tot += ulen;
+					n_cerr += kann_class_error(ua, &k);
+					tot += vlen, tot_base += k;
 					for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
 					for (k = 0; k < ua->n; ++k) // keep the cycle rolling
 						if (ua->v[k]->pre)
@@ -239,7 +241,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 						memset(ann->v[k]->pre->x, 0, kad_len(ann->v[k]->pre) * sizeof(float));
 			}
 		}
-		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0 * n_cerr / tot);
+		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0 * n_cerr / tot_base);
 		tg_gen(stderr, ann, 0.4f, 100, tg->c2i, "is");
 		if (fn) tg_save(fn, ann, tg->c2i);
 	}
@@ -274,13 +276,13 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
+	int c, seed = 11, ulen = 70, vlen = -1, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
 	int len_gen = 1000, use_norm = 1, batch_len = 0, use_batch = 0, use_para = 0, n_threads = 1, cal_perp = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0, *prefix = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:bT:M:u:L:g:Nj:p:Pt:x")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:bT:M:u:L:g:Nj:p:Pt:xv:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'j') batch_len = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -293,6 +295,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') h_dropout = atof(optarg);
 		else if (c == 'T') temp = atof(optarg);
 		else if (c == 'u') ulen = atoi(optarg);
+		else if (c == 'v') vlen = atoi(optarg);
 		else if (c == 'L') len_gen = atoi(optarg);
 		else if (c == 'g') grad_clip = atof(optarg);
 		else if (c == 'N') use_norm = 0;
@@ -307,6 +310,7 @@ int main(int argc, char *argv[])
 			else if (strcmp(optarg, "gru") == 0) model = 2;
 		}
 	}
+	if (vlen <= 0) vlen = ulen;
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
 		fprintf(fp, "Usage: textgen [options] <in.txt>\n");
@@ -351,7 +355,7 @@ int main(int argc, char *argv[])
 		tg = tg_init(argv[optind]);
 		fprintf(stderr, "Read %d paragraphs and %d characters; alphabet size %d\n", tg->n_para, tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
-		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch, use_para, n_threads);
+		tg_train(ann, tg, lr, ulen, vlen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch, use_para, n_threads);
 		if (cal_perp) fprintf(stderr, "Character-level perplexity: %g\n", tg_perplexity(ann, tg));
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, len_gen, c2i, prefix);

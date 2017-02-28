@@ -203,10 +203,10 @@ void kann_rnn_end(kann_t *a)
 	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
 }
 
-static int kann_class_error_core(const kann_t *ann)
+static int kann_class_error_core(const kann_t *ann, int *base)
 {
-	int i, j, k, n, off, n_err = 0, is_class = 1;
-	for (i = 0; i < ann->n; ++i) {
+	int i, j, k, n, off, n_err = 0;
+	for (i = 0, *base = 0; i < ann->n; ++i) {
 		kad_node_t *p = ann->v[i];
 		if ((p->op == 13 || p->op == 22) && p->n_child == 2 && p->n_d == 0) { // ce_bin or ce_multi
 			kad_node_t *x = p->child[0], *t = p->child[1];
@@ -222,13 +222,14 @@ static int kann_class_error_core(const kann_t *ann)
 					if (t_max < tk) t_max = tk, t_max_k = k;
 					if (x_max < xk) x_max = xk, x_max_k = k;
 				}
-				if (t_sum - 1.0f == 0 && t_min >= 0.0f && x_min >= 0.0f && x_max <= 1.0f)
+				if (t_sum - 1.0f == 0 && t_min >= 0.0f && x_min >= 0.0f && x_max <= 1.0f) {
+					++(*base);
 					n_err += (x_max_k != t_max_k);
-				else is_class = 0;
+				}
 			}
 		}
 	}
-	return is_class? n_err : -1;
+	return n_err;
 }
 
 /*************************
@@ -363,13 +364,15 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 	return cost;
 }
 
-int kann_class_error(const kann_t *ann)
+int kann_class_error(const kann_t *ann, int *base)
 {
 	mtaux_t *mt = (mtaux_t*)ann->mt;
-	int i, n_err = 0;
-	if (mt == 0) return kann_class_error_core(ann);
-	for (i = 0; i < mt->n_threads; ++i)
-		n_err += kann_class_error_core(mt->mt[i].a);
+	int i, n_err = 0, b = 0;
+	if (mt == 0) return kann_class_error_core(ann, base);
+	for (i = 0; i < mt->n_threads; ++i) {
+		n_err += kann_class_error_core(mt->mt[i].a, &b);
+		*base += b;
+	}
 	return n_err;
 }
 
@@ -384,7 +387,7 @@ void kann_switch(kann_t *ann, int is_train)
 #else
 void kann_mt(kann_t *ann, int n_threads, int max_batch_size) {}
 float kann_cost(kann_t *a, int cost_label, int cal_grad) { return kann_cost_core(a, cost_label, cal_grad); }
-float kann_class_error(const kann_t *a) { return kann_class_error_core(a); }
+float kann_class_error(const kann_t *a, int *base) { return kann_class_error_core(a, base); }
 void kann_switch(kann_t *ann, int is_train) { return kann_switch_core(ann, is_train); }
 #endif
 
@@ -776,7 +779,7 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 	kann_feed_bind(ann, KANN_F_TRUTH, 0, &y1);
 
 	for (i = 0; i < max_epoch; ++i) {
-		int n_proc = 0, is_class = 1, n_train_err = 0, n_val_err = 0;
+		int n_proc = 0, n_train_err = 0, n_val_err = 0, n_train_base = 0, n_val_base = 0;
 		double train_cost = 0.0, val_cost = 0.0;
 		kann_shuffle(n_train, shuf);
 		kann_switch(ann, 1);
@@ -788,9 +791,8 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 			}
 			kann_set_batch_size(ann, ms);
 			train_cost += kann_cost(ann, 0, 1) * ms;
-			c = kann_class_error(ann);
-			if (c < 0) is_class = 0;
-			else n_train_err += c;
+			c = kann_class_error(ann, &b);
+			n_train_err += c, n_train_base += b;
 			kann_RMSprop(n_var, lr, 0, 0.9f, ann->g, ann->x, r);
 			n_proc += ms;
 		}
@@ -805,18 +807,17 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 			}
 			kann_set_batch_size(ann, ms);
 			val_cost += kann_cost(ann, 0, 0) * ms;
-			c = kann_class_error(ann);
-			if (c < 0) is_class = 0;
-			else n_val_err += c;
+			c = kann_class_error(ann, &b);
+			n_val_err += c, n_val_base += b;
 			n_proc += ms;
 		}
 		if (n_val > 0) val_cost /= n_val;
 		if (kann_verbose >= 3) {
 			fprintf(stderr, "epoch: %d; training cost: %g", i+1, train_cost);
-			if (is_class) fprintf(stderr, " (class error: %.2f%%)", 100.0f * n_train_err / n_train);
+			if (n_train_base) fprintf(stderr, " (class error: %.2f%%)", 100.0f * n_train_err / n_train);
 			if (n_val > 0) {
 				fprintf(stderr, "; validation cost: %g", val_cost);
-				if (is_class) fprintf(stderr, " (class error: %.2f%%)", 100.0f * n_val_err / n_val);
+				if (n_val_base) fprintf(stderr, " (class error: %.2f%%)", 100.0f * n_val_err / n_val);
 			}
 			fputc('\n', stderr);
 		}
