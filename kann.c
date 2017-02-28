@@ -124,7 +124,7 @@ void kann_delete(kann_t *a)
 	kann_delete_unrolled(a);
 }
 
-void kann_switch(kann_t *a, int is_train)
+static void kann_switch_core(kann_t *a, int is_train)
 {
 	int i;
 	for (i = 0; i < a->n; ++i)
@@ -372,10 +372,20 @@ int kann_class_error(const kann_t *ann)
 		n_err += kann_class_error_core(mt->mt[i].a);
 	return n_err;
 }
+
+void kann_switch(kann_t *ann, int is_train)
+{
+	mtaux_t *mt = (mtaux_t*)ann->mt;
+	int i;
+	if (mt == 0) return kann_switch_core(ann, is_train);
+	for (i = 0; i < mt->n_threads; ++i)
+		kann_switch_core(mt->mt[i].a, is_train);
+}
 #else
 void kann_mt(kann_t *ann, int n_threads, int max_batch_size) {}
 float kann_cost(kann_t *a, int cost_label, int cal_grad) { return kann_cost_core(a, cost_label, cal_grad); }
 float kann_class_error(const kann_t *a) { return kann_class_error_core(a); }
+void kann_switch(kann_t *ann, int is_train) { return kann_switch_core(ann, is_train); }
 #endif
 
 /***********************
