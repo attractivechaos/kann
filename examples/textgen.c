@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r461"
+#define VERSION "r483"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -209,7 +209,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 					}
 				}
 				cost += kann_cost(ua, 0, 1) * ulen * mbs;
-				//n_cerr += kann_class_error(ua);
+				n_cerr += kann_class_error(ua);
 				tot += ulen * mbs;
 				if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, ua->g);
 				kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
