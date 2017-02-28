@@ -147,6 +147,7 @@ int kann_find(const kann_t *a, uint32_t ext_flag, int32_t ext_label)
 int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x)
 {
 	int i, k;
+	if (x == 0) return 0;
 	for (i = k = 0; i < a->n; ++i)
 		if (kad_is_feed(a->v[i]) && chk_flg(a->v[i]->ext_flag, ext_flag) && chk_lbl(a->v[i]->ext_label, ext_label))
 			a->v[i]->x = x[k++];

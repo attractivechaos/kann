@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r485"
+#define VERSION "r486"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -205,13 +205,13 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 					} else j = (int)((tg->len - ulen - 1) * kad_drand(0)) + 1; // randomly draw a position
 					for (k = 0; k < ulen; ++k) {
 						x[k][b * n_char + tg->data[j + k - 1]] = 1.0f;
-						if (k >= ulen - vlen)
+						if (k >= vlen)
 							y[k][b * n_char + tg->data[j + k]] = 1.0f;
 					}
 				}
 				cost += kann_cost(ua, 0, 1) * ulen * mbs;
 				n_cerr += kann_class_error(ua, &k);
-				tot += vlen * mbs, tot_base += k;
+				tot += (ulen - vlen) * mbs, tot_base += k;
 				if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, ua->g);
 				kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			} else {
@@ -222,12 +222,12 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 						memset(x[k], 0, n_char * sizeof(float));
 						memset(y[k], 0, n_char * sizeof(float));
 						x[k][tg->data[j + b * ulen + k - 1]] = 1.0f;
-						if (k >= ulen - vlen)
+						if (b || k >= vlen)
 							y[k][tg->data[j + b * ulen + k]] = 1.0f;
 					}
 					cost += kann_cost(ua, 0, 1) * ulen;
 					n_cerr += kann_class_error(ua, &k);
-					tot += vlen, tot_base += k;
+					tot += ulen - vlen, tot_base += k;
 					for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
 					for (k = 0; k < ua->n; ++k) // keep the cycle rolling
 						if (ua->v[k]->pre)
@@ -276,7 +276,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ulen = 70, vlen = -1, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
+	int c, seed = 11, ulen = 70, vlen = 0, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
 	int len_gen = 1000, use_norm = 1, batch_len = 0, use_batch = 0, use_para = 0, n_threads = 1, cal_perp = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
@@ -310,7 +310,6 @@ int main(int argc, char *argv[])
 			else if (strcmp(optarg, "gru") == 0) model = 2;
 		}
 	}
-	if (vlen <= 0) vlen = ulen;
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
 		fprintf(fp, "Usage: textgen [options] <in.txt>\n");
@@ -329,6 +328,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -m INT      max number of epochs [%d]\n", max_epoch);
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mbs);
 		fprintf(fp, "    -u INT      max unroll [%d]\n", ulen);
+		fprintf(fp, "    -v INT      burn-in length [%d]\n", vlen);
 		fprintf(fp, "    -g FLOAT    gradient clipping threshold [%g]\n", grad_clip);
 		fprintf(fp, "    -j INT      size of a batch [input text length]\n");
 		fprintf(fp, "    -b          use minibatch (run faster but converge slower)\n");
