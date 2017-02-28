@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r483"
+#define VERSION "r484"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -244,7 +244,6 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int mbs, int
 		if (fn) tg_save(fn, ann, tg->c2i);
 	}
 	kann_delete_unrolled(ua);
-	//fprintf(stderr, "Character-level perplexity: %g\n", tg_perplexity(ann, tg));
 
 	for (k = 0; k < ulen; ++k) {
 		free(x[k]);
@@ -276,12 +275,12 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 int main(int argc, char *argv[])
 {
 	int c, seed = 11, ulen = 70, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
-	int len_gen = 1000, use_norm = 1, batch_len = 0, use_batch = 0, use_para = 0, n_threads = 1;
+	int len_gen = 1000, use_norm = 1, batch_len = 0, use_batch = 0, use_para = 0, n_threads = 1, cal_perp = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0, *prefix = 0;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:bT:M:u:L:g:Nj:p:Pt:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:bT:M:u:L:g:Nj:p:Pt:x")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'j') batch_len = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
@@ -301,6 +300,7 @@ int main(int argc, char *argv[])
 		else if (c == 'b') use_batch = 1;
 		else if (c == 'P') use_para = use_batch = 1;
 		else if (c == 't') n_threads = atoi(optarg), use_batch = 1;
+		else if (c == 'x') cal_perp = 1;
 		else if (c == 'M') {
 			if (strcmp(optarg, "rnn") == 0) model = 0;
 			else if (strcmp(optarg, "lstm") == 0) model = 1;
@@ -329,6 +329,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -j INT      size of a batch [input text length]\n");
 		fprintf(fp, "    -b          use minibatch (run faster but converge slower)\n");
 		fprintf(fp, "    -P          independent paragraphs (force -b)\n");
+		fprintf(fp, "    -x          compute perplexity at the end\n");
 		fprintf(fp, "  Text generation:\n");
 		fprintf(fp, "    -p STR      prefix []\n");
 		fprintf(fp, "    -T FLOAT    temperature [%g]\n", temp);
@@ -351,6 +352,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Read %d paragraphs and %d characters; alphabet size %d\n", tg->n_para, tg->len, tg->n_char);
 		if (!ann) ann = model_gen(model, tg->n_char, n_h_layers, n_h_neurons, h_dropout, use_norm);
 		tg_train(ann, tg, lr, ulen, mbs, max_epoch, grad_clip, fn_out, batch_len, use_batch, use_para, n_threads);
+		if (cal_perp) fprintf(stderr, "Character-level perplexity: %g\n", tg_perplexity(ann, tg));
 		free(tg->data); free(tg);
 	} else tg_gen(stdout, ann, temp, len_gen, c2i, prefix);
 
