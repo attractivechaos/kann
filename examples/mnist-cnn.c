@@ -9,10 +9,10 @@ int main(int argc, char *argv[])
 	kann_t *ann;
 	kann_data_t *x, *y;
 	char *fn_in = 0, *fn_out = 0;
-	int c, mini_size = 64, max_epoch = 20, max_drop_streak = 10, seed = 131, n_h_fc = 128, n_h_flt = 32;
+	int c, mini_size = 64, max_epoch = 20, max_drop_streak = 10, seed = 131, n_h_fc = 128, n_h_flt = 32, n_threads = 1;
 	float lr = 0.001f, dropout = 0.2f, frac_val = 0.1f;
 
-	while ((c = getopt(argc, argv, "i:o:m:h:f:d:s:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:h:f:d:s:t:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'm') max_epoch = atoi(optarg);
@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 		else if (c == 'f') n_h_flt = atoi(optarg);
 		else if (c == 'd') dropout = atof(optarg);
 		else if (c == 's') seed = atoi(optarg);
+		else if (c == 't') n_threads = atoi(optarg);
 	}
 
 	if (argc - optind == 0 || (argc - optind == 1 && fn_in == 0)) {
@@ -51,6 +52,7 @@ int main(int argc, char *argv[])
 
 	if (y) { // training
 		assert(y->n_col == 10);
+		if (n_threads > 1) kann_mt(ann, n_threads, mini_size);
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, x->n_row, x->x, y->x);
 		if (fn_out) kann_save(fn_out, ann);
 		kann_data_free(y);

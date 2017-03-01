@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r491"
+#define KAD_VERSION "r492"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -36,8 +36,8 @@
 #define KAD_MAX_DIM 4     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
 
-/* A computational graph is an acyclic directed graph. In the graph, an
- * external node represents a variable, a constant or a feed; an internal node
+/* A computational graph is a directed acyclic graph. In the graph, an external
+ * node represents a variable, a constant or a feed; an internal node
  * represents an operator; an edge from node v to w indicates v is an operand
  * of w.
  */

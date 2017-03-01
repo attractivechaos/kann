@@ -30,7 +30,7 @@ static inline kad_node_t *kad_vleaf(uint8_t flag, float *x, float *g, int n_d, v
 {
 	int i;
 	kad_node_t *p;
-	if (n_d >= KAD_MAX_DIM) return 0;
+	if (n_d > KAD_MAX_DIM) return 0;
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
 	p->n_d = n_d;
 	for (i = 0; i < n_d; ++i)

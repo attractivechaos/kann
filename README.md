@@ -19,17 +19,17 @@ echo 15315611231621249 78 | ./examples/rnn-bit -Ai mul100.kan -
 
 KANN is a standalone and lightweight library in C for constructing and training
 small to medium artificial neural networks such as [multi-layer
-perceptrons][mlp], [convolutional neural networks][cnn], [recurrent neural
+perceptrons][mlp], [convolutional neural networks][cnn] and [recurrent neural
 networks][rnn] (including [LSTM][lstm] and [GRU][gru]). It implements
 graph-based reverse-mode [automatic differentiation][ad] and allows to build
 topologically complex neural networks with recurrence, shared weights and
-multiple inputs/outputs/costs (e.g. with [variational autoencoder][vae]). In
-comparison to mainstream deep learning frameworks such as [TensorFlow][tf],
-KANN is not as scalable, but it is close in flexibility, has a much smaller
-code base and only depends on the standard C library. In comparison to other
-lightweight frameworks such as [tiny-dnn][td], KANN is still smaller, times
-faster and much more versatile, supporting RNN, VAE and non-standard neural
-networks that may fail these lightweight frameworks.
+multiple inputs/outputs/costs. In comparison to mainstream deep learning
+frameworks such as [TensorFlow][tf], KANN is not as scalable, but it is close
+in flexibility, has a much smaller code base and only depends on the standard C
+library. In comparison to other lightweight frameworks such as [tiny-dnn][td],
+KANN is still smaller, times faster and much more versatile, supporting RNN,
+VAE and non-standard neural networks that may fail these lightweight
+frameworks.
 
 KANN could be potentially useful when you want to experiment small to medium
 neural networks in C/C++, to deploy no-so-large models without worrying about
@@ -40,17 +40,16 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 * Flexible. Model construction by building a computational graph with
   operators. Support RNNs, weight sharing and multiple inputs/outputs.
 
-* Reasonably efficient. Support mini-batching. Optimized matrix product and
-  convolution, coming close to (though not as fast as) OpenBLAS and mainstream
-  deep learning frameworks on CPUs.
+* Efficient. Reasonably optimized matrix product and convolution. Support
+  mini-batching and effective multi-threading. Sometimes faster than mainstream
+  frameworks in their CPU-only mode.
 
-* Small. As of now, KANN has less than 3000 lines of code in four source code
+* Small. As of now, KANN has less than 4000 lines of code in four source code
   files, with no non-standard dependencies by default.
 
 ### Limitations
 
-* CPU only. No out-of-box support of multi-threading (experimental support on
-  the mt branch). As such, KANN is **not** intended for training huge neural
+* CPU only. As such, KANN is **not** intended for training huge neural
   networks.
 
 * Bidirectional RNNs and seq2seq models require manual unrolling, which is
@@ -66,15 +65,7 @@ installation is needed. To compile examples:
 ```sh
 make
 ```
-This generates a few binaries in the [examples](examples) directory. If you
-have BLAS installed, you can ask KANN to use BLAS for matrix multiplication:
-```sh
-make CBLAS=/usr/local
-```
-This usually speeds up MLP and RNN, and may take the advantage of multiple CPU
-cores if your BLAS library is compiled with the multi-core support.
-Convolutional networks won't benefit from BLAS as KANN is not reducing
-convolution to matrix multiplication like Caffe and other libraries.
+This generates a few executables in the [examples](examples) directory.
 
 ## Documentations
 

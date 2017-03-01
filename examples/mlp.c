@@ -18,13 +18,13 @@ static kann_t *model_gen(int n_in, int n_out, int loss_type, int n_h_layers, int
 int main(int argc, char *argv[])
 {
 	int max_epoch = 50, mini_size = 64, max_drop_streak = 10, loss_type = KANN_C_CEB;
-	int i, j, c, n_h_neurons = 64, n_h_layers = 1, seed = 11;
+	int i, j, c, n_h_neurons = 64, n_h_layers = 1, seed = 11, n_threads = 1;
 	kann_data_t *in = 0;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
 	float lr = 0.001f, frac_val = 0.1f, h_dropout = 0.0f;
 
-	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:v:M")) >= 0) {
+	while ((c = getopt(argc, argv, "n:l:s:r:m:B:o:i:d:v:Mt:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 'l') n_h_layers = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') h_dropout = atof(optarg);
 		else if (c == 'v') frac_val = atof(optarg);
 		else if (c == 'M') loss_type = KANN_C_CEM;
+		else if (c == 't') n_threads = atoi(optarg);
 	}
 	if (argc - optind < 1) {
 		FILE *fp = stdout;
@@ -54,6 +55,7 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -m INT      max number of epochs [%d]\n", max_epoch);
 		fprintf(fp, "    -B INT      mini-batch size [%d]\n", mini_size);
 		fprintf(fp, "    -v FLOAT    fraction of data used for validation [%g]\n", frac_val);
+		fprintf(fp, "    -t INT      number of threads [%d]\n", n_threads);
 		return 1;
 	}
 	if (argc - optind == 1 && in_fn == 0) {
@@ -75,6 +77,7 @@ int main(int argc, char *argv[])
 		assert(in->n_row == out->n_row);
 		if (ann) assert(kann_dim_out(ann) == out->n_col);
 		else ann = model_gen(in->n_col, out->n_col, loss_type, n_h_layers, n_h_neurons, h_dropout);
+		if (n_threads > 1) kann_mt(ann, n_threads, mini_size);
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, out->x);
 		if (out_fn) kann_save(out_fn, ann);
 		kann_data_free(out);
