@@ -27,11 +27,10 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r492"
+#define KAD_VERSION "r493"
 
 #include <stdio.h>
 #include <stdint.h>
-#include <string.h>
 
 #define KAD_MAX_DIM 4     // max dimension
 #define KAD_MAX_OP  64    // max number of operators
@@ -244,12 +243,6 @@ static inline int kad_len(const kad_node_t *p) // calculate the size of p->x
 	int n = 1, i;
 	for (i = 0; i < p->n_d; ++i) n *= p->d[i];
 	return n;
-}
-
-static inline void kad_copy_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
-{
-	dst->n_d = src->n_d;
-	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
 }
 
 #endif

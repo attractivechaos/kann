@@ -70,7 +70,8 @@ extern "C" {
  * Generate a network from a computational graph
  *
  * A network must have at least one scalar cost node (i.e. whose n_d==0). It
- * may optionally contain other cost nodes (i.e. for GAN) or output nodes.
+ * may optionally contain other cost nodes or output nodes not leading to the
+ * primary cost node.
  *
  * @param cost    cost node (must be a scalar, i.e. cost->n_d==0)
  * @param n_rest  number of other nodes without predecessors

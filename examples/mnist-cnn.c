@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 
 	if (argc - optind == 0 || (argc - optind == 1 && fn_in == 0)) {
 		FILE *fp = stdout;
-		fprintf(fp, "Usage: mnist-cnn [-i model] [-o model] <x.knd> [y.knd]\n");
+		fprintf(fp, "Usage: mnist-cnn [-i model] [-o model] [-t nThreads] <x.knd> [y.knd]\n");
 		return 1;
 	}
 

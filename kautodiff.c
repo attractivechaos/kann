@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <string.h>
 #include <float.h>
 #include <math.h>
 #include "kautodiff.h"
@@ -968,6 +969,12 @@ double kad_drand_normal(void *d)
 /*************
  * Operators *
  *************/
+
+static inline void kad_copy_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
+{
+	dst->n_d = src->n_d;
+	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
+}
 
 /////////// Arithmetic operations ///////////
 

@@ -26,7 +26,7 @@ This directory contains examples on using KANN as a library.
 * [mnist-cnn.c](mnist-cnn.c): ConvNet for MNIST data.
   ```sh
   curl -s https://url/to/mnist-data.tar | tar xf -
-  ./mnist-cnn -o mnist-cnn.kan mnist-train-?.snd.gz   # this will take a while
+  ./mnist-cnn -o mnist-cnn.kan -t4 mnist-train-?.snd.gz   # this will take a while
   ./mnist-cnn -i mnist-cnn.kan mnist-test-x.snd.gz | ./mnist-eval.pl
   ```
 
@@ -43,6 +43,6 @@ This directory contains examples on using KANN as a library.
 * [textgen.c](textgen.c): character-level text generation with an RNN
   ```sh
   curl -s https://url/to/accelerando.txt.gz | gzip -dc > accelerando.txt
-  ./textgen -o acc.kan accelerando.txt   # use -l2 -n256 for a better but slower model
+  ./textgen -o acc.kan accelerando.txt   # use -l2 -n256 -t8 for a better but slower model
   ./textgen -i acc.kan
   ```
