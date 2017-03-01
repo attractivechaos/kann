@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r487"
+#define VERSION "r488"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -277,7 +277,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ulen = 70, vlen = 0, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
+	int c, seed = 11, ulen = 70, vlen = 10, n_h_layers = 1, n_h_neurons = 128, model = 2, max_epoch = 50, mbs = 64, c2i[256];
 	int len_gen = 1000, use_norm = 1, batch_len = 0, use_batch = 0, use_para = 0, n_threads = 1, cal_perp = 0;
 	float h_dropout = 0.0f, temp = 0.5f, lr = 0.01f, grad_clip = 10.0f;
 	kann_t *ann = 0;
@@ -311,6 +311,7 @@ int main(int argc, char *argv[])
 			else if (strcmp(optarg, "gru") == 0) model = 2;
 		}
 	}
+	if (vlen >= ulen) vlen = ulen - 1;
 	if (argc == optind && fn_in == 0) {
 		FILE *fp = stdout;
 		fprintf(fp, "Usage: textgen [options] <in.txt>\n");
