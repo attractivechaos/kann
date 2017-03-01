@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include "kann.h"
 
-#define VERSION "r486"
+#define VERSION "r487"
 
 typedef struct {
 	int len, n_char, n_para, *para_len;
@@ -209,7 +209,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 							y[k][b * n_char + tg->data[j + k]] = 1.0f;
 					}
 				}
-				cost += kann_cost(ua, 0, 1) * ulen * mbs;
+				cost += kann_cost(ua, 0, 1) * (ulen - vlen) * mbs;
 				n_cerr += kann_class_error(ua, &k);
 				tot += (ulen - vlen) * mbs, tot_base += k;
 				if (grad_clip > 0.0f) kann_grad_clip(grad_clip, n_var, ua->g);
@@ -218,6 +218,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 				j = (int)((tg->len - ulen * mbs - 1) * kad_drand(0)) + 1; // randomly draw a position
 				memset(g, 0, n_var * sizeof(float));
 				for (b = 0; b < mbs; ++b) { // a mini-batch
+					int ce_len = b? ulen : ulen - vlen;
 					for (k = 0; k < ulen; ++k) {
 						memset(x[k], 0, n_char * sizeof(float));
 						memset(y[k], 0, n_char * sizeof(float));
@@ -225,9 +226,9 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 						if (b || k >= vlen)
 							y[k][tg->data[j + b * ulen + k]] = 1.0f;
 					}
-					cost += kann_cost(ua, 0, 1) * ulen;
+					cost += kann_cost(ua, 0, 1) * ce_len;
 					n_cerr += kann_class_error(ua, &k);
-					tot += ulen - vlen, tot_base += k;
+					tot += ce_len, tot_base += k;
 					for (k = 0; k < n_var; ++k) g[k] += ua->g[k];
 					for (k = 0; k < ua->n; ++k) // keep the cycle rolling
 						if (ua->v[k]->pre)
