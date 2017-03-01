@@ -343,7 +343,7 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 		for (j = 0; j < a->n; ++j)
 			if (kad_is_feed(a->v[j]))
 				mt->mt[i].a->v[j]->x = &a->v[j]->x[k * kad_len(a->v[j]) / a->v[j]->d[0]];
-		kad_sync_dim(mt->mt[i].a->n, mt->mt[i].a->v, size);
+		kad_sync_dim(mt->mt[i].a->n, mt->mt[i].a->v, size); // TODO: we can point ->x to internal nodes, too
 		k += size;
 		memcpy(mt->mt[i].a->x, a->x, n_var * sizeof(float));
 		mt->mt[i].action = 1;
@@ -361,6 +361,16 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 		cost += mt->mt[i].cost * size / B;
 		kad_saxpy(n_var, (float)size / B, mt->mt[i].a->g, a->g);
 		k += size;
+	}
+	for (j = 0; j < a->n; ++j) { // copy values back at recurrent nodes (needed by textgen; TODO: temporary solution)
+		kad_node_t *p = a->v[j];
+		if (p->pre && p->n_d >= 2 && p->d[0] == B) {
+			for (i = k = 0; i < mt->n_threads; ++i) {
+				kad_node_t *q = mt->mt[i].a->v[j];
+				memcpy(&p->x[k], q->x, kad_len(q) * sizeof(float));
+				k += kad_len(q);
+			}
+		}
 	}
 	return cost;
 }
