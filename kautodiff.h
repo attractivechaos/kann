@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r480"
+#define KAD_VERSION "r491"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -41,12 +41,6 @@
  * represents an operator; an edge from node v to w indicates v is an operand
  * of w.
  */
-
-typedef enum {
-	KAD_CONST = 1,
-	KAD_VAR,
-	KAD_FEED
-} kad_leaftype_t;
 
 #define KAD_VAR        0x1
 #define KAD_CONST      0x2
