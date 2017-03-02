@@ -1253,9 +1253,10 @@ int kad_op_dropout(kad_node_t *p, int action)
 			if (flag) flag[i] = kept;
 		}
 	} else if (action == KAD_BACKWARD && kad_is_back(p->child[0])) {
+		float r = kad_is_const(q) || kad_is_var(q)? 0.0f : *p->child[1]->x, z = 1.0f / (1.0f - r);
 		uint8_t *flag = (uint8_t*)p->gtmp;
 		for (i = 0; i < n; ++i)
-			if (flag[i]) q->g[i] += p->g[i];
+			if (flag[i]) q->g[i] += z * p->g[i];
 	}
 	return 0;
 }
