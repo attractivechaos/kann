@@ -194,9 +194,9 @@ int main(void)
 |           |TensorFlow   |Mac    |1 CPU    | 33.4s   | 33.4s  |tensorflow/mlp.py -m20|
 |           |             |       |2 CPUs   | 29.2s   | 50.6s  |tensorflow/mlp.py -m20 -t2|
 |           |Tiny-dnn     |Linux  |1 CPU    | 2m19s   | 2m18s  |tiny-dnn/mlp -m20|
-|           |Tiny-dnn+AVX |Linux  |1 CPU    | 1m34s   | 1m33s  |tiny-dnn/mlp -m20|
-|           |             |Mac    |1 CPU    | 2m17s   | 2m16s  |tiny-dnn/mlp -m20|
-|MNIST-cnn  |KANN+SSE     |Linux  |1 CPU    |57m57s   |57m53s  |mnist-cnn -v0 -t4 -m15|
+|           |Tiny-dnn+AVX |Linux  |1 CPU    | 1m34s   | 1m33s  ||
+|           |             |Mac    |1 CPU    | 2m17s   | 2m16s  ||
+|MNIST-cnn  |KANN+SSE     |Linux  |1 CPU    |57m57s   |57m53s  |mnist-cnn -v0 -m15|
 |           |             |       |4 CPUs   |19m09s   |68m17s  |mnist-cnn -v0 -t4 -m15|
 |           |Theano+Keras |Linux  |1 CPU    |37m12s   |37m09s  |OMP_NUM_THREADS=1 keras/mlp.py -Cm15 -v0|
 |           |             |       |4 CPUs   |24m24s   |97m22s  |OMP_NUM_THREADS=4 keras/mlp.py -Cm15 -v0|
