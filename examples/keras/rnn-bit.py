@@ -1,10 +1,13 @@
 #!/usr/bin/env python
 
-import sys, getopt
+import sys, getopt, time
 import numpy as np
 from keras.layers import Dense, Activation, GRU, TimeDistributed
 from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
+
+#import theano
+#theano.config.openmp = True
 
 def rb_read_data(fn):
 	d, n_col = [], 0
@@ -74,10 +77,14 @@ def main(argv):
 	x, y, n_in, max_bit = rb_read_data(args[0])
 
 	if not to_apply:
+		t_cpu = time.clock()
+		t_real = time.time()
 		model = rb_model_gen(n_in, n_layer, n_hidden, max_bit, dropout)
 		optimizer = RMSprop(lr=lr)
 		model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 		model.fit(x, y, batch_size=mbs, nb_epoch=max_epoch)
+		sys.stderr.write("CPU time for training: {:.2f}\n".format(time.clock() - t_cpu))
+		sys.stderr.write("Real time for training: {:.2f}\n".format(time.time() - t_real))
 		if outfn: model.save(outfn)
 	elif infn:
 		model = load_model(infn)

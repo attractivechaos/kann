@@ -19,6 +19,17 @@ network<sequential> mlp_model_gen(int n_in, int n_out, int n_layer, int n_hidden
 	return nn;
 }
 
+network<sequential> mnist_cnn_model_gen(void)
+{
+	network<sequential> nn;
+	nn << convolutional_layer<relu>(28, 28, 3, 1, 32)
+	   << convolutional_layer<relu>(26, 26, 3, 32, 32)
+	   << max_pooling_layer<identity>(24, 24, 32, 2)
+	   << fully_connected_layer<relu>(12 * 12 * 32, 128)
+	   << fully_connected_layer<softmax>(128, 10);
+	return nn;
+}
+
 void mlp_float2vec(std::vector<vec_t> &data, int n, int m, float **x)
 {
 	for (int i = 0; i < n; ++i) {
@@ -30,12 +41,12 @@ void mlp_float2vec(std::vector<vec_t> &data, int n, int m, float **x)
 
 int main(int argc, char *argv[])
 {
-	int c, n_layer = 1, n_hidden = 64, minibatch = 64, max_epoch = 20;
+	int c, n_layer = 1, n_hidden = 64, minibatch = 64, max_epoch = 20, mnist_cnn = 0;
 	kann_data_t *kdx;
 	float lr = 0.001f;
 	char *fn_out = 0, *fn_in = 0;
 
-	while ((c = getopt(argc, argv, "i:o:m:B:l:n:r:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:B:l:n:r:C")) >= 0) {
 		if (c == 'o') fn_out = optarg;
 		else if (c == 'i') fn_in = optarg;
 		else if (c == 'm') max_epoch = atoi(optarg);
@@ -43,6 +54,7 @@ int main(int argc, char *argv[])
 		else if (c == 'l') n_layer = atoi(optarg);
 		else if (c == 'n') n_hidden = atoi(optarg);
 		else if (c == 'r') lr = atof(optarg);
+		else if (c == 'C') mnist_cnn = 1;
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: mlp [options] <in.knd> [out.knd]\n");
@@ -55,7 +67,7 @@ int main(int argc, char *argv[])
 		kann_data_t *kdy = kann_data_read(argv[optind+1]);
 		int n = kdx->n_row, n_in = kdx->n_col, n_out = kdy->n_col;
 
-		auto nn = mlp_model_gen(n_in, n_out, n_layer, n_hidden);
+		auto nn = mnist_cnn? mnist_cnn_model_gen() : mlp_model_gen(n_in, n_out, n_layer, n_hidden);
 		mlp_float2vec(dx, n, n_in, kdx->x);
 		mlp_float2vec(dy, n, n_out, kdy->x);
 

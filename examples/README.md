@@ -1,4 +1,4 @@
-This directory contains examples on using KANN as a library.
+## Examples
 
 * [mlp.c](mlp.c): generic multi-layer perceptron. It reads TAB delimited files,
   where on each line, the first column is an arbirary name and the rest of

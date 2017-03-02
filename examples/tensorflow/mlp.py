@@ -38,6 +38,7 @@ def mlp_model_gen(n_in, n_out, n_layer, n_hidden, use_multi_ce):
 
 def main(argv):
 	n_layer, n_hidden, max_epoch, minibatch, lr, seed, r_hidden, outdir, indir, use_multi_ce = 1, 64, 20, 64, .001, 11, 0.0, None, None, False
+	n_threads = 1
 
 	def train_help():
 		print("Usage: mlp.py [options] <input.knd> [output.knd]")
@@ -57,7 +58,7 @@ def main(argv):
 		sys.exit(1)
 
 	try:
-		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:l:M")
+		opts, args = getopt.getopt(argv[1:], "n:m:B:i:o:r:s:d:l:Mt:")
 	except getopt.GetoptError:
 		train_help()
 	if len(args) < 1:
@@ -74,18 +75,20 @@ def main(argv):
 		elif opt == '-d': r_hidden = float(arg)
 		elif opt == '-s': seed = int(arg)
 		elif opt == '-M': use_multi_ce = True
+		elif opt == '-t': n_threads = int(arg)
 
 	tf.set_random_seed(seed)
 	sys.stderr.write("Reading input...\n")
 	x_dat, x_rnames, x_cnames = mlp_data_read(args[0])
 
-	conf = tf.ConfigProto(intra_op_parallelism_threads=1, inter_op_parallelism_threads=1)
+	conf = tf.ConfigProto(intra_op_parallelism_threads=n_threads, inter_op_parallelism_threads=n_threads)
 	if len(args) >= 2: # training
 		sys.stderr.write("Reading truth...\n")
 		y_dat, y_rnames, y_cnames = mlp_data_read(args[1])
 
 		sys.stderr.write("Training...\n")
 		t_cpu = time.clock()
+		t_real = time.time()
 		cost = mlp_model_gen(len(x_dat[0]), len(y_dat[0]), n_layer, n_hidden, use_multi_ce)
 		optimizer = tf.train.AdamOptimizer(learning_rate=lr).minimize(cost)
 
@@ -109,6 +112,7 @@ def main(argv):
 				saver.save(sess, outdir + "/model")
 
 		sys.stderr.write("CPU time for training: {:.2f}\n".format(time.clock() - t_cpu))
+		sys.stderr.write("Real time for training: {:.2f}\n".format(time.time() - t_real))
 	elif len(args) == 1 and indir: # prediction
 		with tf.Session(config=conf) as sess:
 			saver = tf.train.import_meta_graph(indir + "/model.meta")

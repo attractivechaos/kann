@@ -158,6 +158,34 @@ int main(void)
 }
 ```
 
+## Benchmarks
+
+|Task       |Framework   |Machine|Device   |Real time|CPU time|Command line |
+|:----------|:-----------|:------|--------:|--------:|-------:|:------------|
+|MNIST-mlp  |KANN+SSE    |Linux  |1 CPU    | 31.3s   | 31.2s  |mlp -m20 -v0|
+|           |            |Mac    |1 CPU    | 27.1s   | 27.1s  |mlp -m20 -v0|
+|           |Theano+Keras|Linux  |1 CPU    | 33.7s   | 33.2s  |OMP_NUM_THREADS=1 keras/mlp.py -m20 -v0|
+|           |            |       |4 CPUs   | 32.0s   |121.3s  |OMP_NUM_THREADS=4 ... |
+|           |            |Mac    |1 CPU    | 37.2s   | 35.2s  ||
+|           |            |       |2 CPUs   | 32.9s   | 62.0s  ||
+|           |TF+Keras    |Mac    |1-2 CPUs | 64.2s   |102.0s  |keras/mlp.py -m20|
+|           |TensorFlow  |Mac    |1 CPU    | 33.4s   | 33.4s  |tensorflow/mlp.py -m20|
+|           |            |       |2 CPUs   | 29.2s   | 50.6s  |tensorflow/mlp.py -m20 -t2|
+|           |Tiny-dnn    |Linux  |1 CPU    | 2m19s   | 2m18s  |tiny-dnn/mlp -m20|
+|           |Tiny-dnn+AVX|Linux  |1 CPU    | 1m34s   | 1m33s  |tiny-dnn/mlp -m20|
+|           |            |Mac    |1 CPU    | 2m17s   | 2m16s  |tiny-dnn/mlp -m20|
+|MNIST-cnn  |KANN+SSE    |Linux  |1 CPU    |57m57s   |57m53s  |mnist-cnn -v0 -t4 -m15|
+|           |            |       |4 CPUs   |19m09s   |68m17s  |mnist-cnn -v0 -t4 -m15|
+|           |Theano+Keras|Linux  |1 CPU    |37m12s   |37m09s  |OMP_NUM_THREADS=1 keras/mlp.py -Cm15 -v0|
+|           |            |       |4 CPUs   |24m24s   |97m22s  |OMP_NUM_THREADS=4 keras/mlp.py -Cm15 -v0|
+|           |Tiny-dnn+AVX|Linux  |1 CPU    |         |        |tiny-dnn/mlp -Cm15|
+|mul100-rnn |KANN+SSE    |Linux  |1 CPU    |40m05s   |40m02s  |rnn-bit -l2 -n160 -m25 -Nd0|
+|           |            |       |4 CPUs   |12m13s   |44m40s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
+|           |Theano+Keras|Linux  |1 CPU    |27m30s   |27m27s  |OMP_NUM_THREADS=1 keras/rnn-bit -l2 -n160 -m25|
+|           |            |       |4 CPUs   |19m52m   |77m45s  |OMP_NUM_THREADS=4 keras/rnn-bit -l2 -n160 -m25|
+
+
+
 [mlp]: https://en.wikipedia.org/wiki/Multilayer_perceptron
 [cnn]: https://en.wikipedia.org/wiki/Convolutional_neural_network
 [rnn]: https://en.wikipedia.org/wiki/Recurrent_neural_network

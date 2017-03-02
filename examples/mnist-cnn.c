@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 	int c, mini_size = 64, max_epoch = 20, max_drop_streak = 10, seed = 131, n_h_fc = 128, n_h_flt = 32, n_threads = 1;
 	float lr = 0.001f, dropout = 0.2f, frac_val = 0.1f;
 
-	while ((c = getopt(argc, argv, "i:o:m:h:f:d:s:t:")) >= 0) {
+	while ((c = getopt(argc, argv, "i:o:m:h:f:d:s:t:v:")) >= 0) {
 		if (c == 'i') fn_in = optarg;
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'm') max_epoch = atoi(optarg);
@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') dropout = atof(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 't') n_threads = atoi(optarg);
+		else if (c == 'v') frac_val = atof(optarg);
 	}
 
 	if (argc - optind == 0 || (argc - optind == 1 && fn_in == 0)) {
