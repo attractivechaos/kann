@@ -160,29 +160,69 @@ int main(void)
 
 ## Benchmarks
 
-|Task       |Framework   |Machine|Device   |Real time|CPU time|Command line |
-|:----------|:-----------|:------|--------:|--------:|-------:|:------------|
-|MNIST-mlp  |KANN+SSE    |Linux  |1 CPU    | 31.3s   | 31.2s  |mlp -m20 -v0|
-|           |            |Mac    |1 CPU    | 27.1s   | 27.1s  |mlp -m20 -v0|
-|           |Theano+Keras|Linux  |1 CPU    | 33.7s   | 33.2s  |OMP_NUM_THREADS=1 keras/mlp.py -m20 -v0|
-|           |            |       |4 CPUs   | 32.0s   |121.3s  |OMP_NUM_THREADS=4 ... |
-|           |            |Mac    |1 CPU    | 37.2s   | 35.2s  ||
-|           |            |       |2 CPUs   | 32.9s   | 62.0s  ||
-|           |TF+Keras    |Mac    |1-2 CPUs | 64.2s   |102.0s  |keras/mlp.py -m20|
-|           |TensorFlow  |Mac    |1 CPU    | 33.4s   | 33.4s  |tensorflow/mlp.py -m20|
-|           |            |       |2 CPUs   | 29.2s   | 50.6s  |tensorflow/mlp.py -m20 -t2|
-|           |Tiny-dnn    |Linux  |1 CPU    | 2m19s   | 2m18s  |tiny-dnn/mlp -m20|
-|           |Tiny-dnn+AVX|Linux  |1 CPU    | 1m34s   | 1m33s  |tiny-dnn/mlp -m20|
-|           |            |Mac    |1 CPU    | 2m17s   | 2m16s  |tiny-dnn/mlp -m20|
-|MNIST-cnn  |KANN+SSE    |Linux  |1 CPU    |57m57s   |57m53s  |mnist-cnn -v0 -t4 -m15|
-|           |            |       |4 CPUs   |19m09s   |68m17s  |mnist-cnn -v0 -t4 -m15|
-|           |Theano+Keras|Linux  |1 CPU    |37m12s   |37m09s  |OMP_NUM_THREADS=1 keras/mlp.py -Cm15 -v0|
-|           |            |       |4 CPUs   |24m24s   |97m22s  |OMP_NUM_THREADS=4 keras/mlp.py -Cm15 -v0|
-|           |Tiny-dnn+AVX|Linux  |1 CPU    |         |        |tiny-dnn/mlp -Cm15|
-|mul100-rnn |KANN+SSE    |Linux  |1 CPU    |40m05s   |40m02s  |rnn-bit -l2 -n160 -m25 -Nd0|
-|           |            |       |4 CPUs   |12m13s   |44m40s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
-|           |Theano+Keras|Linux  |1 CPU    |27m30s   |27m27s  |OMP_NUM_THREADS=1 keras/rnn-bit -l2 -n160 -m25|
-|           |            |       |4 CPUs   |19m52m   |77m45s  |OMP_NUM_THREADS=4 keras/rnn-bit -l2 -n160 -m25|
+* First of all, this benchmark only evaluates relatively small networks, but
+  in practice, it is huge networks on GPUs that really demonstrate the true
+  power of mainstream deep learning frameworks. *Please don't read too much into
+  the table*.
+
+* "Linux" has 48 cores on two Xeno E5-2697 CPUs at 2.7GHz. MKL, NumPy-1.12.0
+  and Theano-0.8.2 were installed with Conda; Keras-1.2.2 installed with pip.
+  The official TensorFlow-1.0.0 wheel does not work with Cent OS 6 on this
+  machine, due to glibc.
+
+* "Mac" has 4 cores on a Core i7-3667U CPU at 2GHz. MKL, NumPy and Theano came
+  with Conda, too. Keras-1.2.2 and Tensorflow-1.0.0 were installed with pip. On
+  both machines, Tiny-DNN was acquired from github on March 1st, 2017.
+
+* MNIST-mlp implements a simple MLP with one layer of 64 hidden neurons.
+  MNIST-cnn applies two convolutional layers with 32 3-by-3 kernels and ReLU
+  activation, followed by 2-by-2 max pooling and one 128-neuron dense layer.
+  Mul100-rnn uses two GRUs of size 160. Both input and output are 2-D
+  binary arrays of shape (14,2) -- 28 GRU operations for each of the 30000
+  training samples.
+
+|Task       |Framework    |Machine|Device   |Real time|CPU time|Command line |
+|:----------|:------------|:------|--------:|--------:|-------:|:------------|
+|MNIST-mlp  |KANN+SSE     |Linux  |1 CPU    | 31.3s   | 31.2s  |mlp -m20 -v0|
+|           |             |Mac    |1 CPU    | 27.1s   | 27.1s  ||
+|           |KANN+OpenBLAS|Linux  |1 CPU    | 18.8s   | 18.8s  ||
+|           |Theano+Keras |Linux  |1 CPU    | 33.7s   | 33.2s  |OMP_NUM_THREADS=1 keras/mlp.py -m20 -v0|
+|           |             |       |4 CPUs   | 32.0s   |121.3s  |OMP_NUM_THREADS=4 keras/mlp.py -m20 -v0|
+|           |             |Mac    |1 CPU    | 37.2s   | 35.2s  ||
+|           |             |       |2 CPUs   | 32.9s   | 62.0s  ||
+|           |TF+Keras     |Mac    |1-2 CPUs | 64.2s   |102.0s  |keras/mlp.py -m20|
+|           |TensorFlow   |Mac    |1 CPU    | 33.4s   | 33.4s  |tensorflow/mlp.py -m20|
+|           |             |       |2 CPUs   | 29.2s   | 50.6s  |tensorflow/mlp.py -m20 -t2|
+|           |Tiny-dnn     |Linux  |1 CPU    | 2m19s   | 2m18s  |tiny-dnn/mlp -m20|
+|           |Tiny-dnn+AVX |Linux  |1 CPU    | 1m34s   | 1m33s  |tiny-dnn/mlp -m20|
+|           |             |Mac    |1 CPU    | 2m17s   | 2m16s  |tiny-dnn/mlp -m20|
+|MNIST-cnn  |KANN+SSE     |Linux  |1 CPU    |57m57s   |57m53s  |mnist-cnn -v0 -t4 -m15|
+|           |             |       |4 CPUs   |19m09s   |68m17s  |mnist-cnn -v0 -t4 -m15|
+|           |Theano+Keras |Linux  |1 CPU    |37m12s   |37m09s  |OMP_NUM_THREADS=1 keras/mlp.py -Cm15 -v0|
+|           |             |       |4 CPUs   |24m24s   |97m22s  |OMP_NUM_THREADS=4 keras/mlp.py -Cm15 -v0|
+|           |Tiny-dnn+AVX |Linux  |1 CPU    |300m40s  |300m23s |tiny-dnn/mlp -Cm15|
+|Mul100-rnn |KANN+SSE     |Linux  |1 CPU    |40m05s   |40m02s  |rnn-bit -l2 -n160 -m25 -Nd0|
+|           |             |       |4 CPUs   |12m13s   |44m40s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
+|           |KANN+OpenBLAS|Linux  |1 CPU    |22m58s   |22m56s  |rnn-bit -l2 -n160 -m25 -Nd0|
+|           |             |       |4 CPUs   |8m18s    |31m26s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
+|           |Theano+Keras |Linux  |1 CPU    |27m30s   |27m27s  |OMP_NUM_THREADS=1 keras/rnn-bit -l2 -n160 -m25|
+|           |             |       |4 CPUs   |19m52m   |77m45s  |OMP_NUM_THREADS=4 keras/rnn-bit -l2 -n160 -m25|
+
+* In the single thread mode, Theano is about 50% faster than KANN probably due
+  to efficient matrix multiplication (aka. `sgemm`) implemented in MKL. As is
+  shown in a [previous micro-benchmark][matmul], MKL/OpenBLAS can be twice as
+  fast as the implementation in KANN.
+
+* KANN can optionally use the `sgemm` routine from a BLAS library (enabled by
+  macro `HAVE_CBLAS`). Linked against OpenBLAS-0.2.19, KANN matches the
+  single-thread performance of Theano on Mul100-rnn. KANN doesn't reduce
+  convolution to matrix multiplication, so MNIST-cnn won't benefit from
+  OpenBLAS. We observed that OpenBLAS is slower than the native KANN
+  implementation when we use a mini-batch of size 1. The cause is unknown.
+
+* KANN's intra-batch multi-threading model is better than Theano+Keras.
+  However, in its current form, this model probably won't get alone well with
+  GPUs.
 
 
 
@@ -194,6 +234,6 @@ int main(void)
 [ad]: https://en.wikipedia.org/wiki/Automatic_differentiation
 [dh]: https://en.wikipedia.org/wiki/Dependency_hell
 [ae]: https://en.wikipedia.org/wiki/Autoencoder
-[vae]: https://en.wikipedia.org/wiki/Autoencoder#Variational_autoencoder_.28VAE.29
 [tf]: https://www.tensorflow.org
 [td]: https://github.com/tiny-dnn/tiny-dnn
+[matmul]: https://github.com/attractivechaos/matmul
