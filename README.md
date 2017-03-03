@@ -52,8 +52,8 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 * CPU only. As such, KANN is **not** intended for training huge neural
   networks.
 
-* Bidirectional RNNs and seq2seq models require manual unrolling, which is
-  complex and tedious. No batch normalization.
+* No out-of-box bidirectional RNNs and seq2seq models. No batch
+  normalization.
 
 * Verbose APIs for training RNNs.
 
@@ -168,7 +168,8 @@ int main(void)
 * "Linux" has 48 cores on two Xeno E5-2697 CPUs at 2.7GHz. MKL, NumPy-1.12.0
   and Theano-0.8.2 were installed with Conda; Keras-1.2.2 installed with pip.
   The official TensorFlow-1.0.0 wheel does not work with Cent OS 6 on this
-  machine, due to glibc.
+  machine, due to glibc. This machine has one Tesla K40c GPU installed. We are
+  using by CUDA-7.0 and cuDNN-4.0 for training on GPU.
 
 * "Mac" has 4 cores on a Core i7-3667U CPU at 2GHz. MKL, NumPy and Theano came
   with Conda, too. Keras-1.2.2 and Tensorflow-1.0.0 were installed with pip. On
@@ -200,13 +201,14 @@ int main(void)
 |           |             |       |4 CPUs   |19m09s   |68m17s  |mnist-cnn -v0 -t4 -m15|
 |           |Theano+Keras |Linux  |1 CPU    |37m12s   |37m09s  |OMP_NUM_THREADS=1 keras/mlp.py -Cm15 -v0|
 |           |             |       |4 CPUs   |24m24s   |97m22s  |OMP_NUM_THREADS=4 keras/mlp.py -Cm15 -v0|
+|           |             |       |1 GPU    |2m57s    |        |keras/mlp.py -Cm15 -v0|
 |           |Tiny-dnn+AVX |Linux  |1 CPU    |300m40s  |300m23s |tiny-dnn/mlp -Cm15|
 |Mul100-rnn |KANN+SSE     |Linux  |1 CPU    |40m05s   |40m02s  |rnn-bit -l2 -n160 -m25 -Nd0|
 |           |             |       |4 CPUs   |12m13s   |44m40s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
 |           |KANN+OpenBLAS|Linux  |1 CPU    |22m58s   |22m56s  |rnn-bit -l2 -n160 -m25 -Nd0|
 |           |             |       |4 CPUs   |8m18s    |31m26s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
-|           |Theano+Keras |Linux  |1 CPU    |27m30s   |27m27s  |OMP_NUM_THREADS=1 keras/rnn-bit -l2 -n160 -m25|
-|           |             |       |4 CPUs   |19m52m   |77m45s  |OMP_NUM_THREADS=4 keras/rnn-bit -l2 -n160 -m25|
+|           |Theano+Keras |Linux  |1 CPU    |27m30s   |27m27s  |OMP_NUM_THREADS=1 keras/rnn-bit.py -l2 -n160 -m25|
+|           |             |       |4 CPUs   |19m52s   |77m45s  |OMP_NUM_THREADS=4 keras/rnn-bit.py -l2 -n160 -m25|
 
 * In the single thread mode, Theano is about 50% faster than KANN probably due
   to efficient matrix multiplication (aka. `sgemm`) implemented in MKL. As is

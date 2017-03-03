@@ -75,8 +75,6 @@ def main(argv):
 	x, x_rnames, x_cnames = mlp_data_read(args[0])
 	if len(args) >= 2: # training
 		y, y_rnames, y_cnames = mlp_data_read(args[1])
-		t_cpu = time.clock()
-		t_real = time.time()
 		model = Sequential()
 		if mnist_cnn:
 			x = x.reshape(x.shape[0], 1, 28, 28)
@@ -95,10 +93,12 @@ def main(argv):
 		else:
 			model.add(Dense(len(y[0]), activation='sigmoid'))
 			model.compile(loss='binary_crossentropy', optimizer=RMSprop(lr=lr), metrics=['accuracy'])
+		t_cpu = time.clock()
+		t_real = time.time()
 		model.fit(x, y, nb_epoch=n_epochs, batch_size=minibatch, validation_split=heldout)
-		if outfn: model.save(outfn)
 		sys.stderr.write("CPU time for training: {:.2f}\n".format(time.clock() - t_cpu))
 		sys.stderr.write("Real time for training: {:.2f}\n".format(time.time() - t_real))
+		if outfn: model.save(outfn)
 	elif len(args) == 1 and infn:
 		model = load_model(infn)
 		y = model.predict(x)
