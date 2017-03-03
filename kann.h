@@ -186,6 +186,7 @@ void kann_switch(kann_t *a, int is_train);
  */
 void kann_RMSprop(int n, float h0, const float *h, float decay, const float *g, float *t, float *r);
 
+void kann_shuffle(int n, int *s);
 float kann_grad_clip(float thres, int n, float *g);
 
 // common layers

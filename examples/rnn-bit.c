@@ -66,8 +66,8 @@ static bit_data_t *read_data(const char *fn)
 
 static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_epoch, const char *fn, int n_threads)
 {
-	float **x, **y, *r;
-	int epoch, j, n_var;
+	float **x, **y, *r, best_cost = 1e30f;
+	int epoch, j, n_var, *shuf;
 	kann_t *ua;
 
 	n_var = kann_size_var(ann);
@@ -78,6 +78,8 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 		x[j] = (float*)calloc(mini_size * d->n_in, sizeof(float));
 		y[j] = (float*)calloc(mini_size * 2, sizeof(float));
 	}
+	shuf = (int*)calloc(d->n, sizeof(int));
+	kann_shuffle(d->n, shuf);
 
 	ua = kann_unroll(ann, d->ulen);
 	kann_set_batch_size(ua, mini_size);
@@ -92,10 +94,11 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 			int i, b, k;
 			for (k = 0; k < d->ulen; ++k) {
 				for (b = 0; b < mini_size; ++b) {
+					int s = shuf[j + b];
 					for (i = 0; i < d->n_in; ++i)
-						x[k][b * d->n_in + i] = (float)(d->x[(j + b) * d->n_in + i] >> k & 1);
+						x[k][b * d->n_in + i] = (float)(d->x[s * d->n_in + i] >> k & 1);
 					y[k][b * 2] = y[k][b * 2 + 1] = 0.0f;
-					y[k][b * 2 + (d->y[j + b] >> k & 1)] = 1.0f;
+					y[k][b * 2 + (d->y[s] >> k & 1)] = 1.0f;
 				}
 			}
 			cost += kann_cost(ua, 0, 1) * d->ulen * mini_size;
@@ -105,14 +108,17 @@ static void train(kann_t *ann, bit_data_t *d, float lr, int mini_size, int max_e
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 			tot += d->ulen * mini_size;
 		}
+		if (cost < best_cost) {
+			best_cost = cost;
+			if (fn) kann_save(fn, ann);
+		}
 		fprintf(stderr, "epoch: %d; cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0f * n_cerr / tot_base);
-		if (fn) kann_save(fn, ann);
 	}
 
 	for (j = 0; j < d->ulen; ++j) {
 		free(y[j]); free(x[j]);
 	}
-	free(y); free(x); free(r);
+	free(y); free(x); free(r); free(shuf);
 }
 
 int main(int argc, char *argv[])
