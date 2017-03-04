@@ -181,7 +181,7 @@ int main(void)
 |:----------|:------------|:------|--------:|--------:|-------:|:------------|
 |mnist-mlp  |KANN+SSE     |Linux  |1 CPU    | 31.3s   | 31.2s  |mlp -m20 -v0|
 |           |             |Mac    |1 CPU    | 27.1s   | 27.1s  ||
-|           |KANN+OpenBLAS|Linux  |1 CPU    | 18.8s   | 18.8s  ||
+|           |KANN+BLAS    |Linux  |1 CPU    | 18.8s   | 18.8s  ||
 |           |Theano+Keras |Linux  |1 CPU    | 33.7s   | 33.2s  |keras/mlp.py -m20 -v0|
 |           |             |       |4 CPUs   | 32.0s   |121.3s  ||
 |           |             |Mac    |1 CPU    | 37.2s   | 35.2s  ||
@@ -199,9 +199,9 @@ int main(void)
 |           |Tiny-dnn+AVX |Linux  |1 CPU    |300m40s  |300m23s |tiny-dnn/mlp -Cm15|
 |mul100-rnn |KANN+SSE     |Linux  |1 CPU    |40m05s   |40m02s  |rnn-bit -l2 -n160 -m25 -Nd0|
 |           |             |       |4 CPUs   |12m13s   |44m40s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
-|           |KANN+OpenBLAS|Linux  |1 CPU    |22m58s   |22m56s  |rnn-bit -l2 -n160 -m25 -Nd0|
+|           |KANN+BLAS    |Linux  |1 CPU    |22m58s   |22m56s  |rnn-bit -l2 -n160 -m25 -Nd0|
 |           |             |       |4 CPUs   |8m18s    |31m26s  |rnn-bit -l2 -n160 -t4 -m25 -Nd0|
-|           |Theano+Keras |Linux  |1 CPU    |27m30s   |27m27s  |keras/rnn-bit.py -l2 -n160 -m25|
+|           |Theano+Keras |Linux  |1 CPU    |27m30s   |27m27s  |rnn-bit.py -l2 -n160 -m25|
 |           |             |       |4 CPUs   |19m52s   |77m45s  ||
 
 * In the single thread mode, Theano is about 50% faster than KANN probably due
