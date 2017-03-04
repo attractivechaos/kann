@@ -61,8 +61,8 @@ like the python version.
 ### Character-level text generation with RNN
 
 Implemented in [textgen.c](textgen.c). This is not a standard model in that the
-initial hidden states depend on the previous output. It tends to memorize short
-text better.
+initial hidden states depend on the previous output. It tends to memorize text
+better.
 ```sh
 ./textgen -o acc.kan accelerando.txt
 ./textgen -i acc.kan
@@ -70,7 +70,7 @@ text better.
 You can also found a bigger model in kann-models. It can generate meaningful
 text even with near-to-zero temperature.
 ```sh
-./textgen -i acc-l3-n256r.kan -T 1e-6
+./textgen -i kann-models/acc-l3-n256r.kan -T 1e-6
 ```
 
 [data]: https://github.com/attractivechaos/kann
