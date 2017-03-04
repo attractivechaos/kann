@@ -1,7 +1,11 @@
 ## Examples Using KANN
 
 Data used for these examples and pre-trained KANN models from the data can be
-downloaded from [this link][data].
+downloaded from [this link][data]:
+```sh
+curl -s https://github.com/attractivechaos/kann/releases/download/v0/kann-data.tgz | tar -zxf -
+curl -s https://github.com/attractivechaos/kann/releases/download/v0/kann-models.tgz | tar -zxf -
+```
 
 ### Multi-layer perceptron
 
@@ -73,4 +77,4 @@ text even with near-to-zero temperature.
 ./textgen -i kann-models/acc-l3-n256r.kan -T 1e-6
 ```
 
-[data]: https://github.com/attractivechaos/kann
+[data]: https://github.com/attractivechaos/kann/releases/tag/v0
