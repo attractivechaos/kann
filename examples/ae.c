@@ -10,9 +10,7 @@ static kann_t *model_gen(int n_in, int n_hidden, float i_dropout)
 {
 	kad_node_t *x, *t, *w, *r;
 	w = kann_new_weight(n_hidden, n_in);
-	r = kad_var(0, 0, 0);
-	r->x = (float*)calloc(1, sizeof(float));
-	r->x[0] = sqrtf((float)n_in / n_hidden);
+	r = kann_new_scalar(KAD_VAR, sqrtf((float)n_in / n_hidden));
 	x = kad_feed(2, 1, n_in), x->ext_flag |= KANN_F_IN | KANN_F_TRUTH;
 	t = kann_layer_dropout(x, i_dropout);
 	t = kad_tanh(kad_add(kad_cmul(t, w), kann_new_bias(n_hidden)));
