@@ -14,14 +14,22 @@
 
 ## Overview
 
-The KANN library consists of two components. The first is a computational graph
-that enables automatic differentiation. It is implemented in the `kautodiff.*`
-files with struct and API names prefixed with `kad_`. The second component is
-built on top of computational graphs. It provides more convenient ways to
-construct neural networks and routines for accessing and training the networks.
-This component is implemented in `kann.*` files with struct and API names
-prefixed with `kann_`. A program calling KANN APIs is expected to use both
-components.
+In KANN, every neural network is modeled by a computation graph. A computation
+graph represents one or multiple mathematical expressions. It is a directed
+acyclic graph, where an external node represents a constant or a variable used
+in the expressions; an internal node represents an operator (e.g. plus) or a
+function (e.g. exponential); an edge from node `u` to `v` indicates `u` being
+an operand of `v`.
+
+Files `kautodiff.*` implement computation graphs and symbol-to-number
+reverse-mode automatic differentiation. Users construct a graph by composing
+math expressions with operators defined in the library, and then use the graph
+to compute values and partial derivatives of a scalar function. With
+`kautodiff.*`, users are required to explicitly define and manage every
+variable. File `kann.*` simplify this procedure. This part provides layers that
+do not expose variables associated with one or multiple operators, though this
+sometimes limits the flexibility. A program is expected to call both
+`kautodiff.*` and `kann.*` APIs.
 
 
 
