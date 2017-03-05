@@ -25,10 +25,10 @@ Files `kautodiff.*` implement computation graphs and symbol-to-number
 reverse-mode automatic differentiation. Users construct a graph by composing
 math expressions with operators defined in the library, and then use the graph
 to compute values and partial derivatives of a scalar function. With
-`kautodiff.*`, users are required to explicitly define and manage every
-variable. File `kann.*` simplify this procedure. This part provides layers that
-do not expose variables associated with one or multiple operators, though this
-sometimes limits the flexibility. A program is expected to call both
+`kautodiff.*`, users are required to explicitly define and manage every node.
+Files `kann.*` simplify this procedure. This part provides layers that can
+specify multiple nodes at the same time by not exposing variables associated
+with one or multiple operators. A program is expected to call both
 `kautodiff.*` and `kann.*` APIs.
 
 
