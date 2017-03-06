@@ -106,7 +106,7 @@ Working with complex models requires to use low-level APIs. Please see
 This example learns to count the number of "1" bits in an integer (i.e.
 popcount):
 ```c
-// to compile and run: gcc -O2 this-prog.c kann.c kautodiff.c && ./a.out
+// to compile and run: gcc -O2 this-prog.c kann.c kautodiff.c -lm && ./a.out
 #include <stdlib.h>
 #include <stdio.h>
 #include "kann.h"
