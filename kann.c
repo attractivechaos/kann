@@ -398,7 +398,7 @@ void kann_switch(kann_t *ann, int is_train)
 #else
 void kann_mt(kann_t *ann, int n_threads, int max_batch_size) {}
 float kann_cost(kann_t *a, int cost_label, int cal_grad) { return kann_cost_core(a, cost_label, cal_grad); }
-float kann_class_error(const kann_t *a, int *base) { return kann_class_error_core(a, base); }
+int kann_class_error(const kann_t *a, int *base) { return kann_class_error_core(a, base); }
 void kann_switch(kann_t *ann, int is_train) { return kann_switch_core(ann, is_train); }
 #endif
 
