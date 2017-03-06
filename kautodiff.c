@@ -943,7 +943,7 @@ void *kad_rng(void)
 }
 
 uint64_t kad_rand(void *d) { return kad_xoroshiro128plus_next(d? (kad_rng_t*)d : &kad_rng_dat); }
-static inline double kad_int2double(uint64_t x) { const union { uint64_t i; double d; } u = { .i = 0x3FFULL << 52 | x >> 12 }; return u.d - 1.0; }
+static inline double kad_int2double(uint64_t x) { const union { uint64_t i; double d; } u = { 0x3FFULL << 52 | x >> 12 }; return u.d - 1.0; }
 double kad_drand(void *d) { return kad_int2double(kad_xoroshiro128plus_next(d? (kad_rng_t*)d : &kad_rng_dat)); }
 
 double kad_drand_normal(void *d)
