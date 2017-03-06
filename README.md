@@ -120,7 +120,7 @@ int main(void)
 	// construct an MLP with one hidden layers
 	t = kann_layer_input(max_bit);
 	t = kad_relu(kann_layer_linear(t, 64));
-	t = kann_layer_cost(t, max_bit, KANN_C_CEM); // output uses 1-hot encoding
+	t = kann_layer_cost(t, max_bit + 1, KANN_C_CEM); // output uses 1-hot encoding
 	ann = kann_new(t, 0);
 	// generate training data
 	x = (float**)calloc(n_samples, sizeof(float*));
@@ -128,10 +128,10 @@ int main(void)
 	for (i = 0; i < n_samples; ++i) {
 		int c, a = kad_rand(0) & (mask>>1);
 		x[i] = (float*)calloc(max_bit, sizeof(float));
-		y[i] = (float*)calloc(max_bit, sizeof(float));
+		y[i] = (float*)calloc(max_bit + 1, sizeof(float));
 		for (k = c = 0; k < max_bit; ++k)
 			x[i][k] = (float)(a>>k&1), c += (a>>k&1);
-		y[i][c] = 1.0f;
+		y[i][c] = 1.0f; // c is ranged from 0 to max_bit inclusive
 	}
 	// train
 	kann_train_fnn1(ann, 0.001f, 64, 50, 10, 0.1f, n_samples, x, y);
@@ -143,7 +143,7 @@ int main(void)
 		for (k = c = 0; k < max_bit; ++k)
 			x1[k] = (float)(a>>k&1), c += (a>>k&1);
 		y1 = kann_apply1(ann, x1);
-		for (k = 0, max_k = -1, max = -1.0f; k < max_bit; ++k) // find the max
+		for (k = 0, max_k = -1, max = -1.0f; k <= max_bit; ++k) // find the max
 			if (max < y1[k]) max = y1[k], max_k = k;
 		if (max_k != c) ++n_err;
 	}
