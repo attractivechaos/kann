@@ -639,9 +639,9 @@ kad_node_t **kad_load(FILE *fp, int *_n_node)
 	return node;
 }
 
-/**************
- * Unroll RNN *
- **************/
+/***************
+ * Graph clone *
+ ***************/
 
 static inline kad_node_t *kad_dup1(const kad_node_t *p)
 {
@@ -688,96 +688,106 @@ kad_node_t **kad_clone(int n, kad_node_t **v, int batch_size)
 	return u;
 }
 
-int kad_unrollable(int n, kad_node_t *const* v)
+/**************
+ * Unroll RNN *
+ **************/
+
+typedef struct {
+	int32_t n, m;
+	kad_node_t **v;
+} nodes_t;
+
+static inline void push_nodes(nodes_t *w, kad_node_t *p)
 {
-	int i, has_pivot = 0, has_recur = 0;
-	for (i = 0; i < n; ++i) {
-		if (kad_is_pivot(v[i])) has_pivot = 1;
-		if (v[i]->pre) has_recur = 1;
+	if (w->n == w->m) {
+		w->m = w->m? w->m<<1 : 16;
+		w->v = (kad_node_t**)realloc(w->v, w->m * sizeof(kad_node_t*));
 	}
-	return (has_pivot && has_recur);
+	w->v[w->n++] = p;
 }
 
-kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n)
+static void kad_unroll_helper(int n_v, kad_node_t **v, int i_pivot, kad_node_t **t, int len, nodes_t *w)
 {
-	int i, j, k, l, k0;
-	short *flag;
-	kad_node_t **w, **alt, **aux;
+	int i, j, l;
+	uint8_t *flag;
+	kad_node_t **aux;
 
-	// set flags and check if the graph is unrollable
-	flag = (short*)calloc(n_v, sizeof(short));
-	for (i = 0; i < n_v; ++i) {
-		v[i]->tmp = i;
-		if (kad_is_var(v[i]) || kad_is_const(v[i])) flag[i] |= 1; // external nodes that should not be duplicated
+	assert(kad_is_pivot(v[i_pivot]) && t[i_pivot] == 0);
+	t[i_pivot] = kad_dup1(v[i_pivot]);
+	t[i_pivot]->n_child = len;
+	t[i_pivot]->child = (kad_node_t**)realloc(t[i_pivot]->child, len * sizeof(kad_node_t*));
+
+	flag = (uint8_t*)calloc(n_v, 1);
+	for (i = i_pivot, flag[i] = 16; i >= 0; --i)
+		if (flag[i]&16)
+			for (j = 0; j < v[i]->n_child; ++j)
+				flag[v[i]->child[j]->tmp] = 16;
+	for (i = 0; i < i_pivot; ++i) {
+		if (!(flag[i]&16)) continue;
+		if (kad_is_var(v[i]) || kad_is_const(v[i]) || kad_is_pivot(v[i])) flag[i] |= 1; // external nodes that should not be duplicated
 		if (v[i]->pre) flag[v[i]->pre->tmp] |= 2;
-		if (kad_is_pivot(v[i])) {
-			flag[v[i]->child[0]->tmp] |= 4; // parent is a pooling node
-			flag[i] |= 8;
-		}
-		for (j = 0; j < v[i]->n_child; ++j)
-			if (flag[v[i]->child[j]->tmp]&8) flag[i] |= 8; // a node that can't be unrolled
 	}
-
-	// unroll unrollable nodes
-	w = (kad_node_t**)calloc(n_v * len, sizeof(kad_node_t*));
-	alt = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
+	flag[v[i_pivot]->child[0]->tmp] |= 4;
 	aux = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
-	if (!kad_unrollable(n_v, v)) len = 1; // if not unrollable, we are duplicating the whole graph
-	for (l = k = 0; l < len; ++l) {
-		for (i = 0; i < n_v; ++i) {
-			if (flag[i]&8) continue;
-			if (l > 0 && (flag[i]&3)) continue;
-			w[k] = kad_dup1(v[i]);
-			if (w[k]->n_child) {
-				w[k]->x = w[k]->g = 0;
-				for (j = 0; j < w[k]->n_child; ++j)
-					w[k]->child[j] = alt[v[i]->child[j]->tmp];
-			}
-			w[k]->tmp = (flag[i]&4)? i : -1;
-			if (l == 0 && (flag[i]&2)) aux[i] = w[k];
+	for (l = 0; l < len; ++l) {
+		for (i = 0; i < i_pivot; ++i) {
+			if (!(flag[i]&16) || ((flag[i]&3) && t[i])) continue;
+			t[i] = kad_dup1(v[i]);
+			if (v[i]->n_child)
+				for (j = 0; j < v[i]->n_child; ++j)
+					t[i]->child[j] = t[v[i]->child[j]->tmp];
+			if (flag[i]&4) t[i_pivot]->child[l] = t[i];
+			if (l == 0 && (flag[i]&2)) aux[i] = t[i];
 			if (v[i]->pre) {
-				alt[v[i]->pre->tmp] = w[k];
-				if (l == len - 1) w[k]->pre = aux[v[i]->pre->tmp]; // this forms a cycle!
+				t[v[i]->pre->tmp] = t[i];
+				if (l == len - 1) t[i]->pre = aux[v[i]->pre->tmp]; // this forms a cycle!
 			}
-			alt[i] = w[k++];
+			push_nodes(w, t[i]);
 		}
 	}
-	free(aux);
-	k0 = k;
+	push_nodes(w, t[i_pivot]);
+	free(aux); free(flag);
+}
 
-	// unroll the rest of nodes
-	for (i = 0; i < n_v; ++i) {
-		if (!(flag[i]&8)) continue;
-		assert(v[i]->pre == 0);
-		w[k] = kad_dup1(v[i]);
-		if (kad_is_pivot(v[i])) {
-			w[k]->n_child = len, w[k]->tmp = 0;
-			w[k]->child = (kad_node_t**)realloc(w[k]->child, len * sizeof(kad_node_t*));
-			memset(w[k]->child, 0, len * sizeof(kad_node_t*));
-		} else if (w[k]->n_child) {
-			w[k]->x = w[k]->g = 0;
-			for (j = 0; j < w[k]->n_child; ++j)
-				w[k]->child[j] = alt[v[i]->child[j]->tmp];
-		}
-		alt[i] = w[k++];
-	}
-
-	// pool
+int kad_n_pivots(int n_v, kad_node_t **v)
+{
+	int i, n_pivots = 0;
 	for (i = 0; i < n_v; ++i)
-		if (kad_is_pivot(v[i]))
-			alt[v[i]->child[0]->tmp] = alt[i];
-	for (i = 0; i < k0; ++i)
-		if (w[i]->tmp >= 0) {
-			kad_node_t *q = alt[w[i]->tmp];
-			q->child[q->tmp++] = w[i];
-		}
-	for (i = 0; i < k; ++i) w[i]->tmp = 0;
-	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
+		if (kad_is_pivot(v[i])) ++n_pivots;
+	return n_pivots;
+}
 
-	free(alt); free(flag);
-	kad_allocate_internal(k, w);
-	*new_n = k;
-	return w;
+kad_node_t **kad_unroll(int n_v, kad_node_t **v, int *new_n, int *len)
+{
+	int i, j, n_pivots = 0;
+	kad_node_t **t;
+	nodes_t w = {0,0,0};
+
+	t = (kad_node_t**)calloc(n_v, sizeof(kad_node_t*));
+	n_pivots = kad_n_pivots(n_v, v);
+	for (i = 0; i < n_v; ++i) v[i]->tmp = i;
+	if (n_pivots) {
+		int k, *i_pivots;
+		i_pivots = (int*)calloc(n_pivots, sizeof(int));
+		for (i = k = 0; i < n_v; ++i) // collect pivots
+			if (kad_is_pivot(v[i])) i_pivots[k++] = i;
+		for (i = 0; i < n_pivots; ++i) // unroll each pivot, from the lowest to the highest
+			kad_unroll_helper(n_v, v, i_pivots[i], t, len[i], &w);
+		free(i_pivots);
+	}
+	for (i = 0; i < n_v; ++i) { // copy over the rest of nodes
+		if (t[i]) continue;
+		t[i] = kad_dup1(v[i]);
+		if (v[i]->n_child)
+			for (j = 0; j < v[i]->n_child; ++j)
+				t[i]->child[j] = t[v[i]->child[j]->tmp];
+		push_nodes(&w, t[i]);
+	}
+	free(t);
+	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
+	kad_allocate_internal(w.n, w.v);
+	*new_n = w.n;
+	return w.v;
 }
 
 /********************************

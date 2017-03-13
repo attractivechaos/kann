@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r511"
+#define KAD_VERSION "r512"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -120,30 +120,17 @@ int kad_sync_dim(int n, kad_node_t **v, int batch_size);
 void kad_grad(int n, kad_node_t **a, int from);
 
 /**
- * Test if a computational graph can be unrolled
- *
- * A graph is unrollable if and only if: 1) it has a recurrent node (i.e.
- * kad_node_t::pre is not NULL) and 2) it has a pooling node (i.e.
- * kad_node_t::op is either kad_avg or kad_max) with exactly one child.
- *
- * @param n       number of nodes
- * @param v       list of nodes
- *
- * @return 1 if the graph can be unrolled or 0 otherwise
- */
-int kad_unrollable(int n, kad_node_t *const* v);
-
-/**
  * Unroll a recurrent computation graph
  *
  * @param n_v     number of nodes
  * @param v       list of nodes
- * @param len     how many times to unroll
  * @param new_n   number of nodes in the unrolled graph (out)
+ * @param len     how many times to unroll, one for each pivot
  *
  * @return list of nodes in the unrolled graph
  */
-kad_node_t **kad_unroll(int n_v, kad_node_t **v, int len, int *new_n);
+kad_node_t **kad_unroll(int n_v, kad_node_t **v, int *new_n, int *len);
+int kad_n_pivots(int n_v, kad_node_t **v);
 
 kad_node_t **kad_clone(int n, kad_node_t **v, int batch_size);
 
