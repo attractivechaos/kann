@@ -229,8 +229,10 @@ static kad_node_t *kad_pooling_general(int op, int n, kad_node_t **x)
 	return kad_finalize_node(s);
 }
 
-kad_node_t *kad_avg(int n, kad_node_t **x) { return kad_pooling_general(10, n, x); }
-kad_node_t *kad_max(int n, kad_node_t **x) { return kad_pooling_general(21, n, x); }
+kad_node_t *kad_avg(int n, kad_node_t **x)   { return kad_pooling_general(10, n, x); }
+kad_node_t *kad_max(int n, kad_node_t **x)   { return kad_pooling_general(21, n, x); }
+kad_node_t *kad_last(int n, kad_node_t **x)  { return kad_pooling_general(35, n, x); }
+kad_node_t *kad_stack(int n, kad_node_t **x) { return kad_pooling_general(36, n, x); }
 
 /////////// Dimension reduction ///////////
 
@@ -1746,6 +1748,52 @@ int kad_op_max(kad_node_t *p, int action)
 	return 0;
 }
 
+int kad_op_last(kad_node_t *p, int action)
+{
+	int i, n;
+	kad_node_t *q;
+
+	assert(p->n_child > 0);
+	q = p->child[p->n_child - 1];
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		for (i = 0; i < p->n_child - 1; ++i)
+			if (kad_len(p->child[i]) != n) return -1;
+		kad_copy_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		memcpy(p->x, q->x, n * sizeof(float));
+	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
+		kad_saxpy(n, 1.0f, p->g, q->g);
+	}
+	return 0;
+}
+
+int kad_op_stack(kad_node_t *p, int action) // TODO: allow axis, as in TensorFlow
+{
+	int i, n, axis = 0;
+	kad_node_t *q;
+
+	assert(p->n_child > 0);
+	q = p->child[0];
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		for (i = 1; i < p->n_child; ++i)
+			if (kad_len(p->child[i]) != n) return -1;
+		p->n_d = q->n_d + 1;
+		for (i = 0; i < axis; ++i) p->d[i] = q->d[i];
+		p->d[axis] = p->n_child;
+		for (; i < q->n_d; ++i) p->d[i+1] = q->d[i];
+	} else if (action == KAD_FORWARD) { // TODO: doesn't work when axis != 0
+		for (i = 0; i < p->n_child; ++i)
+			memcpy(&p->x[i * n], p->child[i]->x, n * sizeof(float));
+	} else if (action == KAD_BACKWARD) {
+		for (i = 0; i < p->n_child; ++i)
+			if (kad_is_back(p->child[i]))
+				kad_saxpy(n, 1.0f, &p->g[i * n], p->child[i]->g);
+	}
+	return 0;
+}
+
 /////////// 2D convolution ///////////
 
 static void conv_rot180(int d0, int d1, float *x) // rotate/reverse a weight martix
@@ -2187,7 +2235,9 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_concat,     // 31
 	kad_op_stdnorm,    // 32: layer normalization
 	kad_op_exp,        // 33: exp()
-	kad_op_sin         // 34: sin()
+	kad_op_sin,        // 34: sin()
+	kad_op_last,       // 35: general last pooling (take the last element in the input)
+	kad_op_stack       // 36: see TensorFlow's tf.stack
 };
 
 /**************************
@@ -2205,7 +2255,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "switch", "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
-								"avg1d", "mse", "reshape", "concat", "stdnorm", "exp" };
+								"avg1d", "mse", "reshape", "concat", "stdnorm", "exp", "sin", "last", "stack" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {

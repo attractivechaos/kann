@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r512"
+#define KAD_VERSION "r513"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -178,8 +178,10 @@ kad_node_t *kad_sin(kad_node_t *x);    // f(x) = sin(x)
 kad_node_t *kad_stdnorm(kad_node_t *x); // layer normalization
 
 // operators taking an indefinite number of operands (e.g. pooling)
-kad_node_t *kad_avg(int n, kad_node_t **x); // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
-kad_node_t *kad_max(int n, kad_node_t **x); // f(x_1,...,x_n) = max{x_1,...,x_n}  (max pooling)
+kad_node_t *kad_avg(int n, kad_node_t **x);   // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
+kad_node_t *kad_max(int n, kad_node_t **x);   // f(x_1,...,x_n) = max{x_1,...,x_n}  (max pooling)
+kad_node_t *kad_last(int n, kad_node_t **x);  // f(x_1,...,x_n) = x_n               ("last" pooling)
+kad_node_t *kad_stack(int n, kad_node_t **x); // f(x_1,...,x_n) = [x_1,...,x_n]     (stack pooling)
 
 // dimension reduction
 kad_node_t *kad_reduce_sum(kad_node_t *x, int dim);   // reduce dimension by 1 at dimension _dim_ (similar to TensorFlow's reduce_sum())
