@@ -1517,10 +1517,10 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 	kad_node_t *y0 = p->child[1]; // truth
 	int i, j, n1, d0;
 
-	d0 = y0->n_d > 1? y0->d[0] : 1;
-	n1 = kad_len(y0) / d0;
+	n1 = y0->d[y0->n_d - 1];
+	d0 = kad_len(y0) / n1;
 	if (action == KAD_SYNC_DIM) {
-		if (kad_len(y0) != kad_len(y1) || y0->d[0] != y1->d[0]) return -1;
+		if (kad_len(y0) != kad_len(y1) || y0->d[y0->n_d - 1] != y1->d[y1->n_d - 1]) return -1;
 		p->n_d = 0;
 	} else if (action == KAD_FORWARD) {
 		double cost = 0.0;
@@ -1549,8 +1549,8 @@ int kad_op_stdnorm(kad_node_t *p, int action)
 	int i, j, n, m;
 	kad_node_t *q = p->child[0];
 	assert(q->n_d > 0);
-	if (q->n_d == 1) m = 1, n = kad_len(q);
-	else m = q->d[0], n = kad_len(q) / m;
+	n = q->d[q->n_d - 1];
+	m = kad_len(q) / n;
 	if (action == KAD_SYNC_DIM) {
 		kad_copy_dim1(p, q);
 	} else if (action == KAD_ALLOC) {
@@ -1665,8 +1665,8 @@ int kad_op_softmax(kad_node_t *p, int action)
 	int i, j, n1, d0;
 	kad_node_t *q = p->child[0];
 
-	d0 = q->n_d > 1? q->d[0] : 1;
-	n1 = kad_len(q) / d0;
+	n1 = q->d[q->n_d - 1];
+	d0 = kad_len(q) / n1;
 	if (action == KAD_SYNC_DIM) {
 		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {

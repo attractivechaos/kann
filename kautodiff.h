@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r513"
+#define KAD_VERSION "r514"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -147,8 +147,9 @@ kad_node_t *kad_mul(kad_node_t *x, kad_node_t *y); // f(x,y) = x * y (generalize
 kad_node_t *kad_matmul(kad_node_t *x, kad_node_t *y);     // f(x,y) = x * y   (general matrix product)
 kad_node_t *kad_cmul(kad_node_t *x, kad_node_t *y);       // f(x,y) = x * y^T (column-wise matrix product; i.e. y is transposed)
 
+// loss functions; output scalar
 kad_node_t *kad_mse(kad_node_t *x, kad_node_t *y);        // mean square error
-kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y);   // multi-class cross-entropy; output is a scalar; x is the preidction and y is the truth
+kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y);   // multi-class cross-entropy; x is the preidction and y is the truth
 kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);     // binary cross-entropy for (0,1)
 kad_node_t *kad_ce_bin_neg(kad_node_t *x, kad_node_t *y); // binary cross-entropy for (-1,1)
 
@@ -169,13 +170,13 @@ kad_node_t *kad_square(kad_node_t *x); // f(x) = x^2                         (el
 kad_node_t *kad_sigm(kad_node_t *x);   // f(x) = 1/(1+exp(-x))               (element-wise sigmoid)
 kad_node_t *kad_tanh(kad_node_t *x);   // f(x) = (1-exp(-2x)) / (1+exp(-2x)) (element-wise tanh)
 kad_node_t *kad_relu(kad_node_t *x);   // f(x) = max{0,x}                    (element-wise rectifier, aka ReLU)
-kad_node_t *kad_softmax(kad_node_t *x);// f_i(x_1,...,x_n) = exp(x_i) / \sum_j exp(x_j) (softmax)
+kad_node_t *kad_softmax(kad_node_t *x);// f_i(x_1,...,x_n) = exp(x_i) / \sum_j exp(x_j) (softmax: tf.nn.softmax(x,dim=-1))
 kad_node_t *kad_1minus(kad_node_t *x); // f(x) = 1 - x
 kad_node_t *kad_exp(kad_node_t *x);    // f(x) = exp(x)
 kad_node_t *kad_log(kad_node_t *x);    // f(x) = log(x)
 kad_node_t *kad_sin(kad_node_t *x);    // f(x) = sin(x)
 
-kad_node_t *kad_stdnorm(kad_node_t *x); // layer normalization
+kad_node_t *kad_stdnorm(kad_node_t *x); // layer normalization; applied to the last dimension
 
 // operators taking an indefinite number of operands (e.g. pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x);   // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
