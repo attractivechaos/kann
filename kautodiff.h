@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r514"
+#define KAD_VERSION "r515"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -181,19 +181,19 @@ kad_node_t *kad_stdnorm(kad_node_t *x); // layer normalization; applied to the l
 // operators taking an indefinite number of operands (e.g. pooling)
 kad_node_t *kad_avg(int n, kad_node_t **x);   // f(x_1,...,x_n) = \sum_i x_i/n      (mean pooling)
 kad_node_t *kad_max(int n, kad_node_t **x);   // f(x_1,...,x_n) = max{x_1,...,x_n}  (max pooling)
-kad_node_t *kad_last(int n, kad_node_t **x);  // f(x_1,...,x_n) = x_n               ("last" pooling)
 kad_node_t *kad_stack(int n, kad_node_t **x); // f(x_1,...,x_n) = [x_1,...,x_n]     (stack pooling)
+kad_node_t *kad_select(int n, kad_node_t **x, int which); // f(x_1,...,x_n;i) = x_i (select pooling; -1 for the last)
 
 // dimension reduction
-kad_node_t *kad_reduce_sum(kad_node_t *x, int dim);   // reduce dimension by 1 at dimension _dim_ (similar to TensorFlow's reduce_sum())
-kad_node_t *kad_reduce_mean(kad_node_t *x, int dim);
+kad_node_t *kad_reduce_sum(kad_node_t *x, int axis);  // tf.reduce_sum(x, axis)
+kad_node_t *kad_reduce_mean(kad_node_t *x, int axis); // tf.reduce_mean(x, axis)
 
 // special operators
-kad_node_t *kad_slice(kad_node_t *x, int dim, int start, int end); // take a slice on the dim-th dimension
-kad_node_t *kad_concat(int dim, int n, ...);                       // concatenate on the dim-th dimension
-kad_node_t *kad_concat_array(int dim, int n, kad_node_t **p);      // the array version of concat
-kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d);           // reshape; similar behavior to TensorFlow's reshape()
-kad_node_t *kad_switch(int n, kad_node_t **p);                     // manually (as a hyperparameter) choose one input, default to 0
+kad_node_t *kad_slice(kad_node_t *x, int axis, int start, int end); // take a slice on the axis-th dimension
+kad_node_t *kad_concat(int axis, int n, ...);                       // concatenate on the axis-th dimension
+kad_node_t *kad_concat_array(int axis, int n, kad_node_t **p);      // the array version of concat
+kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d);            // reshape; similar behavior to TensorFlow's reshape()
+kad_node_t *kad_switch(int n, kad_node_t **p);                      // manually (as a hyperparameter) choose one input, default to 0
 
 // miscellaneous operations on a compiled graph
 int kad_size_var(int n, kad_node_t *const* v);   // total size of all variables
