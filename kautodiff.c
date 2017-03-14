@@ -331,8 +331,18 @@ kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d)
 		for (i = 0; i < n_d; ++i) aux[i] = d? d[i] : -1;
 	}
 	s = kad_new_core(0, 30, 1);
-	s->child[0] = x;
-	s->ptr = aux, s->ptr_size = n_d * 4;
+	s->child[0] = x, s->ptr = aux, s->ptr_size = n_d * 4;
+	return kad_finalize_node(s);
+}
+
+kad_node_t *kad_reverse(kad_node_t *x, int axis)
+{
+	kad_node_t *s;
+	int32_t *aux;
+	aux = (int32_t*)malloc(4);
+	*aux = axis;
+	s = kad_new_core(0, 36, 1);
+	s->child[0] = x, s->ptr = aux, s->ptr_size = 4;
 	return kad_finalize_node(s);
 }
 
@@ -1409,26 +1419,27 @@ int kad_op_reshape(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_select(kad_node_t *p, int action)
+int kad_op_reverse(kad_node_t *p, int action) // TODO: not tested
 {
-	kad_node_t *q;
-	int i, n, which;
+	kad_node_t *q = p->child[0];
+	int axis, i, j, n, d0, d1;
 
-	which = *(int32_t*)p->ptr;
-	if (which < 0) which += p->n_child;
-	assert(which >= 0 && which < p->n_child);
-	q = p->child[which];
-	n = kad_len(q);
+	axis = p->ptr? *(int32_t*)p->ptr : 0;
+	if (axis < 0) axis += p->n_d;
+	assert(axis >= 0 && axis < p->n_d);
+	for (i = 0, d0 = 1; i < axis; ++i) d0 *= q->d[i];
+	n = q->d[axis];
+	for (i = axis + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
 	if (action == KAD_SYNC_DIM) {
-		for (i = 0; i < p->n_child; ++i)
-			if (p->child[i]->n_d != q->n_d || kad_len(p->child[i]) != n)
-				break;
-		if (i < p->n_child) return -1;
 		kad_copy_dim1(p, q);
 	} else if (action == KAD_FORWARD) {
-		memcpy(p->x, q->x, n * sizeof(float));
+		for (i = 0; i < d0; ++i)
+			for (j = 0; j < n; ++j)
+				memcpy(&p->x[(i * n + n - 1 - j) * d1], &q->x[(i * n + j) * d1], d1 * sizeof(float));
 	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
-		kad_saxpy(n, 1.0f, p->g, q->g);
+		for (i = 0; i < d0; ++i)
+			for (j = 0; j < n; ++j)
+				kad_saxpy(d1, 1.0f, &p->g[(i * n + n - 1 - j) * d1], &q->g[(i * n + j) * d1]);
 	}
 	return 0;
 }
@@ -1782,6 +1793,30 @@ int kad_op_stack(kad_node_t *p, int action) // TODO: allow axis, as in TensorFlo
 		for (i = 0; i < p->n_child; ++i)
 			if (kad_is_back(p->child[i]))
 				kad_saxpy(n, 1.0f, &p->g[i * n], p->child[i]->g);
+	}
+	return 0;
+}
+
+int kad_op_select(kad_node_t *p, int action)
+{
+	kad_node_t *q;
+	int i, n, which;
+
+	which = *(int32_t*)p->ptr;
+	if (which < 0) which += p->n_child;
+	assert(which >= 0 && which < p->n_child);
+	q = p->child[which];
+	n = kad_len(q);
+	if (action == KAD_SYNC_DIM) {
+		for (i = 0; i < p->n_child; ++i)
+			if (p->child[i]->n_d != q->n_d || kad_len(p->child[i]) != n)
+				break;
+		if (i < p->n_child) return -1;
+		kad_copy_dim1(p, q);
+	} else if (action == KAD_FORWARD) {
+		memcpy(p->x, q->x, n * sizeof(float));
+	} else if (action == KAD_BACKWARD && kad_is_back(q)) {
+		kad_saxpy(n, 1.0f, p->g, q->g);
 	}
 	return 0;
 }
@@ -2228,7 +2263,8 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_stdnorm,    // 32: layer normalization
 	kad_op_exp,        // 33: exp()
 	kad_op_sin,        // 34: sin()
-	kad_op_stack       // 35: see TensorFlow's tf.stack
+	kad_op_stack,      // 35: tf.stack, but on the first axis only
+	kad_op_reverse     // 36: tf.reverse, but on one axis only
 };
 
 /**************************
@@ -2246,7 +2282,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
 	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "select", "ce_multi", "softmax",
 								"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
-								"avg1d", "mse", "reshape", "concat", "stdnorm", "exp", "sin", "stack" };
+								"avg1d", "mse", "reshape", "concat", "stdnorm", "exp", "sin", "stack", "reverse" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
