@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r515"
+#define KAD_VERSION "r517"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -52,7 +52,7 @@
 #define kad_is_const(p) (kad_is_ext(p) && ((p)->flag & KAD_CONST))
 #define kad_is_feed(p)  (kad_is_ext(p) && !kad_is_back(p) && !((p)->flag & KAD_CONST))
 #define kad_is_pivot(p) ((p)->n_child == 1 && ((p)->flag & KAD_POOL))
-#define kad_is_switch(p) ((p)->op == 12)
+#define kad_is_switch(p) ((p)->op == 12 && !((p)->flag & KAD_POOL))
 #define kad_use_rng(p)  ((p)->op == 15 || (p)->op == 24)
 
 #define kad_eval_enable(p) ((p)->tmp = 1)
