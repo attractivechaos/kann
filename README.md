@@ -47,8 +47,7 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 * CPU only. As such, KANN is **not** intended for training huge neural
   networks.
 
-* No out-of-box bidirectional RNNs and seq2seq models. No batch
-  normalization.
+* No seq2seq. No batch normalization.
 
 * Verbose APIs for training RNNs.
 

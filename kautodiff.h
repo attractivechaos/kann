@@ -27,7 +27,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r517"
+#define KAD_VERSION "r518"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -193,6 +193,7 @@ kad_node_t *kad_slice(kad_node_t *x, int axis, int start, int end); // take a sl
 kad_node_t *kad_concat(int axis, int n, ...);                       // concatenate on the axis-th dimension
 kad_node_t *kad_concat_array(int axis, int n, kad_node_t **p);      // the array version of concat
 kad_node_t *kad_reshape(kad_node_t *x, int n_d, int *d);            // reshape; similar behavior to TensorFlow's reshape()
+kad_node_t *kad_reverse(kad_node_t *x, int axis);
 kad_node_t *kad_switch(int n, kad_node_t **p);                      // manually (as a hyperparameter) choose one input, default to 0
 
 // miscellaneous operations on a compiled graph

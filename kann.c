@@ -213,13 +213,13 @@ void kann_rnn_end(kann_t *a)
 
 static int kann_class_error_core(const kann_t *ann, int *base)
 {
-	int i, j, k, n, off, n_err = 0;
+	int i, j, k, m, n, off, n_err = 0;
 	for (i = 0, *base = 0; i < ann->n; ++i) {
 		kad_node_t *p = ann->v[i];
 		if ((p->op == 13 || p->op == 22) && p->n_child == 2 && p->n_d == 0) { // ce_bin or ce_multi
 			kad_node_t *x = p->child[0], *t = p->child[1];
-			n = kad_len(t) / t->d[0];
-			for (j = off = 0; j < t->d[0]; ++j, off += n) {
+			n = t->d[t->n_d - 1], m = kad_len(t) / n;
+			for (j = off = 0; j < m; ++j, off += n) {
 				float t_sum = 0.0f, t_min = 1.0f, t_max = 0.0f, x_max = 0.0f, x_min = 1.0f;
 				int x_max_k = -1, t_max_k = -1;
 				for (k = 0; k < n; ++k) {

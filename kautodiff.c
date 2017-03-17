@@ -808,6 +808,9 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int *new_n, int *len)
 	}
 	free(t);
 	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
+	for (i = 0; i < w.n; ++i) // stack may change the output dimension
+		if (w.v[i]->n_child > 0)
+			kad_op_list[w.v[i]->op](w.v[i], KAD_SYNC_DIM);
 	kad_allocate_internal(w.n, w.v);
 	*new_n = w.n;
 	return w.v;
@@ -1091,11 +1094,8 @@ int kad_op_cmul(kad_node_t *p, int action)
 	int n_a_row, n_b_row, n_col, n_a_col, n_b_col;
 	kad_node_t *q[2];
 
-	q[0] = p->child[0];
-	q[1] = p->child[1];
-	n_a_col = q[0]->n_d == 1? q[0]->d[0] : kad_len(q[0]) / q[0]->d[0];
-	n_b_col = q[1]->n_d == 1? q[1]->d[0] : kad_len(q[1]) / q[1]->d[0];
-	n_a_row = kad_len(q[0]) / n_a_col, n_b_row = kad_len(q[1]) / n_b_col;
+	q[0] = p->child[0], n_a_col = q[0]->d[q[0]->n_d - 1], n_a_row = kad_len(q[0]) / n_a_col;
+	q[1] = p->child[1], n_b_col = q[1]->d[q[1]->n_d - 1], n_b_row = kad_len(q[1]) / n_b_col;
 	n_col = n_a_col;
 	if (action == KAD_SYNC_DIM) {
 		if (n_a_col != n_b_col) return -1;
@@ -1113,7 +1113,7 @@ int kad_op_cmul(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_matmul(kad_node_t *p, int action)
+int kad_op_matmul(kad_node_t *p, int action) // TODO: matmul and cmul have different broadcasting rules
 {
 	int n_a_row, n_b_row, n_a_col, n_b_col;
 	kad_node_t *q[2];
@@ -1425,8 +1425,8 @@ int kad_op_reverse(kad_node_t *p, int action) // TODO: not tested
 	int axis, i, j, n, d0, d1;
 
 	axis = p->ptr? *(int32_t*)p->ptr : 0;
-	if (axis < 0) axis += p->n_d;
-	assert(axis >= 0 && axis < p->n_d);
+	if (axis < 0) axis += q->n_d;
+	assert(axis >= 0 && axis < q->n_d);
 	for (i = 0, d0 = 1; i < axis; ++i) d0 *= q->d[i];
 	n = q->d[axis];
 	for (i = axis + 1, d1 = 1; i < q->n_d; ++i) d1 *= q->d[i];
