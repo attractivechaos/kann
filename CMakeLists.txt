@@ -6,6 +6,7 @@ find_package( BLAS QUIET )
 find_package( Threads QUIET )
 
 add_library( kann kann.c kautodiff.c kann.h kautodiff.h )
+target_link_libraries( kann m )
 if( BLAS_FOUND )
   target_compile_definitions( kann PRIVATE HAVE_CBLAS )
   target_include_directories( kann PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/dependencies/blas )
