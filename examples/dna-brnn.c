@@ -76,8 +76,8 @@ kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout)
 		s[k] = kad_stack(1, &s[k]);
 	}
 	s[1] = kad_reverse(s[1], 0);
-	t = kad_concat(2, 2, s[0], s[1]);
-	w = kann_new_weight(2, n_neuron * 2);
+	t = kad_concat(2, 2, s[0], s[1]), w = kann_new_weight(2, n_neuron * 2);
+//	t = kad_avg(2, s), w= kann_new_weight(2, n_neuron);
 	b = kann_new_bias(2);
 	t = kad_softmax(kad_add(kad_cmul(t, w), b));
 	y = kad_feed(2, 1, 2), y->ext_flag = KANN_F_TRUTH;
