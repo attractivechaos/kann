@@ -79,7 +79,7 @@ kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout)
 	t = kad_concat(2, 2, s[0], s[1]), w = kann_new_weight(2, n_neuron * 2);
 //	t = kad_avg(2, s), w= kann_new_weight(2, n_neuron);
 	b = kann_new_bias(2);
-	t = kad_softmax(kad_add(kad_cmul(t, w), b));
+	t = kad_softmax(kad_add(kad_cmul(t, w), b)), t->ext_flag = KANN_F_OUT;
 	y = kad_feed(2, 1, 2), y->ext_flag = KANN_F_TRUTH;
 	y = kad_stack(1, &y);
 	t = kad_ce_multi(t, y), t->ext_flag = KANN_F_COST;
@@ -88,12 +88,10 @@ kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout)
 
 void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int mbs, int n_threads, int batch_len, const char *fn)
 {
-	float **x[2], **y, *r, grad_clip = 10.0f;
+	float **x[2], **y, *r, grad_clip = 10.0f, min_cost = 1e30f;
 	kann_t *ua;
-	uint8_t *rev;
 	int epoch, u, n_var;
 
-	rev = (uint8_t*)calloc(ulen, 1);
 	x[0] = (float**)calloc(ulen, sizeof(float*));
 	x[1] = (float**)calloc(ulen, sizeof(float*));
 	y    = (float**)calloc(ulen, sizeof(float*));
@@ -139,26 +137,84 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 			kann_RMSprop(n_var, lr, 0, 0.9f, ua->g, ua->x, r);
 		}
 		fprintf(stderr, "epoch: %d; running cost: %g (class error: %.2f%%)\n", epoch+1, cost / tot, 100.0 * n_cerr / ctot);
-		if (fn) kann_save(fn, ann);
+		if (fn && cost / tot < min_cost) kann_save(fn, ann);
+		if (cost / tot < min_cost) min_cost = cost / tot;
 	}
 	kann_delete_unrolled(ua);
 
-	for (u = 0; u < ulen; ++u) {
-		free(x[0][u]); free(x[1][u]); free(y[u]);
-	}
+	for (u = 0; u < ulen; ++u) { free(x[0][u]); free(x[1][u]); free(y[u]); }
 	free(r); free(y); free(x[0]); free(x[1]);
+}
+
+void dr_predict1(kann_t *ua, float **x[2], char *str, int cnt[4])
+{
+	int u, ulen;
+	kad_node_t *out;
+	out = ua->v[kann_find(ua, KANN_F_OUT, 0)];
+	ulen = out->d[0];
+	for (u = 0; u < ulen; ++u) {
+		int c = (uint8_t)str[u];
+		c = seq_nt4_table[c];
+		memset(x[0][u], 0, 4 * sizeof(float));
+		memset(x[1][u], 0, 4 * sizeof(float));
+		if (c >= 4) continue;
+		x[0][u][c] = 1.0f;
+		x[1][ulen - 1 - u][3 - c] = 1.0f;
+	}
+	kann_eval(ua, KANN_F_OUT, 0);
+	cnt[0] = cnt[1] = cnt[2] = cnt[3] = 0;
+	for (u = 0; u < out->d[0]; ++u) {
+		float *y = &out->x[u * 2];
+		int c = y[0] > y[1]? 0 : 1;
+		++cnt[c];
+		if (isupper(str[u]) && c == 0) ++cnt[3];
+		else if (islower(str[u]) && c == 1) ++cnt[2];
+		str[u] = c == 0? tolower(str[u]) : toupper(str[u]);
+	}
+}
+
+void dr_predict(kann_t *ann, int ulen, char *str)
+{
+	float **x[2];
+	kann_t *ua;
+	int i, u, len;
+	char *buf;
+
+	buf = (char*)calloc(ulen + 1, 1);
+	x[0] = (float**)calloc(ulen, sizeof(float*));
+	x[1] = (float**)calloc(ulen, sizeof(float*));
+	for (u = 0; u < ulen; ++u) {
+		x[0][u] = (float*)calloc(4, sizeof(float));
+		x[1][u] = (float*)calloc(4, sizeof(float));
+	}
+
+	kann_set_batch_size(ann, 1);
+	ua = kann_unroll(ann, ulen, ulen, ulen);
+	kann_feed_bind(ua, KANN_F_IN, 1, x[0]);
+	kann_feed_bind(ua, KANN_F_IN, 2, x[1]);
+	len = strlen(str);
+	for (i = 0; i + ulen < len; i += ulen/2) {
+		int cnt[4];
+		strncpy(buf, &str[i], ulen);
+		dr_predict1(ua, x, buf, cnt);
+		printf("%d\t%d\t%s\t%d\t%d\t%d\t%d\n", i, i+ulen, buf, cnt[0], cnt[1], cnt[2], cnt[3]);
+	}
+	kann_delete_unrolled(ua);
+
+	for (u = 0; u < ulen; ++u) { free(x[0][u]); free(x[1][u]); }
+	free(x[0]); free(x[1]); free(buf);
 }
 
 int main(int argc, char *argv[])
 {
 	kann_t *ann = 0;
 	dna_rnn_t *dr;
-	int c, n_layer = 1, n_neuron = 128, ulen = 100;
+	int c, n_layer = 1, n_neuron = 128, ulen = 100, to_apply = 0;
 	int batch_len = 10000000, mbs = 64, m_epoch = 50, n_threads = 1;
 	float h_dropout = 0.0f, lr = 0.001f;
-	char *fn_out = 0;
+	char *fn_out = 0, *fn_in = 0;
 
-	while ((c = getopt(argc, argv, "u:l:n:m:B:o:")) >= 0) {
+	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:")) >= 0) {
 		if (c == 'u') ulen = atoi(optarg);
 		else if (c == 'l') n_layer = atoi(optarg);
 		else if (c == 'n') n_neuron = atoi(optarg);
@@ -166,15 +222,22 @@ int main(int argc, char *argv[])
 		else if (c == 'm') m_epoch = atoi(optarg);
 		else if (c == 'B') mbs = atoi(optarg);
 		else if (c == 'o') fn_out = optarg;
+		else if (c == 'i') fn_in = optarg;
+		else if (c == 'A') to_apply = 1;
 	}
-
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: dna-brnn [options] <seq.txt>\n");
 		return 1;
 	}
 
 	dr = dr_read(argv[optind]);
-	ann = dr_model_gen(n_layer, n_neuron, h_dropout);
-	dr_train(ann, dr, ulen, lr, m_epoch, mbs, n_threads, batch_len, fn_out);
+	if (fn_in) ann = kann_load(fn_in);
+
+	if (!to_apply) {
+		if (ann == 0) ann = dr_model_gen(n_layer, n_neuron, h_dropout);
+		dr_train(ann, dr, ulen, lr, m_epoch, mbs, n_threads, batch_len, fn_out);
+	} else if (ann) {
+		dr_predict(ann, ulen, dr->s.s);
+	}
 	return 0;
 }
