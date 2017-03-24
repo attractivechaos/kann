@@ -105,6 +105,7 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 
 	ua = kann_unroll(ann, ulen, ulen, ulen);
 	kann_mt(ua, n_threads, mbs);
+	kann_set_batch_size(ua, mbs);
 	kann_switch(ua, 1);
 	kann_feed_bind(ua, KANN_F_IN,    1, x[0]);
 	kann_feed_bind(ua, KANN_F_IN,    2, x[1]);
@@ -122,7 +123,7 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 				unsigned j = (unsigned)((dr->s.l - ulen) * kad_drand(0));
 				for (u = 0; u < ulen; ++u) {
 					int c = (uint8_t)dr->s.s[j + u];
-					int a = isupper(c);
+					int a = isupper(c)? 1 : 0;
 					c = seq_nt4_table[c];
 					if (c >= 4) continue;
 					x[0][u][b * 4 + c] = 1.0f;
@@ -163,7 +164,7 @@ void dr_predict1(kann_t *ua, float **x[2], char *str, int cnt[4])
 	}
 	kann_eval(ua, KANN_F_OUT, 0);
 	cnt[0] = cnt[1] = cnt[2] = cnt[3] = 0;
-	for (u = 0; u < out->d[0]; ++u) {
+	for (u = 0; u < ulen; ++u) {
 		float *y = &out->x[u * 2];
 		int c = y[0] > y[1]? 0 : 1;
 		++cnt[c];
@@ -188,12 +189,12 @@ void dr_predict(kann_t *ann, int ulen, char *str)
 		x[1][u] = (float*)calloc(4, sizeof(float));
 	}
 
-	kann_set_batch_size(ann, 1);
 	ua = kann_unroll(ann, ulen, ulen, ulen);
+	kann_set_batch_size(ua, 1);
 	kann_feed_bind(ua, KANN_F_IN, 1, x[0]);
 	kann_feed_bind(ua, KANN_F_IN, 2, x[1]);
 	len = strlen(str);
-	for (i = 0; i + ulen < len; i += ulen/2) {
+	for (i = 0; i + ulen <= len; i += ulen/2) {
 		int cnt[4];
 		strncpy(buf, &str[i], ulen);
 		dr_predict1(ua, x, buf, cnt);
@@ -210,7 +211,7 @@ int main(int argc, char *argv[])
 	kann_t *ann = 0;
 	dna_rnn_t *dr;
 	int c, n_layer = 1, n_neuron = 128, ulen = 100, to_apply = 0;
-	int batch_len = 10000000, mbs = 64, m_epoch = 50, n_threads = 1;
+	int batch_len = 1000000, mbs = 64, m_epoch = 50, n_threads = 1;
 	float h_dropout = 0.0f, lr = 0.001f;
 	char *fn_out = 0, *fn_in = 0;
 
