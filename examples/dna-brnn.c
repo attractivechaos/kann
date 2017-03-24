@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
 	float h_dropout = 0.0f, lr = 0.001f;
 	char *fn_out = 0, *fn_in = 0;
 
-	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:")) >= 0) {
+	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:t:")) >= 0) {
 		if (c == 'u') ulen = atoi(optarg);
 		else if (c == 'l') n_layer = atoi(optarg);
 		else if (c == 'n') n_neuron = atoi(optarg);
@@ -232,6 +232,7 @@ int main(int argc, char *argv[])
 		else if (c == 'o') fn_out = optarg;
 		else if (c == 'i') fn_in = optarg;
 		else if (c == 'A') to_apply = 1;
+		else if (c == 't') n_threads = atoi(optarg);
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: dna-brnn [options] <seq.txt>\n");
