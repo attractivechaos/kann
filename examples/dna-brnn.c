@@ -164,7 +164,7 @@ void dr_predict1(kann_t *ua, float **x[2], char *str, int cnt[4])
 		int c = (uint8_t)str[u];
 		c = seq_nt4_table[c];
 		memset(x[0][u], 0, 4 * sizeof(float));
-		memset(x[1][u], 0, 4 * sizeof(float));
+		memset(x[1][ulen - 1 - u], 0, 4 * sizeof(float));
 		if (c >= 4) continue;
 		x[0][u][c] = 1.0f;
 		x[1][ulen - 1 - u][3 - c] = 1.0f;
