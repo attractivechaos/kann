@@ -121,14 +121,21 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 			}
 			for (b = 0; b < mbs; ++b) {
 				unsigned j = (unsigned)((dr->s.l - ulen) * kad_drand(0));
+				int is_rev = (kad_drand(0) < .5);
 				for (u = 0; u < ulen; ++u) {
 					int c = (uint8_t)dr->s.s[j + u];
 					int a = isupper(c)? 1 : 0;
 					c = seq_nt4_table[c];
 					if (c >= 4) continue;
-					x[0][u][b * 4 + c] = 1.0f;
-					x[1][ulen - 1 - u][b * 4 + (3 - c)] = 1.0f;
-					y[u][b * 2 + a] = 1.0f;
+					if (is_rev) {
+						x[1][u][b * 4 + c] = 1.0f;
+						x[0][ulen - 1 - u][b * 4 + (3 - c)] = 1.0f;
+						y[ulen - 1 - u][b * 2 + a] = 1.0f;
+					} else {
+						x[0][u][b * 4 + c] = 1.0f;
+						x[1][ulen - 1 - u][b * 4 + (3 - c)] = 1.0f;
+						y[u][b * 2 + a] = 1.0f;
+					}
 				}
 			}
 			cost += kann_cost(ua, 0, 1) * ulen * mbs;
