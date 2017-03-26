@@ -475,7 +475,7 @@ kad_node_t *kann_new_leaf_array(int *offset, kad_node_p *par, uint8_t flag, floa
 	int i, len, off = offset && par? *offset : -1;
 	kad_node_t *p;
 
-	if (off >= 0 && par[off]) return par[off];
+	if (off >= 0 && par[off]) return par[(*offset)++];
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
 	p->n_d = n_d, p->flag = flag;
 	memcpy(p->d, d, n_d * sizeof(int32_t));
