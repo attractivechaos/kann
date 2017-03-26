@@ -531,11 +531,7 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
 	w = kann_new_weight(n1, n0);
 	b = kann_new_bias(n1);
-	kad_node_t *t;
-	t = kad_cmul(in, w);
-	t = kad_add(t, b);
-	return t;
-//	return kad_add(kad_cmul(in, w), b);
+	return kad_add(kad_cmul(in, w), b);
 }
 
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)

@@ -1091,12 +1091,14 @@ int kad_op_mul(kad_node_t *p, int action)
 
 int kad_op_cmul(kad_node_t *p, int action)
 {
-	int n_a_row, n_b_row, n_col, n_a_col, n_b_col;
+	int i, n_a_row, n_b_row, n_col, n_a_col = 1, n_b_col = 1;
 	kad_node_t *q[2];
 
-	q[0] = p->child[0], n_a_col = q[0]->d[q[0]->n_d - 1], n_a_row = kad_len(q[0]) / n_a_col;
-	q[1] = p->child[1], n_b_col = q[1]->d[q[1]->n_d - 1], n_b_row = kad_len(q[1]) / n_b_col;
-	n_col = n_a_col;
+	q[0] = p->child[0], q[1] = p->child[1];
+	n_col = q[0]->d[q[0]->n_d - 1] > q[1]->d[q[1]->n_d - 1]? q[0]->d[q[0]->n_d - 1] : q[1]->d[q[1]->n_d - 1];
+	for (i = q[0]->n_d - 1; i >= 0; --i) if (n_a_col < n_col) n_a_col *= q[0]->d[i];
+	for (i = q[1]->n_d - 1; i >= 0; --i) if (n_b_col < n_col) n_b_col *= q[1]->d[i];
+	n_a_row = kad_len(q[0]) / n_a_col, n_b_row = kad_len(q[1]) / n_b_col;
 	if (action == KAD_SYNC_DIM) {
 		if (n_a_col != n_b_col) return -1;
 		p->n_d = 2, p->d[0] = n_a_row, p->d[1] = n_b_row;
