@@ -470,6 +470,8 @@ kann_t *kann_load(const char *fn)
  *** @@LAYER: layers and model generation ***
  **********************************************/
 
+/////////// General but more complex APIs ///////////
+
 kad_node_t *kann_new_leaf_array(int *offset, kad_node_p *par, uint8_t flag, float x0_01, int n_d, int32_t d[KAD_MAX_DIM])
 {
 	int i, len, off = offset && par? *offset : -1;
@@ -502,6 +504,80 @@ kad_node_t *kann_new_leaf2(int *offset, kad_node_p *par, uint8_t flag, float x0_
 	return kann_new_leaf_array(offset, par, flag, x0_01, n_d, d);
 }
 
+kad_node_t *kann_layer_dense2(int *offset, kad_node_p *par, kad_node_t *in, int n1)
+{
+	int n0;
+	kad_node_t *w, *b;
+	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	w = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n0);
+	b = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n1);
+	return kad_add(kad_cmul(in, w), b);
+}
+
+kad_node_t *kann_layer_dropout2(int *offset, kad_node_p *par, kad_node_t *t, float r)
+{
+	kad_node_t *x[2], *cr;
+	cr = kann_new_leaf2(offset, par, KAD_CONST, r, 0);
+	x[0] = t, x[1] = kad_dropout(t, cr);
+	return kad_switch(2, x);
+}
+
+kad_node_t *kann_layer_layernorm2(int *offset, kad_node_t **par, kad_node_t *in)
+{
+	int n0;
+	kad_node_t *alpha, *beta;
+	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	alpha = kann_new_leaf2(offset, par, KAD_VAR, 1.0f, 1, n0);
+	beta  = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n0);
+	return kad_add(kad_mul(kad_stdnorm(in), alpha), beta);
+}
+
+static inline kad_node_t *cmul_norm2(int *offset, kad_node_t **par, kad_node_t *x, kad_node_t *w, int use_norm)
+{
+	return use_norm? kann_layer_layernorm2(offset, par, kad_cmul(x, w)) : kad_cmul(x, w);
+}
+
+kad_node_t *kann_layer_gru2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag)
+{
+	int n0 = 0, n1 = h0->d[h0->n_d-1], use_norm = !!(rnn_flag & KANN_RNN_NORM);
+	kad_node_t *t, *r, *z, *w, *u, *b, *s, *out;
+
+	if (in) n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+	// z = sigm(x_t * W_z + h_{t-1} * U_z + b_z)
+	u = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n1);
+	b = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n1);
+	t = cmul_norm2(offset, par, h0, u, use_norm);
+	if (in) {
+		w = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n0);
+		t = kad_add(cmul_norm2(offset, par, in, w, use_norm), t);
+	}
+	z = kad_sigm(kad_add(t, b));
+	// r = sigm(x_t * W_r + h_{t-1} * U_r + b_r)
+	u = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n1);
+	b = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n1);
+	t = cmul_norm2(offset, par, h0, u, use_norm);
+	if (in) {
+		w = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n0);
+		t = kad_add(cmul_norm2(offset, par, in, w, use_norm), t);
+	}
+	r = kad_sigm(kad_add(t, b));
+	// s = tanh(x_t * W_s + (h_{t-1} # r) * U_s + b_s)
+	u = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n1);
+	b = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n1);
+	t = cmul_norm2(offset, par, kad_mul(r, h0), u, use_norm);
+	if (in) {
+		w = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n0);
+		t = kad_add(cmul_norm2(offset, par, in, w, use_norm), t);
+	}
+	s = kad_tanh(kad_add(t, b));
+	// h_t = z # h_{t-1} + (1 - z) # s
+	out = kad_add(kad_mul(kad_1minus(z), s), kad_mul(z, h0));
+	out->pre = h0;
+	return out;
+}
+
+/////////// APIs without offset & par ///////////
+
 kad_node_t *kann_new_leaf(uint8_t flag, float x0_01, int n_d, ...)
 {
 	int32_t i, d[KAD_MAX_DIM];
@@ -524,31 +600,16 @@ kad_node_t *kann_layer_input(int n1)
 	return t;
 }
 
-kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
-{
-	int n0;
-	kad_node_t *w, *b;
-	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	w = kann_new_weight(n1, n0);
-	b = kann_new_bias(n1);
-	return kad_add(kad_cmul(in, w), b);
-}
+kad_node_t *kann_layer_dense(kad_node_t *in, int n1) { return kann_layer_dense2(0, 0, in, n1); }
+kad_node_t *kann_layer_dropout(kad_node_t *t, float r) { return kann_layer_dropout2(0, 0, t, r); }
+kad_node_t *kann_layer_layernorm(kad_node_t *in) { return kann_layer_layernorm2(0, 0, in); }
 
-kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
+kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag)
 {
-	kad_node_t *x[2];
-	x[0] = t, x[1] = kad_dropout(t, kann_new_scalar(KAD_CONST, r));
-	return kad_switch(2, x);
-}
-
-kad_node_t *kann_layer_layernorm(kad_node_t *in)
-{
-	int n0;
-	kad_node_t *alpha, *beta;
-	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	alpha = kann_new_vec(n0, 1.0f);
-	beta = kann_new_vec(n0, 0.0f);
-	return kad_add(kad_mul(kad_stdnorm(in), alpha), beta);
+	kad_node_t *h0;
+	h0 = (rnn_flag & KANN_RNN_VAR_H0)? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
+	h0->x = (float*)calloc(n1, sizeof(float));
+	return kann_layer_gru2(0, 0, in, h0, rnn_flag);
 }
 
 static kad_node_t *kann_cmul_norm(kad_node_t *x, kad_node_t *w)
@@ -615,42 +676,11 @@ kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag)
 	return out;
 }
 
-kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag)
-{
-	int n0;
-	kad_node_t *r, *z, *w, *u, *b, *s, *h0, *out;
-	kad_node_t *(*cmul)(kad_node_t*, kad_node_t*) = (rnn_flag & KANN_RNN_NORM)? kann_cmul_norm : kad_cmul;
-
-	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	h0 = (rnn_flag & KANN_RNN_VAR_H0)? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
-	h0->x = (float*)calloc(n1, sizeof(float));
-
-	// z = sigm(x_t * W_z + h_{t-1} * U_z + b_z)
-	w = kann_new_weight(n1, n0);
-	u = kann_new_weight(n1, n1);
-	b = kann_new_bias(n1);
-	z = kad_sigm(kad_add(kad_add(cmul(in, w), cmul(h0, u)), b));
-	// r = sigm(x_t * W_r + h_{t-1} * U_r + b_r)
-	w = kann_new_weight(n1, n0);
-	u = kann_new_weight(n1, n1);
-	b = kann_new_bias(n1);
-	r = kad_sigm(kad_add(kad_add(cmul(in, w), cmul(h0, u)), b));
-	// s = tanh(x_t * W_s + (h_{t-1} # r) * U_s + b_s)
-	w = kann_new_weight(n1, n0);
-	u = kann_new_weight(n1, n1);
-	b = kann_new_bias(n1);
-	s = kad_tanh(kad_add(kad_add(cmul(in, w), cmul(kad_mul(r, h0), u)), b)); // can't be kad_mul(h0, r)!!!
-	// h_t = z # h_{t-1} + (1 - z) # s
-	out = kad_add(kad_mul(kad_1minus(z), s), kad_mul(z, h0));
-	out->pre = h0;
-	return out;
-}
-
-kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad)
+kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride_r, int stride_c, int pad_r, int pad_c)
 {
 	kad_node_t *w;
 	w = kann_new_weight_conv2d(n_flt, in->d[1], k_rows, k_cols);
-	return kad_conv2d(in, w, stride, stride, pad, pad);
+	return kad_conv2d(in, w, stride_r, stride_c, pad_r, pad_c);
 }
 
 kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride, int pad)
@@ -660,16 +690,11 @@ kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride,
 	return kad_conv1d(in, w, stride, pad);
 }
 
-kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad)
-{
-	return kad_max2d(in, k_rows, k_cols, stride, stride, pad, pad);
-}
-
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 {
 	kad_node_t *cost = 0, *truth = 0;
 	assert(cost_type == KANN_C_CEB || cost_type == KANN_C_CEM || cost_type == KANN_C_CEB_NEG || cost_type == KANN_C_MSE);
-	t = kann_layer_linear(t, n_out);
+	t = kann_layer_dense(t, n_out);
 	truth = kad_feed(2, 1, n_out), truth->ext_flag |= KANN_F_TRUTH;
 	if (cost_type == KANN_C_MSE) {
 		cost = kad_mse(t, truth);

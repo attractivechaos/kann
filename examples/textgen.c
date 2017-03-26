@@ -265,7 +265,7 @@ static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons,
 		else if (model == 2) t = kann_layer_gru(t, n_h_neurons, flag);
 		t = kann_layer_dropout(t, h_dropout);
 	}
-	t = kann_layer_linear(t, n_char);
+	t = kann_layer_dense(t, n_char);
 	t1 = kann_new_scalar(KAD_CONST, 1.0f), t1->ext_label = -1; // -1 is for backward compatibility
 	t = kad_mul(t, t1); // t1 is the inverse of temperature
 	t = kad_softmax(t), t->ext_flag |= KANN_F_OUT;

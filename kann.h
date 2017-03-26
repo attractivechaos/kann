@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r527"
+#define KANN_VERSION "r529"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -190,15 +190,14 @@ float kann_grad_clip(float thres, int n, float *g);
 
 // common layers
 kad_node_t *kann_layer_input(int n1);
-kad_node_t *kann_layer_linear(kad_node_t *in, int n1);
+kad_node_t *kann_layer_dense(kad_node_t *in, int n1);
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r);
 kad_node_t *kann_layer_layernorm(kad_node_t *in);
 kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag);
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag);
-kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride, int pad);
+kad_node_t *kann_layer_conv2d(kad_node_t *in, int n_flt, int k_rows, int k_cols, int stride_r, int stride_c, int pad_r, int pad_c);
 kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride, int pad);
-kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type);
 
 kad_node_t *kann_new_leaf(uint8_t flag, float x0_01, int n_d, ...); // flag can be KAD_CONST or KAD_VAR
@@ -208,7 +207,11 @@ kad_node_t *kann_new_bias(int n);
 kad_node_t *kann_new_weight_conv2d(int n_out, int n_in, int k_row, int k_col);
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
-void kann_normal_array(float sigma, int n, float *x);
+kad_node_t *kann_new_leaf2(int *offset, kad_node_p *par, uint8_t flag, float x0_01, int n_d, ...);
+kad_node_t *kann_layer_dense2(int *offset, kad_node_p *par, kad_node_t *in, int n1);
+kad_node_t *kann_layer_dropout2(int *offset, kad_node_p *par, kad_node_t *t, float r);
+kad_node_t *kann_layer_layernorm2(int *offset, kad_node_t **par, kad_node_t *in);
+kad_node_t *kann_layer_gru2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag);
 
 // operations on network with a single input node and a single output node
 int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y);

@@ -11,7 +11,7 @@ static kann_t *model_gen(int n_in, int n_out, int loss_type, int n_h_layers, int
 	kad_node_t *t;
 	t = kann_layer_input(n_in);
 	for (i = 0; i < n_h_layers; ++i)
-		t = kann_layer_dropout(kad_relu(kann_layer_linear(t, n_h_neurons)), h_dropout);
+		t = kann_layer_dropout(kad_relu(kann_layer_dense(t, n_h_neurons)), h_dropout);
 	return kann_new(kann_layer_cost(t, n_out, loss_type), 0);
 }
 

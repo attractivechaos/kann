@@ -37,11 +37,11 @@ int main(int argc, char *argv[])
 	} else {
 		kad_node_t *t;
 		t = kad_feed(4, 1, 1, 28, 28), t->ext_flag |= KANN_F_IN;
-		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0));
-		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 0));
-		t = kann_layer_max2d(t, 2, 2, 2, 0);
+		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 1, 0, 0)); // 3x3 kernel; 1x1 stride; 0x0 padding
+		t = kad_relu(kann_layer_conv2d(t, n_h_flt, 3, 3, 1, 1, 0, 0));
+		t = kad_max2d(t, 2, 2, 2, 2, 0, 0); // 2x2 kernel; 2x2 stride; 0x0 padding
 		t = kann_layer_dropout(t, dropout);
-		t = kann_layer_linear(t, n_h_fc);
+		t = kann_layer_dense(t, n_h_fc);
 		t = kad_relu(t);
 		t = kann_layer_dropout(t, dropout);
 		ann = kann_new(kann_layer_cost(t, 10, KANN_C_CEB), 0);

@@ -14,14 +14,14 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 
 	// encoder
 	x = kad_feed(2, 1, n_in), x->ext_flag |= KANN_F_IN | KANN_F_TRUTH;
-	t = kad_tanh(kann_layer_linear(x, n_hidden));
-	mu = kann_layer_linear(t, n_code);
-	sigma = kad_relu(kann_layer_linear(t, n_code));
+	t = kad_tanh(kann_layer_dense(x, n_hidden));
+	mu = kann_layer_dense(t, n_code);
+	sigma = kad_relu(kann_layer_dense(t, n_code));
 	t = kad_add(kad_sample_normal(sigma), mu), t->ext_label = 1;
 
 	// decoder
-	t = kad_tanh(kann_layer_linear(t, n_hidden));
-	t = kad_sigm(kann_layer_linear(t, n_in)), t->ext_flag = KANN_F_OUT;
+	t = kad_tanh(kann_layer_dense(t, n_hidden));
+	t = kad_sigm(kann_layer_dense(t, n_in)), t->ext_flag = KANN_F_OUT;
 	t = kad_ce_bin(t, x);
 	t = kad_mul(t, const_scalar((float)n_in));
 

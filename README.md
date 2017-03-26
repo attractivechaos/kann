@@ -5,7 +5,7 @@ git clone https://github.com/attractivechaos/kann
 cd kann; make
 # learn unsigned addition (30000 samples; numbers within 10000)
 seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
-  | ./examples/rnn-bit -m5 -o add.kan -
+  | ./examples/rnn-bit -m7 -o add.kan -
 # apply the model (output 1138429, the sum of the two numbers)
 echo 400958 737471 | ./examples/rnn-bit -Ai add.kan -
 ```
