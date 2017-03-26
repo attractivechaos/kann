@@ -470,54 +470,52 @@ kann_t *kann_load(const char *fn)
  *** @@LAYER: layers and model generation ***
  **********************************************/
 
-kad_node_t *kann_new_scalar(uint8_t flag, float x)
+kad_node_t *kann_new_leaf_array(int *offset, kad_node_p *par, uint8_t flag, float x0_01, int n_d, int32_t d[KAD_MAX_DIM])
 {
+	int i, len, off = offset && par? *offset : -1;
 	kad_node_t *p;
+
+	if (off >= 0 && par[off]) return par[off];
 	p = (kad_node_t*)calloc(1, sizeof(kad_node_t));
-	p->n_d = 0;
-	p->x = (float*)calloc(1, sizeof(float));
-	*p->x = x, p->flag = flag;
+	p->n_d = n_d, p->flag = flag;
+	memcpy(p->d, d, n_d * sizeof(int32_t));
+	len = kad_len(p);
+	p->x = (float*)calloc(len, sizeof(float));
+	if (p->n_d <= 1) {
+		for (i = 0; i < len; ++i)
+			p->x[i] = x0_01;
+	} else {
+		double sdev_inv;
+		sdev_inv = 1.0 / sqrt((double)len / p->d[0]);
+		for (i = 0; i < len; ++i)
+			p->x[i] = (float)(kad_drand_normal(0) * sdev_inv);
+	}
+	if (off >= 0) par[off] = p, ++(*offset);
 	return p;
 }
 
-kad_node_t *kann_new_weight(int n_row, int n_col)
+kad_node_t *kann_new_leaf2(int *offset, kad_node_p *par, uint8_t flag, float x0_01, int n_d, ...)
 {
-	kad_node_t *w;
-	w = kad_var(0, 0, 2, n_row, n_col);
-	w->x = (float*)malloc(n_row * n_col * sizeof(float));
-	kann_normal_array(sqrtf((float)n_col), n_row * n_col, w->x);
-	return w;
+	int32_t i, d[KAD_MAX_DIM];
+	va_list ap;
+	va_start(ap, n_d); for (i = 0; i < n_d; ++i) d[i] = va_arg(ap, int); va_end(ap);
+	return kann_new_leaf_array(offset, par, flag, x0_01, n_d, d);
 }
 
-kad_node_t *kann_new_vec(int n, float x)
+kad_node_t *kann_new_leaf(uint8_t flag, float x0_01, int n_d, ...)
 {
-	kad_node_t *b;
-	int i;
-	b = kad_var(0, 0, 1, n);
-	b->x = (float*)calloc(n, sizeof(float));
-	for (i = 0; i < n; ++i) b->x[i] = x;
-	return b;
+	int32_t i, d[KAD_MAX_DIM];
+	va_list ap;
+	va_start(ap, n_d); for (i = 0; i < n_d; ++i) d[i] = va_arg(ap, int); va_end(ap);
+	return kann_new_leaf_array(0, 0, flag, x0_01, n_d, d);
 }
 
+kad_node_t *kann_new_scalar(uint8_t flag, float x) { return kann_new_leaf(flag, x, 0); }
+kad_node_t *kann_new_weight(int n_row, int n_col) { return kann_new_leaf(KAD_VAR, 0.0f, 2, n_row, n_col); }
+kad_node_t *kann_new_vec(int n, float x) { return kann_new_leaf(KAD_VAR, x, 1, n); }
 kad_node_t *kann_new_bias(int n) { return kann_new_vec(n, 0.0f); }
-
-kad_node_t *kann_new_weight_conv2d(int n_out, int n_in, int k_row, int k_col)
-{
-	kad_node_t *w;
-	w = kad_var(0, 0, 4, n_out, n_in, k_row, k_col);
-	w->x = (float*)malloc(kad_len(w) * sizeof(float));
-	kann_normal_array(sqrtf((float)n_in * k_row * k_col), n_out * n_in * k_row * k_col, w->x);
-	return w;
-}
-
-kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len)
-{
-	kad_node_t *w;
-	w = kad_var(0, 0, 3, n_out, n_in, kernel_len);
-	w->x = (float*)malloc(kad_len(w) * sizeof(float));
-	kann_normal_array(sqrtf((float)n_in * kernel_len), n_out * n_in * kernel_len, w->x);
-	return w;
-}
+kad_node_t *kann_new_weight_conv2d(int n_out, int n_in, int k_row, int k_col) { return kann_new_leaf(KAD_VAR, 0.0f, 4, n_out, n_in, k_row, k_col); }
+kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len) { return kann_new_leaf(KAD_VAR, 0.0f, 3, n_out, n_in, kernel_len); }
 
 kad_node_t *kann_layer_input(int n1)
 {
@@ -533,7 +531,11 @@ kad_node_t *kann_layer_linear(kad_node_t *in, int n1)
 	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
 	w = kann_new_weight(n1, n0);
 	b = kann_new_bias(n1);
-	return kad_add(kad_cmul(in, w), b);
+	kad_node_t *t;
+	t = kad_cmul(in, w);
+	t = kad_add(t, b);
+	return t;
+//	return kad_add(kad_cmul(in, w), b);
 }
 
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r)
@@ -687,17 +689,6 @@ kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type)
 	}
 	t->ext_flag |= KANN_F_OUT, cost->ext_flag |= KANN_F_COST;
 	return cost;
-}
-
-/*********************************************
- *** @@RNG: pseudo-random number generator ***
- *********************************************/
-
-void kann_normal_array(float sigma, int n, float *x)
-{
-	int i;
-	double s = 1.0 / sigma;
-	for (i = 0; i < n; ++i) x[i] = (float)(kad_drand_normal(0) * s);
 }
 
 void kann_shuffle(int n, int *s)

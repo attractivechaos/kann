@@ -201,10 +201,11 @@ kad_node_t *kann_layer_conv1d(kad_node_t *in, int n_flt, int k_size, int stride,
 kad_node_t *kann_layer_max2d(kad_node_t *in, int k_rows, int k_cols, int stride, int pad);
 kad_node_t *kann_layer_cost(kad_node_t *t, int n_out, int cost_type);
 
-kad_node_t *kann_new_scalar(uint8_t flag, float x); // flag can be KAD_CONST or KAD_VAR
+kad_node_t *kann_new_leaf(uint8_t flag, float x0_01, int n_d, ...); // flag can be KAD_CONST or KAD_VAR
+kad_node_t *kann_new_scalar(uint8_t flag, float x);
 kad_node_t *kann_new_weight(int n_row, int n_col);
 kad_node_t *kann_new_bias(int n);
-kad_node_t *kann_new_weight_conv2d(int n_out_channel, int n_in_channel, int k_row, int k_col);
+kad_node_t *kann_new_weight_conv2d(int n_out, int n_in, int k_row, int k_col);
 kad_node_t *kann_new_weight_conv1d(int n_out, int n_in, int kernel_len);
 
 void kann_normal_array(float sigma, int n, float *x);
