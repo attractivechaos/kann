@@ -73,7 +73,7 @@ kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout)
 			s[k] = kann_layer_gru(s[k], n_neuron, KANN_RNN_NORM);
 			if (h_dropout > 0.0f) s[k] = kann_layer_dropout(s[k], h_dropout);
 		}
-		s[k] = kad_stack(1, &s[k]);
+		s[k] = kad_stack(1, &s[k]); // first and second pivot
 	}
 	s[1] = kad_reverse(s[1], 0);
 	t = kad_concat(2, 2, s[0], s[1]), w = kann_new_weight(2, n_neuron * 2);
@@ -81,7 +81,7 @@ kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout)
 	b = kann_new_bias(2);
 	t = kad_softmax(kad_add(kad_cmul(t, w), b)), t->ext_flag = KANN_F_OUT;
 	y = kad_feed(2, 1, 2), y->ext_flag = KANN_F_TRUTH;
-	y = kad_stack(1, &y);
+	y = kad_stack(1, &y); // third pivot
 	t = kad_ce_multi(t, y), t->ext_flag = KANN_F_COST;
 	return kann_new(t, 0);
 }

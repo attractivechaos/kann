@@ -189,7 +189,7 @@ int tg_urnn_start(kann_t *ann, int batch_size)
 void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, int cs, int mbs, int max_epoch, float grad_clip, const char *fn, int batch_len, int n_threads)
 {
 	int i, epoch, u, n_var, n_char;
-	float **x, **y, *r, *g;
+	float **x, **y, *r;
 	const uint8_t **p;
 	kann_t *ua;
 
@@ -203,7 +203,6 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 	}
 	n_var = kann_size_var(ann);
 	r = (float*)calloc(n_var, sizeof(float));
-	g = (float*)calloc(n_var, sizeof(float));
 	p = (const uint8_t**)calloc(mbs, sizeof(const uint8_t*));
 
 	ua = kann_unroll(ann, ulen);
@@ -251,7 +250,7 @@ void tg_train(kann_t *ann, const tg_data_t *tg, float lr, int ulen, int vlen, in
 	for (u = 0; u < ulen; ++u) {
 		free(x[u]); free(y[u]);
 	}
-	free(g); free(r); free(y); free(x); free(p);
+	free(r); free(y); free(x); free(p);
 }
 
 static kann_t *model_gen(int model, int n_char, int n_h_layers, int n_h_neurons, float h_dropout, int use_norm)
@@ -332,7 +331,6 @@ int main(int argc, char *argv[])
 		fprintf(fp, "    -g FLOAT    gradient clipping threshold [%g]\n", grad_clip);
 		fprintf(fp, "    -c INT      size of a batch [%d]\n", batch_len);
 		fprintf(fp, "    -b          use minibatch (run faster but converge slower)\n");
-		fprintf(fp, "    -P          independent paragraphs (force -b)\n");
 		fprintf(fp, "    -x          compute perplexity at the end\n");
 		fprintf(fp, "  Text generation:\n");
 		fprintf(fp, "    -p STR      prefix []\n");

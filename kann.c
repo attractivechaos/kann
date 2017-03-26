@@ -537,6 +537,24 @@ static inline kad_node_t *cmul_norm2(int *offset, kad_node_t **par, kad_node_t *
 	return use_norm? kann_layer_layernorm2(offset, par, kad_cmul(x, w)) : kad_cmul(x, w);
 }
 
+kad_node_t *kann_layer_rnn2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag)
+{
+	int n0, n1 = h0->d[h0->n_d-1], use_norm = !!(rnn_flag & KANN_RNN_NORM);;
+	kad_node_t *h0, *w, *u, *b, *out;
+
+	u = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n1);
+	b = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n1);
+	t = cmul_norm2(offset, par, h0, u, use_norm);
+	if (in) {
+		n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
+		w = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n0);
+		t = kad_add(cmul_norm2(offset, par, in, w, use_norm), t);
+	}
+	out = kad_tanh(kad_add(t, b));
+	out->pre = h0;
+	return out;
+}
+
 kad_node_t *kann_layer_gru2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag)
 {
 	int n0 = 0, n1 = h0->d[h0->n_d-1], use_norm = !!(rnn_flag & KANN_RNN_NORM);
@@ -604,6 +622,14 @@ kad_node_t *kann_layer_dense(kad_node_t *in, int n1) { return kann_layer_dense2(
 kad_node_t *kann_layer_dropout(kad_node_t *t, float r) { return kann_layer_dropout2(0, 0, t, r); }
 kad_node_t *kann_layer_layernorm(kad_node_t *in) { return kann_layer_layernorm2(0, 0, in); }
 
+kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag)
+{
+	kad_node_t *h0;
+	h0 = (rnn_flag & KANN_RNN_VAR_H0)? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
+	h0->x = (float*)calloc(n1, sizeof(float));
+	return kann_layer_rnn2(0, 0, in, h0, rnn_flag);
+}
+
 kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag)
 {
 	kad_node_t *h0;
@@ -615,23 +641,6 @@ kad_node_t *kann_layer_gru(kad_node_t *in, int n1, int rnn_flag)
 static kad_node_t *kann_cmul_norm(kad_node_t *x, kad_node_t *w)
 {
 	return kann_layer_layernorm(kad_cmul(x, w));
-}
-
-kad_node_t *kann_layer_rnn(kad_node_t *in, int n1, int rnn_flag)
-{
-	int n0;
-	kad_node_t *h0, *w, *u, *b, *out;
-	kad_node_t *(*cmul)(kad_node_t*, kad_node_t*) = (rnn_flag & KANN_RNN_NORM)? kann_cmul_norm : kad_cmul;
-
-	n0 = in->n_d >= 2? kad_len(in) / in->d[0] : kad_len(in);
-	h0 = (rnn_flag & KANN_RNN_VAR_H0)? kad_var(0, 0, 2, 1, n1) : kad_const(0, 2, 1, n1);
-	h0->x = (float*)calloc(n1, sizeof(float));
-	w = kann_new_weight(n1, n0);
-	u = kann_new_weight(n1, n1);
-	b = kann_new_bias(n1);
-	out = kad_tanh(kad_add(kad_add(cmul(in, w), cmul(h0, u)), b));
-	out->pre = h0;
-	return out;
 }
 
 kad_node_t *kann_layer_lstm(kad_node_t *in, int n1, int rnn_flag)

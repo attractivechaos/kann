@@ -27,7 +27,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r529"
+#define KANN_VERSION "r530"
 
 #define KANN_F_IN       0x1   // input
 #define KANN_F_OUT      0x2   // output
@@ -211,6 +211,7 @@ kad_node_t *kann_new_leaf2(int *offset, kad_node_p *par, uint8_t flag, float x0_
 kad_node_t *kann_layer_dense2(int *offset, kad_node_p *par, kad_node_t *in, int n1);
 kad_node_t *kann_layer_dropout2(int *offset, kad_node_p *par, kad_node_t *t, float r);
 kad_node_t *kann_layer_layernorm2(int *offset, kad_node_t **par, kad_node_t *in);
+kad_node_t *kann_layer_rnn2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag);
 kad_node_t *kann_layer_gru2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag);
 
 // operations on network with a single input node and a single output node
