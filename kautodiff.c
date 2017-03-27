@@ -741,10 +741,12 @@ static void kad_unroll_helper(int n_v, kad_node_t **v, int i_pivot, kad_node_t *
 	t[i_pivot]->child = (kad_node_t**)realloc(t[i_pivot]->child, len * sizeof(kad_node_t*));
 
 	flag = (uint8_t*)calloc(n_v, 1);
-	for (i = i_pivot, flag[i] = 16; i >= 0; --i)
-		if (flag[i]&16)
+	for (i = i_pivot, flag[i] = 16; i >= 0; --i) {
+		if (i < i_pivot && kad_is_pivot(v[i])) continue; // don't trespass other pivots
+		if (flag[i]&16) // flag 16: nodes to unroll
 			for (j = 0; j < v[i]->n_child; ++j)
 				flag[v[i]->child[j]->tmp] = 16;
+	}
 	for (i = 0; i < i_pivot; ++i) {
 		if (!(flag[i]&16)) continue;
 		if (kad_is_var(v[i]) || kad_is_const(v[i]) || kad_is_pivot(v[i])) flag[i] |= 1; // external nodes that should not be duplicated

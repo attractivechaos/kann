@@ -540,7 +540,7 @@ static inline kad_node_t *cmul_norm2(int *offset, kad_node_t **par, kad_node_t *
 kad_node_t *kann_layer_rnn2(int *offset, kad_node_t **par, kad_node_t *in, kad_node_t *h0, int rnn_flag)
 {
 	int n0, n1 = h0->d[h0->n_d-1], use_norm = !!(rnn_flag & KANN_RNN_NORM);;
-	kad_node_t *h0, *w, *u, *b, *out;
+	kad_node_t *t, *w, *u, *b, *out;
 
 	u = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 2, n1, n1);
 	b = kann_new_leaf2(offset, par, KAD_VAR, 0.0f, 1, n1);
