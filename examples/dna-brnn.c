@@ -63,14 +63,20 @@ dna_rnn_t *dr_read(const char *fn)
 	return dr;
 }
 
-kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout)
+kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout, int is_tied)
 {
-	kad_node_t *s[2], *t, *w, *b, *y;
-	int i, k;
+	kad_node_t *s[2], *t, *w, *b, *y, *par[256]; // for very unreasonably deep models, this may overflow
+	int i, k, offset;
+	memset(par, 0, sizeof(kad_node_p) * 256);
 	for (k = 0; k < 2; ++k) {
 		s[k] = kad_feed(2, 1, 4), s[k]->ext_flag = KANN_F_IN, s[k]->ext_label = k + 1;
+		offset = 0;
 		for (i = 0; i < n_layer; ++i) {
-			s[k] = kann_layer_gru(s[k], n_neuron, KANN_RNN_NORM);
+			if (is_tied) {
+				kad_node_t *h0;
+				h0 = kann_new_leaf2(&offset, par, KAD_CONST, 0.0f, 2, 1, n_neuron);
+				s[k] = kann_layer_gru2(&offset, par, s[k], h0, KANN_RNN_NORM);
+			} else s[k] = kann_layer_gru(s[k], n_neuron, KANN_RNN_NORM);
 			if (h_dropout > 0.0f) s[k] = kann_layer_dropout(s[k], h_dropout);
 		}
 		s[k] = kad_stack(1, &s[k]); // first and second pivot
@@ -218,11 +224,11 @@ int main(int argc, char *argv[])
 	kann_t *ann = 0;
 	dna_rnn_t *dr;
 	int c, n_layer = 1, n_neuron = 128, ulen = 100, to_apply = 0;
-	int batch_len = 1000000, mbs = 64, m_epoch = 50, n_threads = 1;
+	int batch_len = 1000000, mbs = 64, m_epoch = 50, n_threads = 1, is_tied = 1;
 	float h_dropout = 0.0f, lr = 0.001f;
 	char *fn_out = 0, *fn_in = 0;
 
-	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:t:")) >= 0) {
+	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:t:T")) >= 0) {
 		if (c == 'u') ulen = atoi(optarg);
 		else if (c == 'l') n_layer = atoi(optarg);
 		else if (c == 'n') n_neuron = atoi(optarg);
@@ -233,6 +239,7 @@ int main(int argc, char *argv[])
 		else if (c == 'i') fn_in = optarg;
 		else if (c == 'A') to_apply = 1;
 		else if (c == 't') n_threads = atoi(optarg);
+		else if (c == 'T') is_tied = 0;
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: dna-brnn [options] <seq.txt>\n");
@@ -241,9 +248,8 @@ int main(int argc, char *argv[])
 
 	dr = dr_read(argv[optind]);
 	if (fn_in) ann = kann_load(fn_in);
-
 	if (!to_apply) {
-		if (ann == 0) ann = dr_model_gen(n_layer, n_neuron, h_dropout);
+		if (ann == 0) ann = dr_model_gen(n_layer, n_neuron, h_dropout, is_tied);
 		dr_train(ann, dr, ulen, lr, m_epoch, mbs, n_threads, batch_len, fn_out);
 	} else if (ann) {
 		dr_predict(ann, ulen, dr->s.s);
