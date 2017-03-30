@@ -1,69 +1,11 @@
 #include <zlib.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include "dna-io.h"
 #include "kann.h"
-#include "kann_extra/kseq.h"
-KSTREAM_INIT(gzFile, gzread, 65536)
 
-typedef struct {
-	kstring_t s;
-} dna_rnn_t;
-
-unsigned char seq_nt4_table[256] = {
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4 /*'-'*/, 4, 4,
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 0, 4, 1,  4, 4, 4, 2,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  3, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
-	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
-};
-
-static inline int kputsn(const char *p, int l, kstring_t *s)
-{
-	if (s->l + l + 1 >= s->m) {
-		char *tmp;
-		s->m = s->l + l + 2;
-		kroundup32(s->m);
-		if ((tmp = (char*)realloc(s->s, s->m)))
-			s->s = tmp;
-		else
-			return EOF;
-	}
-	memcpy(s->s + s->l, p, l);
-	s->l += l;
-	s->s[s->l] = 0;
-	return l;
-}
-
-dna_rnn_t *dr_read(const char *fn)
-{
-	gzFile fp;
-	kstream_t *ks;
-	kstring_t str = {0,0,0};
-	dna_rnn_t *dr;
-
-	fp = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(fileno(stdin), "r");
-	if (fp == 0) return 0;
-	dr = (dna_rnn_t*)calloc(1, sizeof(dna_rnn_t));
-	ks = ks_init(fp);
-	while (ks_getuntil(ks, KS_SEP_LINE, &str, 0) >= 0)
-		kputsn(str.s, str.l, &dr->s);
-	free(str.s);
-	ks_destroy(ks);
-	gzclose(fp);
-	return dr;
-}
-
-kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout, int is_tied)
+kann_t *dn_model_gen(int n_lbl, int n_layer, int n_neuron, float h_dropout, int is_tied)
 {
 	kad_node_t *s[2], *t, *w, *b, *y, *par[256]; // for very unreasonably deep models, this may overflow
 	int i, k, offset;
@@ -82,21 +24,21 @@ kann_t *dr_model_gen(int n_layer, int n_neuron, float h_dropout, int is_tied)
 		s[k] = kad_stack(1, &s[k]); // first and second pivot
 	}
 	s[1] = kad_reverse(s[1], 0);
-	t = kad_concat(2, 2, s[0], s[1]), w = kann_new_weight(2, n_neuron * 2);
+	t = kad_concat(2, 2, s[0], s[1]), w = kann_new_weight(n_lbl, n_neuron * 2);
 //	t = kad_avg(2, s), w= kann_new_weight(2, n_neuron);
-	b = kann_new_bias(2);
+	b = kann_new_bias(n_lbl);
 	t = kad_softmax(kad_add(kad_cmul(t, w), b)), t->ext_flag = KANN_F_OUT;
-	y = kad_feed(2, 1, 2), y->ext_flag = KANN_F_TRUTH;
+	y = kad_feed(2, 1, n_lbl), y->ext_flag = KANN_F_TRUTH;
 	y = kad_stack(1, &y); // third pivot
 	t = kad_ce_multi(t, y), t->ext_flag = KANN_F_COST;
 	return kann_new(t, 0);
 }
 
-void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int mbs, int n_threads, int batch_len, const char *fn)
+void dn_train(kann_t *ann, dn_seqs_t *dr, int ulen, float lr, int m_epoch, int mbs, int n_threads, int batch_len, const char *fn)
 {
 	float **x[2], **y, *r, grad_clip = 10.0f, min_cost = 1e30f;
 	kann_t *ua;
-	int epoch, u, n_var;
+	int epoch, u, k, n_var, tot_len = 0;
 
 	x[0] = (float**)calloc(ulen, sizeof(float*));
 	x[1] = (float**)calloc(ulen, sizeof(float*));
@@ -108,6 +50,8 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 	}
 	n_var = kann_size_var(ann);
 	r = (float*)calloc(n_var, sizeof(float));
+	for (k = 0; k < dr->n; ++k)
+		if (dr->len[k] >= ulen) tot_len += dr->len[k];
 
 	ua = kann_unroll(ann, ulen, ulen, ulen);
 	kann_mt(ua, n_threads, mbs);
@@ -126,22 +70,21 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 				memset(y[u],    0, 2 * mbs * sizeof(float));
 			}
 			for (b = 0; b < mbs; ++b) {
-				unsigned j = (unsigned)((dr->s.l - ulen) * kad_drand(0));
-				int is_rev = (kad_drand(0) < .5);
+				int sub, thres, j;
+				thres = (int)(kad_drand(0) * tot_len);
+				for (k = sub = 0; k < dr->n; ++k) {
+					if (dr->len[k] < ulen) continue;
+					sub += dr->len[k];
+					if (sub >= thres) break;
+				}
+				j = (int)((dr->len[k] - ulen) * kad_drand(0));
 				for (u = 0; u < ulen; ++u) {
-					int c = (uint8_t)dr->s.s[j + u];
-					int a = isupper(c)? 1 : 0;
-					c = seq_nt4_table[c];
+					int c = (uint8_t)dr->seq[k][j + u];
+					int a = dr->lbl[k][j + u];
 					if (c >= 4) continue;
-					if (is_rev) {
-						x[1][u][b * 4 + c] = 1.0f;
-						x[0][ulen - 1 - u][b * 4 + (3 - c)] = 1.0f;
-						y[ulen - 1 - u][b * 2 + a] = 1.0f;
-					} else {
-						x[0][u][b * 4 + c] = 1.0f;
-						x[1][ulen - 1 - u][b * 4 + (3 - c)] = 1.0f;
-						y[u][b * 2 + a] = 1.0f;
-					}
+					x[0][u][b * 4 + c] = 1.0f;
+					x[1][ulen - 1 - u][b * 4 + (3 - c)] = 1.0f;
+					y[u][b * 2 + a] = 1.0f;
 				}
 			}
 			cost += kann_cost(ua, 0, 1) * ulen * mbs;
@@ -160,7 +103,7 @@ void dr_train(kann_t *ann, dna_rnn_t *dr, int ulen, float lr, int m_epoch, int m
 	free(r); free(y); free(x[0]); free(x[1]);
 }
 
-void dr_predict1(kann_t *ua, float **x[2], char *str, int cnt[4])
+void dn_predict1(kann_t *ua, float **x[2], char *str, int cnt[4])
 {
 	int u, ulen;
 	kad_node_t *out;
@@ -187,7 +130,7 @@ void dr_predict1(kann_t *ua, float **x[2], char *str, int cnt[4])
 	}
 }
 
-void dr_predict(kann_t *ann, int ulen, char *str)
+void dn_predict(kann_t *ann, int ulen, char *str)
 {
 	float **x[2];
 	kann_t *ua;
@@ -210,7 +153,7 @@ void dr_predict(kann_t *ann, int ulen, char *str)
 	for (i = 0; i + ulen <= len; i += ulen/2) {
 		int cnt[4];
 		strncpy(buf, &str[i], ulen);
-		dr_predict1(ua, x, buf, cnt);
+		dn_predict1(ua, x, buf, cnt);
 		printf("%d\t%d\t%s\t%d\t%d\t%d\t%d\n", i, i+ulen, buf, cnt[0], cnt[1], cnt[2], cnt[3]);
 	}
 	kann_delete_unrolled(ua);
@@ -222,13 +165,13 @@ void dr_predict(kann_t *ann, int ulen, char *str)
 int main(int argc, char *argv[])
 {
 	kann_t *ann = 0;
-	dna_rnn_t *dr;
+	dn_seqs_t *dr;
 	int c, n_layer = 1, n_neuron = 128, ulen = 100, to_apply = 0;
 	int batch_len = 1000000, mbs = 64, m_epoch = 50, n_threads = 1, is_tied = 1;
 	float h_dropout = 0.0f, lr = 0.001f;
 	char *fn_out = 0, *fn_in = 0;
 
-	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:t:T")) >= 0) {
+	while ((c = getopt(argc, argv, "Au:l:n:m:B:o:i:t:Tb:")) >= 0) {
 		if (c == 'u') ulen = atoi(optarg);
 		else if (c == 'l') n_layer = atoi(optarg);
 		else if (c == 'n') n_neuron = atoi(optarg);
@@ -240,19 +183,20 @@ int main(int argc, char *argv[])
 		else if (c == 'A') to_apply = 1;
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'T') is_tied = 0;
+		else if (c == 'b') batch_len = atoi(optarg);
 	}
 	if (argc - optind < 1) {
 		fprintf(stderr, "Usage: dna-brnn [options] <seq.txt>\n");
 		return 1;
 	}
 
-	dr = dr_read(argv[optind]);
+	dr = dn_read(argv[optind]);
 	if (fn_in) ann = kann_load(fn_in);
 	if (!to_apply) {
-		if (ann == 0) ann = dr_model_gen(n_layer, n_neuron, h_dropout, is_tied);
-		dr_train(ann, dr, ulen, lr, m_epoch, mbs, n_threads, batch_len, fn_out);
+		if (ann == 0) ann = dn_model_gen(dr->n_lbl, n_layer, n_neuron, h_dropout, is_tied);
+		dn_train(ann, dr, ulen, lr, m_epoch, mbs, n_threads, batch_len, fn_out);
 	} else if (ann) {
-		dr_predict(ann, ulen, dr->s.s);
+//		dn_predict(ann, ulen, dr->s.s);
 	}
 	return 0;
 }

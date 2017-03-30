@@ -3,7 +3,7 @@ CFLAGS=		-g -Wall -Wextra -Wc++-compat -O2
 CPPFLAGS=	-DHAVE_PTHREAD
 INCLUDES=	-I.
 EXE=		examples/mlp examples/mnist-cnn examples/inspect examples/textgen examples/rnn-bit \
-			examples/ae examples/vae examples/dna-brnn
+			examples/ae examples/vae
 LIBS=		-lpthread -lz -lm
 
 ifdef CBLAS
@@ -44,9 +44,6 @@ examples/inspect:examples/inspect.o kautodiff.o kann.o
 examples/mnist-cnn:examples/mnist-cnn.o kautodiff.o kann.o kann_extra/kann_data.o
 		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-examples/dna-brnn:examples/dna-brnn.o kautodiff.o kann.o
-		$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
-
 clean:
 		rm -fr *.o */*.o a.out */a.out *.a *.dSYM */*.dSYM $(EXE)
 
@@ -59,7 +56,6 @@ kann.o: kann.h kautodiff.h
 kautodiff.o: kautodiff.h
 kann_extra/kann_data.o: kann_extra/kseq.h kann_extra/kann_data.h
 examples/ae.o: kann.h kautodiff.h kann_extra/kann_data.h
-examples/dna-brnn.o: kann.h kautodiff.h kann_extra/kseq.h
 examples/inspect.o: kann.h kautodiff.h
 examples/mlp.o: kann.h kautodiff.h kann_extra/kann_data.h
 examples/mnist-cnn.o: kann_extra/kann_data.h kann.h kautodiff.h
