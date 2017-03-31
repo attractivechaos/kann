@@ -1,5 +1,6 @@
 CC=			gcc
 CFLAGS=		-g -Wall -Wextra -Wc++-compat -O2
+CFLAGS_LIB=	#-ansi -pedantic -Wno-long-long # ANSI C does not have inline which affects performance a little bit
 CPPFLAGS=	-DHAVE_PTHREAD
 INCLUDES=	-I.
 EXE=		examples/mlp examples/mnist-cnn examples/inspect examples/textgen examples/rnn-bit \
@@ -19,6 +20,12 @@ endif
 		$(CC) -c $(CFLAGS) $(INCLUDES) $(CPPFLAGS) $< -o $@
 
 all:kautodiff.o kann.o kann_extra/kann_data.o $(EXE)
+
+kautodiff.o:kautodiff.c
+		$(CC) -c $(CFLAGS) $(CFLAGS_LIB) $(INCLUDES) $(CPPFLAGS) -o $@ $<
+
+kann.o:kann.c
+		$(CC) -c $(CFLAGS) $(CFLAGS_LIB) $(INCLUDES) $(CPPFLAGS) -o $@ $<
 
 kann_extra/kann_data.o:kann_extra/kann_data.c
 		$(CC) -c $(CFLAGS) -DHAVE_ZLIB $< -o $@

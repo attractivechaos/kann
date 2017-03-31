@@ -64,10 +64,10 @@ kad_node_t *kad_var(float *x, float *g, int n_d, ...)
 	return p;
 }
 
-static inline kad_node_t *kad_finalize_node(kad_node_t *s) // a helper function
+static inline kad_node_t *kad_finalize_node(kad_node_t *s) /* a helper function */
 {
 	int i;
-	if (kad_op_list[s->op](s, KAD_SYNC_DIM) < 0) { // check dimension
+	if (kad_op_list[s->op](s, KAD_SYNC_DIM) < 0) { /* check dimension */
 		if (s->ptr) free(s->ptr);
 		free(s->child); free(s);
 		return 0;
@@ -79,7 +79,7 @@ static inline kad_node_t *kad_finalize_node(kad_node_t *s) // a helper function
 	return s;
 }
 
-/////////// Simple arithmetic ///////////
+/********** Simple arithmetic **********/
 
 static inline kad_node_t *kad_op2_core(int op, kad_node_t *x, kad_node_t *y)
 {
@@ -122,13 +122,13 @@ KAD_FUNC_OP1(kad_1minus, 11)
 KAD_FUNC_OP1(kad_softmax, 14)
 KAD_FUNC_OP1(kad_stdnorm, 32)
 
-/////////// Convolution ///////////
+/********** Convolution **********/
 
-// compute output dimension and padding sizes on both sides
+/* compute output dimension and padding sizes on both sides */
 static inline int conv_find_par(int in_size, int kernel_size, int stride, int pad0, int *new_pad0, int *new_pad1)
 {
 	int out_size, pad_both;
-	// key equation: out_size = (in_size - kernel_size + pad_both) / stride + 1
+	/* key equation: out_size = (in_size - kernel_size + pad_both) / stride + 1 */
 	if (pad0 == KAD_PAD_SAME && stride == 1) out_size = in_size;
 	else out_size = (in_size - kernel_size + (pad0 > 0? pad0 : 0) + stride - 1) / stride + 1;
 	pad_both = (out_size - 1) * stride + kernel_size - in_size;
@@ -216,7 +216,7 @@ kad_node_t *kad_avg1d(kad_node_t *x, int kernel_size, int stride, int left_pad)
 	return kad_finalize_node(s);
 }
 
-/////////// Multi-node pooling ///////////
+/********** Multi-node pooling **********/
 
 static kad_node_t *kad_pooling_general(int op, int n, kad_node_t **x)
 {
@@ -245,7 +245,7 @@ kad_node_t *kad_select(int n, kad_node_t **x, int which)
 	return kad_finalize_node(s);
 }
 
-/////////// Dimension reduction ///////////
+/********** Dimension reduction **********/
 
 static kad_node_t *kad_reduce_general(int op, kad_node_t *x, int axis)
 {
@@ -262,7 +262,7 @@ static kad_node_t *kad_reduce_general(int op, kad_node_t *x, int axis)
 kad_node_t *kad_reduce_sum(kad_node_t *x, int axis)  { return kad_reduce_general(25, x, axis); }
 kad_node_t *kad_reduce_mean(kad_node_t *x, int axis) { return kad_reduce_general(26, x, axis); }
 
-/////////// Sampling related ///////////
+/********** Sampling related **********/
 
 kad_node_t *kad_dropout(kad_node_t *x, kad_node_t *y)
 {
@@ -280,7 +280,7 @@ kad_node_t *kad_sample_normal(kad_node_t *x)
 	return z;
 }
 
-/////////// Miscellaneous ///////////
+/********** Miscellaneous **********/
 
 kad_node_t *kad_slice(kad_node_t *x, int axis, int start, int end)
 {
@@ -395,7 +395,7 @@ int kad_sync_dim(int n, kad_node_t **v, int batch_size)
 	int i, req_alloc = 0, req_sync = 0, old_size = 0;
 	for (i = 0; i < n; ++i) {
 		if (kad_is_feed(v[i])) {
-			old_size = v[i]->d[0]; // TODO: check if all feeds have the same batch size
+			old_size = v[i]->d[0]; /* TODO: check if all feeds have the same batch size */
 			if (batch_size > 0 && v[i]->d[0] != batch_size)
 				v[i]->d[0] = batch_size, req_sync = 1;
 		} else if (v[i]->n_child > 0 && req_sync)
@@ -420,15 +420,15 @@ int kad_sync_dim(int n, kad_node_t **v, int batch_size)
 		(v).a[(v).n++] = (x); \
 	} while (0)
 
-// IMPORTANT: kad_node_t::tmp MUST BE set to zero before calling this function
+/* IMPORTANT: kad_node_t::tmp MUST BE set to zero before calling this function */
 kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 {
 	int i;
 	kvec_t(kad_node_p) stack = {0,0,0}, a = {0,0,0};
 
-	// generate kad_node_t::tmp, the count of the parent nodes; shifted by 1; lowest bit to detect fake roots
+	/* generate kad_node_t::tmp, the count of the parent nodes; shifted by 1; lowest bit to detect fake roots */
 	for (i = 0; i < n_roots; ++i) {
-		roots[i]->tmp = 1; // mark the root
+		roots[i]->tmp = 1; /* mark the root */
 		kv_push(kad_node_p, stack, roots[i]);
 	}
 	while (stack.n) {
@@ -440,9 +440,9 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 		}
 	}
 
-	// topological sorting (Kahn's algorithm)
+	/* topological sorting (Kahn's algorithm) */
 	for (i = 0; i < n_roots; ++i)
-		if (roots[i]->tmp>>1 == 0) // if roots[i]->tmp>>1 != 0, it is not a real root
+		if (roots[i]->tmp>>1 == 0) /* if roots[i]->tmp>>1 != 0, it is not a real root */
 			kv_push(kad_node_p, stack, roots[i]);
 	while (stack.n) {
 		kad_node_t *p = kv_pop(stack);
@@ -454,13 +454,13 @@ kad_node_t **kad_compile_array(int *n_node, int n_roots, kad_node_t **roots)
 		}
 	}
 	free(stack.a);
-	for (i = 0; i < (int)a.n; ++i) { // check cycles; no cycles if constructed with kad_add() etc
+	for (i = 0; i < (int)a.n; ++i) { /* check cycles; no cycles if constructed with kad_add() etc */
 		assert(a.a[i]->tmp>>1 == 0);
 		a.a[i]->tmp = 0;
 	}
 
-	// reverse
-	for (i = 0; i < (int)a.n>>1; ++i) { // reverse a.a[]
+	/* reverse */
+	for (i = 0; i < (int)a.n>>1; ++i) { /* reverse a.a[] */
 		kad_node_p t;
 		t = a.a[i], a.a[i] = a.a[a.n-1-i], a.a[a.n-1-i] = t;
 	}
@@ -569,10 +569,10 @@ void kad_grad(int n, kad_node_t **a, int from)
 	assert(a[from]->n_d == 0);
 	for (i = 0; i < n; ++i) a[i]->tmp = (i == from);
 	kad_propagate_marks(n, a);
-	for (i = 0; i <= from; ++i) // set all grandients to zero
+	for (i = 0; i <= from; ++i) /* set all grandients to zero */
 		if (a[i]->g && a[i]->tmp > 0)
 			memset(a[i]->g, 0, kad_len(a[i]) * sizeof(float));
-	for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) // backprop
+	for (i = from, a[i]->g[0] = 1.0f; i >= 0; --i) /* backprop */
 		if (a[i]->n_child && a[i]->tmp > 0)
 			kad_op_list[a[i]->op](a[i], KAD_BACKWARD);
 	for (i = 0; i <= from; ++i) a[i]->tmp = 0;
@@ -674,7 +674,7 @@ static inline kad_node_t *kad_dup1(const kad_node_t *p)
 	q->pre = 0, q->tmp = 0, q->gtmp = 0;
 	if (p->ptr && p->ptr_size > 0) {
 		if (kad_use_rng(p) && !(p->flag & KAD_SHARE_RNG) && p->ptr_size == sizeof(kad_rng_t)) {
-			q->ptr = kad_rng(); // each time step uses a different RNG
+			q->ptr = kad_rng(); /* each time step uses a different RNG */
 		} else {
 			q->ptr = malloc(p->ptr_size);
 			memcpy(q->ptr, p->ptr, p->ptr_size);
@@ -707,7 +707,7 @@ kad_node_t **kad_clone(int n, kad_node_t **v, int batch_size)
 		}
 	}
 	for (i = 0; i < n; ++i) v[i]->tmp = 0;
-	kad_sync_dim(n, u, batch_size); // this will allocate x[] and g[] at internal nodes
+	kad_sync_dim(n, u, batch_size); /* this will allocate x[] and g[] at internal nodes */
 	return u;
 }
 
@@ -742,14 +742,14 @@ static void kad_unroll_helper(int n_v, kad_node_t **v, int i_pivot, kad_node_t *
 
 	flag = (uint8_t*)calloc(n_v, 1);
 	for (i = i_pivot, flag[i] = 16; i >= 0; --i) {
-		if (i < i_pivot && kad_is_pivot(v[i])) continue; // don't trespass other pivots
-		if (flag[i]&16) // flag 16: nodes to unroll
+		if (i < i_pivot && kad_is_pivot(v[i])) continue; /* don't trespass other pivots */
+		if (flag[i]&16) /* flag 16: nodes to unroll */
 			for (j = 0; j < v[i]->n_child; ++j)
 				flag[v[i]->child[j]->tmp] = 16;
 	}
 	for (i = 0; i < i_pivot; ++i) {
 		if (!(flag[i]&16)) continue;
-		if (kad_is_var(v[i]) || kad_is_const(v[i]) || kad_is_pivot(v[i])) flag[i] |= 1; // external nodes that should not be duplicated
+		if (kad_is_var(v[i]) || kad_is_const(v[i]) || kad_is_pivot(v[i])) flag[i] |= 1; /* external nodes that should not be duplicated */
 		if (v[i]->pre) flag[v[i]->pre->tmp] |= 2;
 	}
 	flag[v[i_pivot]->child[0]->tmp] |= 4;
@@ -765,7 +765,7 @@ static void kad_unroll_helper(int n_v, kad_node_t **v, int i_pivot, kad_node_t *
 			if (l == 0 && (flag[i]&2)) aux[i] = t[i];
 			if (v[i]->pre) {
 				t[v[i]->pre->tmp] = t[i];
-				if (l == len - 1) t[i]->pre = aux[v[i]->pre->tmp]; // this forms a cycle!
+				if (l == len - 1) t[i]->pre = aux[v[i]->pre->tmp]; /* this forms a cycle! */
 			}
 			push_nodes(w, t[i]);
 		}
@@ -794,13 +794,13 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int *new_n, int *len)
 	if (n_pivots) {
 		int k, *i_pivots;
 		i_pivots = (int*)calloc(n_pivots, sizeof(int));
-		for (i = k = 0; i < n_v; ++i) // collect pivots
+		for (i = k = 0; i < n_v; ++i) /* collect pivots */
 			if (kad_is_pivot(v[i])) i_pivots[k++] = i;
-		for (i = 0; i < n_pivots; ++i) // unroll each pivot, from the lowest to the highest
+		for (i = 0; i < n_pivots; ++i) /* unroll each pivot, from the lowest to the highest */
 			kad_unroll_helper(n_v, v, i_pivots[i], t, len[i], &w);
 		free(i_pivots);
 	}
-	for (i = 0; i < n_v; ++i) { // copy over the rest of nodes
+	for (i = 0; i < n_v; ++i) { /* copy over the rest of nodes */
 		if (t[i]) continue;
 		t[i] = kad_dup1(v[i]);
 		if (v[i]->n_child)
@@ -810,7 +810,7 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int *new_n, int *len)
 	}
 	free(t);
 	for (i = 0; i < n_v; ++i) v[i]->tmp = 0;
-	for (i = 0; i < w.n; ++i) // stack may change the output dimension
+	for (i = 0; i < w.n; ++i) /* stack may change the output dimension */
 		if (w.v[i]->n_child > 0)
 			kad_op_list[w.v[i]->op](w.v[i], KAD_SYNC_DIM);
 	kad_allocate_internal(w.n, w.v);
@@ -825,7 +825,7 @@ kad_node_t **kad_unroll(int n_v, kad_node_t **v, int *new_n, int *len)
 #ifdef __SSE__
 #include <xmmintrin.h>
 
-static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot using SSE
+static inline float kad_sdot(int n, const float *x, const float *y) /* BLAS sdot using SSE */
 {
 	int i, n8 = n>>3<<3;
 	__m128 vs1, vs2;
@@ -848,7 +848,7 @@ static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
 	s += t[0] + t[1] + t[2] + t[3];
 	return s;
 }
-static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) // BLAS saxpy using SSE
+static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) /* BLAS saxpy using SSE */
 {
 	int i, n8 = n>>3<<3;
 	__m128 va;
@@ -867,7 +867,7 @@ static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) /
 	for (; i < n; ++i) y[i] += a * x[i];
 }
 #else
-static inline float kad_sdot(int n, const float *x, const float *y) // BLAS sdot
+static inline float kad_sdot(int n, const float *x, const float *y) /* BLAS sdot */
 {
 	int i;
 	float s = 0.;
@@ -896,7 +896,7 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 	cblas_sgemm(CblasRowMajor, trans_A? CblasTrans : CblasNoTrans, trans_B? CblasTrans : CblasNoTrans, M, N, K, 1.0f, A, trans_A? M : K, B, trans_B? K : N, 1.0f, C, N);
 }
 #else
-void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C) // simplified BLAS sgemm
+void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float *A, const float *B, float *C) /* simplified BLAS sgemm */
 {
 	static const int x = 16;
 	int i, j, k;
@@ -905,7 +905,7 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 			for (j = 0; j < N; j += x) {
 				int ii, ie = M < i + x? M : i + x;
 				int jj, je = N < j + x? N : j + x;
-				for (ii = i; ii < ie; ++ii) { // loop tiling
+				for (ii = i; ii < ie; ++ii) { /* loop tiling */
 					const float *aii = A + ii * K, *bjj;
 					float *cii = C + ii * N;
 					for (jj = j, bjj = B + j * K; jj < je; ++jj, bjj += K)
@@ -920,7 +920,7 @@ void kad_sgemm_simple(int trans_A, int trans_B, int M, int N, int K, const float
 		for (k = 0; k < K; ++k)
 			for (i = 0; i < M; ++i)
 				kad_saxpy_inlined(N, A[k*M+i], &B[k*N], &C[i*N]);
-	} else abort(); // not implemented for (trans_A && trans_B)
+	} else abort(); /* not implemented for (trans_A && trans_B) */
 }
 #endif
 
@@ -981,8 +981,13 @@ void *kad_rng(void)
 }
 
 uint64_t kad_rand(void *d) { return kad_xoroshiro128plus_next(d? (kad_rng_t*)d : &kad_rng_dat); }
-static inline double kad_int2double(uint64_t x) { const union { uint64_t i; double d; } u = { 0x3FFULL << 52 | x >> 12 }; return u.d - 1.0; }
-double kad_drand(void *d) { return kad_int2double(kad_xoroshiro128plus_next(d? (kad_rng_t*)d : &kad_rng_dat)); }
+
+double kad_drand(void *d)
+{
+	union { uint64_t i; double d; } u;
+	u.i = 0x3FFULL << 52 | kad_xoroshiro128plus_next(d? (kad_rng_t*)d : &kad_rng_dat) >> 12;
+	return u.d - 1.0;
+}
 
 double kad_drand_normal(void *d)
 {
@@ -1008,13 +1013,13 @@ double kad_drand_normal(void *d)
  * Operators *
  *************/
 
-static inline void kad_copy_dim1(kad_node_t *dst, const kad_node_t *src) // set the dimension/shape of dst to src
+static inline void kad_copy_dim1(kad_node_t *dst, const kad_node_t *src) /* set the dimension/shape of dst to src */
 {
 	dst->n_d = src->n_d;
 	if (src->n_d) memcpy(dst->d, src->d, src->n_d * sizeof(int));
 }
 
-/////////// Arithmetic operations ///////////
+/********** Arithmetic operations **********/
 
 int kad_op_add(kad_node_t *p, int action)
 {
@@ -1078,7 +1083,7 @@ int kad_op_mul(kad_node_t *p, int action)
 		assert(n0 >= n1);
 		memset(p->x, 0, n0 * sizeof(float));
 		if (q[0]->x != 0 && q[1]->x != 0)
-			for (i = 0; i < n0; i += n1) // TODO: optimize when n1==1
+			for (i = 0; i < n0; i += n1) /* TODO: optimize when n1==1 */
 				kad_vec_mul_sum(n1, p->x + i, q[0]->x + i, q[1]->x);
 	} else if (action == KAD_BACKWARD) {
 		if (kad_is_back(q[0]) && q[1]->x)
@@ -1107,17 +1112,17 @@ int kad_op_cmul(kad_node_t *p, int action)
 	} else if (action == KAD_FORWARD) {
 		memset(p->x, 0, n_a_row * n_b_row * sizeof(float));
 		if (q[0]->x && q[1]->x)
-			kad_sgemm_simple(0, 1, n_a_row, n_b_row, n_col, q[0]->x, q[1]->x, p->x); // Y = X * trans(W)
+			kad_sgemm_simple(0, 1, n_a_row, n_b_row, n_col, q[0]->x, q[1]->x, p->x); /* Y = X * trans(W) */
 	} else if (action == KAD_BACKWARD) {
 		if (kad_is_back(q[0]) && q[1]->x)
-			kad_sgemm_simple(0, 0, n_a_row, n_col, n_b_row, p->g, q[1]->x, q[0]->g); // G_x <- G_y * W
+			kad_sgemm_simple(0, 0, n_a_row, n_col, n_b_row, p->g, q[1]->x, q[0]->g); /* G_x <- G_y * W */
 		if (kad_is_back(q[1]) && q[0]->x)
-			kad_sgemm_simple(1, 0, n_b_row, n_col, n_a_row, p->g, q[0]->x, q[1]->g); // G_w <- trans(G_y) * X
+			kad_sgemm_simple(1, 0, n_b_row, n_col, n_a_row, p->g, q[0]->x, q[1]->g); /* G_w <- trans(G_y) * X */
 	}
 	return 0;
 }
 
-int kad_op_matmul(kad_node_t *p, int action) // TODO: matmul and cmul have different broadcasting rules
+int kad_op_matmul(kad_node_t *p, int action) /* TODO: matmul and cmul have different broadcasting rules */
 {
 	int n_a_row, n_b_row, n_a_col, n_b_col;
 	kad_node_t *q[2];
@@ -1134,12 +1139,12 @@ int kad_op_matmul(kad_node_t *p, int action) // TODO: matmul and cmul have diffe
 	} else if (action == KAD_FORWARD) {
 		memset(p->x, 0, n_a_row * n_b_col * sizeof(float));
 		if (q[0]->x && q[1]->x)
-			kad_sgemm_simple(0, 0, n_a_row, n_b_col, n_a_col, q[0]->x, q[1]->x, p->x); // Y = X * W
+			kad_sgemm_simple(0, 0, n_a_row, n_b_col, n_a_col, q[0]->x, q[1]->x, p->x); /* Y = X * W */
 	} else if (action == KAD_BACKWARD) {
 		if (kad_is_back(q[0]) && q[1]->x)
-			kad_sgemm_simple(0, 1, n_a_row, n_a_col, n_b_col, p->g, q[1]->x, q[0]->g); // G_x <- G_y * trans(W)
+			kad_sgemm_simple(0, 1, n_a_row, n_a_col, n_b_col, p->g, q[1]->x, q[0]->g); /* G_x <- G_y * trans(W) */
 		if (kad_is_back(q[1]) && q[0]->x)
-			kad_sgemm_simple(1, 0, n_b_row, n_b_col, n_a_row, q[0]->x, p->g, q[1]->g); // G_y <- trans(A) * G_y
+			kad_sgemm_simple(1, 0, n_b_row, n_b_col, n_a_row, q[0]->x, p->g, q[1]->g); /* G_y <- trans(A) * G_y */
 	}
 	return 0;
 }
@@ -1268,7 +1273,7 @@ int kad_op_reduce_mean(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// Miscellaneous ///////////
+/********** Miscellaneous **********/
 
 int kad_op_dropout(kad_node_t *p, int action)
 {
@@ -1298,7 +1303,7 @@ int kad_op_dropout(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_sample_normal(kad_node_t *p, int action) // not tested
+int kad_op_sample_normal(kad_node_t *p, int action) /* not tested */
 {
 	int i, n;
 	kad_node_t *q = p->child[0];
@@ -1401,7 +1406,7 @@ int kad_op_reshape(kad_node_t *p, int action)
 				if (p->d[i] <= 0) ++n_missing;
 				else len *= p->d[i];
 			if (n_missing == 0 && len != kad_len(q)) return -1;
-			if (n_missing > 1) { // attempt to infer missing dimensions except the last one
+			if (n_missing > 1) { /* attempt to infer missing dimensions except the last one */
 				for (i = 0; i < p->n_d; ++i)
 					if (p->d[i] <= 0 && i < q->n_d) {
 						p->d[i] = q->d[i], len *= p->d[i];
@@ -1409,7 +1414,7 @@ int kad_op_reshape(kad_node_t *p, int action)
 					}
 				if (n_missing > 1) return -1;
 			}
-			if (n_missing == 1) { // infer the last missing dimension
+			if (n_missing == 1) { /* infer the last missing dimension */
 				if (kad_len(q) % len != 0) return -1;
 				for (i = 0; i < p->n_d; ++i)
 					if (p->d[i] <= 0) p->d[i] = kad_len(q) / len;
@@ -1423,7 +1428,7 @@ int kad_op_reshape(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_reverse(kad_node_t *p, int action) // TODO: not tested
+int kad_op_reverse(kad_node_t *p, int action)
 {
 	kad_node_t *q = p->child[0];
 	int axis, i, j, n, d0, d1;
@@ -1448,12 +1453,12 @@ int kad_op_reverse(kad_node_t *p, int action) // TODO: not tested
 	return 0;
 }
 
-/////////// Cost functions ///////////
+/********** Cost functions **********/
 
 int kad_op_mse(kad_node_t *p, int action)
 {
-	kad_node_t *y1 = p->child[0]; // test
-	kad_node_t *y0 = p->child[1]; // truth
+	kad_node_t *y1 = p->child[0]; /* test */
+	kad_node_t *y0 = p->child[1]; /* truth */
 	int i, n;
 
 	n = kad_len(y0);
@@ -1476,8 +1481,8 @@ int kad_op_mse(kad_node_t *p, int action)
 int kad_op_ce_bin(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
-	kad_node_t *y1 = p->child[0]; // test
-	kad_node_t *y0 = p->child[1]; // truth
+	kad_node_t *y1 = p->child[0]; /* test */
+	kad_node_t *y0 = p->child[1]; /* truth */
 	int i, n;
 
 	n = kad_len(y0);
@@ -1508,8 +1513,8 @@ int kad_op_ce_bin(kad_node_t *p, int action)
 int kad_op_ce_bin_neg(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
-	kad_node_t *y1 = p->child[0]; // test
-	kad_node_t *y0 = p->child[1]; // truth
+	kad_node_t *y1 = p->child[0]; /* test */
+	kad_node_t *y0 = p->child[1]; /* truth */
 	int i, n;
 
 	n = kad_len(y0);
@@ -1540,8 +1545,8 @@ int kad_op_ce_bin_neg(kad_node_t *p, int action)
 int kad_op_ce_multi(kad_node_t *p, int action)
 {
 	static const float tiny = 1e-9f;
-	kad_node_t *y1 = p->child[0]; // test
-	kad_node_t *y0 = p->child[1]; // truth
+	kad_node_t *y1 = p->child[0]; /* test */
+	kad_node_t *y0 = p->child[1]; /* truth */
 	int i, j, n1, d0;
 
 	n1 = y0->d[y0->n_d - 1];
@@ -1569,7 +1574,7 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// Normalization ///////////
+/********** Normalization **********/
 
 int kad_op_stdnorm(kad_node_t *p, int action)
 {
@@ -1611,7 +1616,7 @@ int kad_op_stdnorm(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// Activation functions ///////////
+/********** Activation functions **********/
 
 int kad_op_sigm(kad_node_t *p, int action)
 {
@@ -1719,7 +1724,7 @@ int kad_op_softmax(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// Multi-node pooling ///////////
+/********** Multi-node pooling **********/
 
 int kad_op_avg(kad_node_t *p, int action)
 {
@@ -1775,7 +1780,7 @@ int kad_op_max(kad_node_t *p, int action)
 	return 0;
 }
 
-int kad_op_stack(kad_node_t *p, int action) // TODO: allow axis, as in TensorFlow
+int kad_op_stack(kad_node_t *p, int action) /* TODO: allow axis, as in TensorFlow */
 {
 	int i, n, axis = 0;
 	kad_node_t *q;
@@ -1790,7 +1795,7 @@ int kad_op_stack(kad_node_t *p, int action) // TODO: allow axis, as in TensorFlo
 		for (i = 0; i < axis; ++i) p->d[i] = q->d[i];
 		p->d[axis] = p->n_child;
 		for (; i < q->n_d; ++i) p->d[i+1] = q->d[i];
-	} else if (action == KAD_FORWARD) { // TODO: doesn't work when axis != 0
+	} else if (action == KAD_FORWARD) { /* TODO: doesn't work when axis != 0 */
 		for (i = 0; i < p->n_child; ++i)
 			memcpy(&p->x[i * n], p->child[i]->x, n * sizeof(float));
 	} else if (action == KAD_BACKWARD) {
@@ -1825,9 +1830,9 @@ int kad_op_select(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// 2D convolution ///////////
+/********** 2D convolution **********/
 
-static void conv_rot180(int d0, int d1, float *x) // rotate/reverse a weight martix
+static void conv_rot180(int d0, int d1, float *x) /* rotate/reverse a weight martix */
 {
 	int i, j;
 	for (i = 0; i < d0; ++i) {
@@ -1837,7 +1842,7 @@ static void conv_rot180(int d0, int d1, float *x) // rotate/reverse a weight mar
 	}
 }
 
-static void conv2d_move_1to3(int d[4], const float *x, float *y) // convert the NCHW shape to the NHWC shape
+static void conv2d_move_1to3(int d[4], const float *x, float *y) /* convert the NCHW shape to the NHWC shape */
 {
 	int i, j, k, l;
 	for (i = 0; i < d[0]; ++i)
@@ -1849,7 +1854,7 @@ static void conv2d_move_1to3(int d[4], const float *x, float *y) // convert the 
 			}
 }
 
-static void conv2d_add_3to1(int d[4], const float *y, float *x) // convert the NHWC shape back to NCHW and add to another NCHW-shaped array
+static void conv2d_add_3to1(int d[4], const float *y, float *x) /* convert the NHWC shape back to NCHW and add to another NCHW-shaped array */
 {
 	int i, j, k, l;
 	for (i = 0; i < d[0]; ++i)
@@ -1902,7 +1907,7 @@ static void conv2d_add_3to1(int d[4], const float *y, float *x) // convert the N
  * second algorithm is faster. Both algorithms should produce identical
  * results, up to the precision of "float".
  */
-int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-width (NCHW) shape
+int kad_op_conv2d(kad_node_t *p, int action) /* in the number-channel-height-width (NCHW) shape */
 {
 #define conv2d_loop1(_x, _w, _y, _tmp, _row_func) do { /* for the NCHW shape */ \
 		int n, c1, c0, i, k, ii; \
@@ -1946,7 +1951,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
 	int algo_switch = 0;
 
-	if (action == KAD_FORWARD || action == KAD_BACKWARD) { // allocate working space
+	if (action == KAD_FORWARD || action == KAD_BACKWARD) { /* allocate working space */
 		if (w->d[3] * w->d[1] < 16) {
 			t = (float*)malloc(p->d[3] * sizeof(float));
 			x_padded = aux[1].pad[0] + aux[1].pad[1] > 0? (float*)calloc(q->d[3] + aux[1].pad[0] + aux[1].pad[1], sizeof(float)) : 0;
@@ -1959,22 +1964,22 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 	}
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 4 || w->n_d != 4) return -1;
-		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
+		if (q->d[1] != w->d[1]) return -1; /* unmatched input channels */
 		p->n_d = 4;
 		p->d[0] = q->d[0], p->d[1] = w->d[0], p->d[2] = conv_out_size(q->d[2], &aux[0]), p->d[3] = conv_out_size(q->d[3], &aux[1]);
 	} else if (action == KAD_FORWARD) {
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		memset(p->x, 0, kad_len(p) * sizeof(float));
-		if (!algo_switch) { // this is the first algorithm
+		if (!algo_switch) { /* this is the first algorithm */
 			conv2d_loop1(q->x, w->x, p->x, t, process_row_for);
-		} else { // this is the second algorithm
+		} else { /* this is the second algorithm */
 			conv2d_move_1to3(q->d, q->x, q1);
 			conv2d_move_1to3(w->d, w->x, w1);
 			conv2d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 		}
 		conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 	} else if (action == KAD_BACKWARD) {
-		if (kad_is_back(p->child[0])) { // backprop to the input array
+		if (kad_is_back(p->child[0])) { /* backprop to the input array */
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 			if (!algo_switch) {
 				conv2d_loop1(q->g, w->x, p->g, t, process_row_back_x);
@@ -1986,7 +1991,7 @@ int kad_op_conv2d(kad_node_t *p, int action) // in the number-channel-height-wid
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
 		}
-		if (kad_is_back(p->child[1])) { // backprop to the weight matrix
+		if (kad_is_back(p->child[1])) { /* backprop to the weight matrix */
 			conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
 			if (!algo_switch) {
 				conv2d_loop1(q->x, w->g, p->g, t, process_row_back_w);
@@ -2032,8 +2037,8 @@ int kad_op_max2d(kad_node_t *p, int action)
 						for (j = 0, v = v0 + (l > aux[1].pad[0]? l - aux[1].pad[0] : 0); j < p_col && v < v_end; ++j, v += aux[1].stride)
 							if (p->x[u + j] < q->x[v])
 								p->x[u + j] = q->x[v], f[u + j] = v;
-				} // ~k
-			} // ~i
+				} /* ~k */
+			} /* ~i */
 		}
 	} else if (action == KAD_BACKWARD) {
 		int i, len, *f = (int*)p->gtmp;
@@ -2043,7 +2048,7 @@ int kad_op_max2d(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// 1D convolution ///////////
+/********** 1D convolution **********/
 
 static void conv1d_move_1to2(int d[3], const float *x, float *y)
 {
@@ -2063,7 +2068,7 @@ static void conv1d_add_2to1(int d[3], const float *y, float *x)
 				x[(k * d[1] + j) * d[2] + i] += y[(k * d[2] + i) * d[1] + j];
 }
 
-int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW) shape
+int kad_op_conv1d(kad_node_t *p, int action) /* in the number-channel-width (NCW) shape */
 {
 #define conv1d_loop1(_x, _w, _y, _tmp, _row_func) do { /* for the NCW shape */ \
 		int n, c1, c0; \
@@ -2101,7 +2106,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 	float *t = 0, *q1 = 0, *w1 = 0, *x_padded = 0;
 	int algo_switch = 0;
 
-	if (action == KAD_FORWARD || action == KAD_BACKWARD) { // allocate working space
+	if (action == KAD_FORWARD || action == KAD_BACKWARD) { /* allocate working space */
 		if (w->d[2] * w->d[1] < 32) {
 			t = (float*)malloc(p->d[2] * sizeof(float));
 			x_padded = aux->pad[0] + aux->pad[1] > 0? (float*)calloc(q->d[2] + aux->pad[0] + aux->pad[1], sizeof(float)) : 0;
@@ -2114,22 +2119,22 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 	}
 	if (action == KAD_SYNC_DIM) {
 		if (q->n_d != 3 || w->n_d != 3) return -1;
-		if (q->d[1] != w->d[1]) return -1; // unmatched input channels
+		if (q->d[1] != w->d[1]) return -1; /* unmatched input channels */
 		p->n_d = 3;
 		p->d[0] = q->d[0], p->d[1] = w->d[0], p->d[2] = conv_out_size(q->d[2], aux);
 	} else if (action == KAD_FORWARD) {
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		memset(p->x, 0, kad_len(p) * sizeof(float));
-		if (!algo_switch) { // this is the first algorithm
+		if (!algo_switch) { /* this is the first algorithm */
 			conv1d_loop1(q->x, w->x, p->x, t, process_row_for);
-		} else { // this is the second algorithm
+		} else { /* this is the second algorithm */
 			conv1d_move_1to2(q->d, q->x, q1);
 			conv1d_move_1to2(w->d, w->x, w1);
 			conv1d_loop2(q1, w1, p->x, (*_yy += kad_sdot(m, _ww, _xx)));
 		}
 		conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 	} else if (action == KAD_BACKWARD) {
-		if (kad_is_back(p->child[0])) { // backprop to the input array
+		if (kad_is_back(p->child[0])) { /* backprop to the input array */
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 			if (!algo_switch) {
 				conv1d_loop1(q->g, w->x, p->g, t, process_row_back_x);
@@ -2141,7 +2146,7 @@ int kad_op_conv1d(kad_node_t *p, int action) // in the number-channel-width (NCW
 			}
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->x);
 		}
-		if (kad_is_back(p->child[1])) { // backprop to the weight matrix
+		if (kad_is_back(p->child[1])) { /* backprop to the weight matrix */
 			conv_rot180(w->d[0] * w->d[1], w->d[2], w->g);
 			if (!algo_switch) {
 				conv1d_loop1(q->x, w->g, p->g, t, process_row_back_w);
@@ -2229,46 +2234,46 @@ int kad_op_avg1d(kad_node_t *p, int action)
 	return 0;
 }
 
-/////////// List of operators ///////////
+/********** List of operators **********/
 
 kad_op_f kad_op_list[KAD_MAX_OP] = {
 	0,
-	kad_op_add,        // 1:  element-wise addition
-	kad_op_mul,        // 2:  element-wise multiplication
-	kad_op_cmul,       // 3:  column multiplication
-	kad_op_ce_bin_neg, // 4:  binary cross-entropy for (-1,1)
-	kad_op_square,     // 5:  square
-	kad_op_sigm,       // 6:  sigmoid
-	kad_op_tanh,       // 7:  tanh
-	kad_op_relu,       // 8:  ReLU
-	kad_op_matmul,     // 9:  matrix multiplication
-	kad_op_avg,        // 10: general average pooling (not for ConvNet)
-	kad_op_1minus,     // 11: 1-x
-	kad_op_select,     // 12: choose between one of the children
-	kad_op_ce_multi,   // 13: multi-class cross-entropy
-	kad_op_softmax,    // 14: softmax
-	kad_op_dropout,    // 15: dropout
-	kad_op_conv2d,     // 16: 2D convolution
-	kad_op_max2d,      // 17: 2D max pooling (for 2D ConvNet)
-	kad_op_conv1d,     // 18: 1D convolution
-	kad_op_max1d,      // 19: 1D max pooling (for 1D ConvNet)
-	kad_op_slice,      // 20: slice data at a dimension
-	kad_op_max,        // 21: general max pooling
-	kad_op_ce_bin,     // 22: binary cross-entropy for (0,1)
-	kad_op_sub,        // 23: element-wise subtraction
-	kad_op_sample_normal,  // 24: sample from a normal distribution
-	kad_op_reduce_sum,     // 25
-	kad_op_reduce_mean,    // 26
-	kad_op_log,        // 27: log()
-	kad_op_avg1d,      // 28: 1D average pooling (for 1D ConvNet)
-	kad_op_mse,        // 29: mean square error
-	kad_op_reshape,    // 30
-	kad_op_concat,     // 31
-	kad_op_stdnorm,    // 32: layer normalization
-	kad_op_exp,        // 33: exp()
-	kad_op_sin,        // 34: sin()
-	kad_op_stack,      // 35: tf.stack, but on the first axis only
-	kad_op_reverse     // 36: tf.reverse, but on one axis only
+	kad_op_add,        /* 1:  element-wise addition */
+	kad_op_mul,        /* 2:  element-wise multiplication */
+	kad_op_cmul,       /* 3:  column multiplication */
+	kad_op_ce_bin_neg, /* 4:  binary cross-entropy for (-1,1) */
+	kad_op_square,     /* 5:  square */
+	kad_op_sigm,       /* 6:  sigmoid */
+	kad_op_tanh,       /* 7:  tanh */
+	kad_op_relu,       /* 8:  ReLU */
+	kad_op_matmul,     /* 9:  matrix multiplication */
+	kad_op_avg,        /* 10: general average pooling (not for ConvNet) */
+	kad_op_1minus,     /* 11: 1-x */
+	kad_op_select,     /* 12: choose between one of the children */
+	kad_op_ce_multi,   /* 13: multi-class cross-entropy */
+	kad_op_softmax,    /* 14: softmax */
+	kad_op_dropout,    /* 15: dropout */
+	kad_op_conv2d,     /* 16: 2D convolution */
+	kad_op_max2d,      /* 17: 2D max pooling (for 2D ConvNet) */
+	kad_op_conv1d,     /* 18: 1D convolution */
+	kad_op_max1d,      /* 19: 1D max pooling (for 1D ConvNet) */
+	kad_op_slice,      /* 20: slice data at a dimension */
+	kad_op_max,        /* 21: general max pooling */
+	kad_op_ce_bin,     /* 22: binary cross-entropy for (0,1) */
+	kad_op_sub,        /* 23: element-wise subtraction */
+	kad_op_sample_normal,  /* 24: sample from a normal distribution */
+	kad_op_reduce_sum,     /* 25 */
+	kad_op_reduce_mean,    /* 26 */
+	kad_op_log,        /* 27: log() */
+	kad_op_avg1d,      /* 28: 1D average pooling (for 1D ConvNet) */
+	kad_op_mse,        /* 29: mean square error */
+	kad_op_reshape,    /* 30 */
+	kad_op_concat,     /* 31 */
+	kad_op_stdnorm,    /* 32: layer normalization */
+	kad_op_exp,        /* 33: exp() */
+	kad_op_sin,        /* 34: sin() */
+	kad_op_stack,      /* 35: tf.stack, but on the first axis only */
+	kad_op_reverse     /* 36: tf.reverse, but on one axis only */
 };
 
 /**************************
