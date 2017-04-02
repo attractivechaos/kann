@@ -39,15 +39,16 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
   mini-batching and effective multi-threading. Sometimes faster than mainstream
   frameworks in their CPU-only mode.
 
-* Small. As of now, KANN has less than 4000 lines of code in four source code
-  files, with no non-standard dependencies by default.
+* Small and portable. As of now, KANN has less than 4000 lines of code in four
+  source code files, with no non-standard dependencies by default. Compatible with 
+  ANSI C compilers.
 
 ### Limitations
 
 * CPU only. As such, KANN is **not** intended for training huge neural
   networks.
 
-* No seq2seq. No batch normalization.
+* Lack of some common operators and architectures such as no batch normalization.
 
 * Verbose APIs for training RNNs.
 
