@@ -211,6 +211,7 @@ void kann_rnn_start(kann_t *a)
 			kad_node_t *q = p->pre;
 			if (q->x) memcpy(p->x, q->x, kad_len(p) * sizeof(float));
 			else memset(p->x, 0, kad_len(p) * sizeof(float));
+			if (q->n_child > 0) free(q->x);
 			q->x = p->x;
 		}
 	}
@@ -218,7 +219,11 @@ void kann_rnn_start(kann_t *a)
 
 void kann_rnn_end(kann_t *a)
 {
+	int i;
 	kad_ext_sync(a->n, a->v, a->x, a->g, a->c);
+	for (i = 0; i < a->n; ++i)
+		if (a->v[i]->pre && a->v[i]->pre->n_child > 0)
+			a->v[i]->pre->x = (float*)calloc(kad_len(a->v[i]->pre), sizeof(float));
 }
 
 static int kann_class_error_core(const kann_t *ann, int *base)
