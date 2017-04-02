@@ -101,6 +101,17 @@ kann_t *kann_clone(kann_t *a, int batch_size)
 	return b;
 }
 
+kann_t *kann_unroll_array(kann_t *a, int *len)
+{
+	kann_t *b;
+	int n_pivots;
+	n_pivots = kad_n_pivots(a->n, a->v);
+	b = (kann_t*)calloc(1, sizeof(kann_t));
+	b->x = a->x, b->g = a->g, b->c = a->c; /* these arrays are shared */
+	b->v = kad_unroll(a->n, a->v, &b->n, len);
+	return b;
+}
+
 kann_t *kann_unroll(kann_t *a, ...)
 {
 	kann_t *b;
@@ -111,9 +122,8 @@ kann_t *kann_unroll(kann_t *a, ...)
 	va_start(ap, a);
 	for (i = 0; i < n_pivots; ++i) len[i] = va_arg(ap, int);
 	va_end(ap);
-	b = (kann_t*)calloc(1, sizeof(kann_t));
-	b->x = a->x, b->g = a->g, b->c = a->c; /* these arrays are shared */
-	b->v = kad_unroll(a->n, a->v, &b->n, len);
+	b = kann_unroll_array(a, len);
+	free(len);
 	return b;
 }
 

@@ -2,7 +2,7 @@ CC=			gcc
 CFLAGS=		-g -Wall -Wc++-compat -O2
 CPPFLAGS=
 INCLUDES=	-I.. -I../kann_extra
-LIBS=		-lm -lz
+LIBS=		-lm -lz -lpthread
 EXE=		dna-cnn dna-brnn
 
 .SUFFIXES:.c .o

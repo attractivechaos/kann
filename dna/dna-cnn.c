@@ -92,7 +92,7 @@ static kann_t *model_gen(int n_lbl, int len, int k_size, int n_flt, int n_h_neur
 
 int main(int argc, char *argv[])
 {
-	int c, seed = 11, ws = 100, n_flt = 32, k_size = 17, n_h_neurons = 64, to_apply = 0, max_epoch = 100, mb_size = 64, chunk_size = 50000000;
+	int c, seed = 11, ws = 100, n_flt = 32, k_size = 17, n_h_neurons = 64, to_apply = 0, max_epoch = 100, mb_size = 64, chunk_size = 50000000, n_threads = 1;
 	float h_dropout = 0.1f, lr = 0.001f;
 	kann_t *ann = 0;
 	char *fn_in = 0, *fn_out = 0;
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s", argv[c]);
 	}
 	fputc('\n', stderr);
-	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:d:k:f:w:Ac:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:d:k:f:w:Ac:t:")) >= 0) {
 		if (c == 'n') n_h_neurons = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') fn_in = optarg;
@@ -116,6 +116,8 @@ int main(int argc, char *argv[])
 		else if (c == 'd') h_dropout = atof(optarg);
 		else if (c == 'k') k_size = atoi(optarg);
 		else if (c == 'A') to_apply = 1;
+		else if (c == 't') n_threads = atoi(optarg);
+		else if (c == 'w') ws = atoi(optarg);
 		else if (c == 'c') {
 			char *p;
 			chunk_size = strtol(optarg, &p, 10);
@@ -189,6 +191,7 @@ int main(int argc, char *argv[])
 		free(seq4); free(x);
 	} else { // train
 		if (ann == 0) ann = model_gen(s->n_lbl, ws, k_size, n_flt, n_h_neurons);
+		if (n_threads > 1) kann_mt(ann, n_threads, mb_size);
 		//kad_print_graph(stderr, ann->n, ann->v);
 		train(ann, s, 0, lr, mb_size, max_epoch, chunk_size, fn_out);
 	}

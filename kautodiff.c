@@ -2276,6 +2276,12 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_reverse     /* 36: tf.reverse, but on one axis only */
 };
 
+char *kad_op_name[KAD_MAX_OP] = {
+	0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "select", "ce_multi", "softmax",
+	"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
+	"avg1d", "mse", "reshape", "concat", "stdnorm", "exp", "sin", "stack", "reverse"
+};
+
 /**************************
  *** Debugging routines ***
  **************************/
@@ -2289,9 +2295,6 @@ void kad_trap_fe(void)
 
 void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 {
-	static const char *op[] = { 0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "select", "ce_multi", "softmax",
-								"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
-								"avg1d", "mse", "reshape", "concat", "stdnorm", "exp", "sin", "stack", "reverse" };
 	int i, j;
 	for (i = 0; i < n; ++i) v[i]->tmp = i;
 	for (i = 0; i < n; ++i) {
@@ -2306,7 +2309,7 @@ void kad_print_graph(FILE *fp, int n, kad_node_t **v)
 		}
 		fprintf(fp, "]\t");
 		if (p->n_child) {
-			fprintf(fp, "%s(", op[p->op]);
+			fprintf(fp, "%s(", kad_op_name[p->op]);
 			for (j = 0; j < p->n_child; ++j) {
 				if (j) fputc(',', fp);
 				fprintf(fp, "$%d", p->child[j]->tmp);
