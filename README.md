@@ -48,7 +48,7 @@ neural networks in C/C++, to deploy no-so-large models without worrying about
 * CPU only. As such, KANN is **not** intended for training huge neural
   networks.
 
-* Lack of some common operators and architectures such as no batch normalization.
+* Lack of some common operators and architectures such as batch normalization.
 
 * Verbose APIs for training RNNs.
 
@@ -76,7 +76,7 @@ training and prediction. We can use layer APIs to build a simple model:
 kann_t *ann;
 kad_node_t *t;
 t = kann_layer_input(784); // for MNIST
-t = kad_relu(kann_layer_linear(t, 64)); // a 64-neuron hidden layer with ReLU activation
+t = kad_relu(kann_layer_dense(t, 64)); // a 64-neuron hidden layer with ReLU activation
 t = kann_layer_cost(t, 10, KANN_C_CEM); // softmax output + multi-class cross-entropy cost
 ann = kann_new(t, 0);                   // compile the network and collate variables
 ```
@@ -119,7 +119,7 @@ int main(void)
 	kann_t *ann;
 	// construct an MLP with one hidden layers
 	t = kann_layer_input(max_bit);
-	t = kad_relu(kann_layer_linear(t, 64));
+	t = kad_relu(kann_layer_dense(t, 64));
 	t = kann_layer_cost(t, max_bit + 1, KANN_C_CEM); // output uses 1-hot encoding
 	ann = kann_new(t, 0);
 	// generate training data
