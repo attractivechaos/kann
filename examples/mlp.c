@@ -83,6 +83,12 @@ int main(int argc, char *argv[])
 		kann_data_free(out);
 	} else { // apply
 		int n_out;
+		if (in->cname) {
+			printf("#sample");
+			for (i = 0; i < in->n_col; ++i)
+				printf("\t%s", in->cname[i]);
+			printf("\n");
+		}
 		kann_switch(ann, 0);
 		n_out = kann_dim_out(ann);
 		for (i = 0; i < in->n_row; ++i) {
