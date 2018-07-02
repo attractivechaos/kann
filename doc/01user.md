@@ -79,7 +79,7 @@ kann_t *model_gen_mnist(int n_h_flt, int n_h_fc)
 It uses a little more low-level APIs. Here we use `kad_feed()` to add an input
 node and set an external flag `KANN_F_IN` to mark it. The input is a 4D array
 with the four dimensions being: mini-batch size, number of channels, height and
-weight. **Importantly**, we note that the first dimension of input, truth and
+width. **Importantly**, we note that the first dimension of input, truth and
 most of internal nodes in a neural network is always the mini-batch size.
 Violating this rule might lead to unexpected errors. The rest of code adds two
 convolution layers and one max pooling layer. We are using multi-class
