@@ -1,7 +1,8 @@
 /*
   The MIT License
 
-  Copyright (c) 2016, 2017  Broad Institute
+  Copyright (c) 2018-2019 Dana-Farber Cancer Institute
+                2016-2018 Broad Institute
 
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the
@@ -132,6 +133,7 @@ int kann_feed_bind(kann_t *a, uint32_t ext_flag, int32_t ext_label, float **x);
 float kann_cost(kann_t *a, int cost_label, int cal_grad);
 
 int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label);
+int kann_eval_out(kann_t *a);
 int kann_class_error(const kann_t *ann, int *base);
 
 /**

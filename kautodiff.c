@@ -122,6 +122,14 @@ KAD_FUNC_OP1(kad_1minus, 11)
 KAD_FUNC_OP1(kad_softmax, 14)
 KAD_FUNC_OP1(kad_stdnorm, 32)
 
+kad_node_t *kad_ce_multi_weighted(kad_node_t *pred, kad_node_t *truth, kad_node_t *weight)
+{
+	kad_node_t *s;
+	s = kad_new_core(0, 13, 3);
+	s->child[0] = pred, s->child[1] = truth, s->child[2] = weight;
+	return kad_finalize_node(s);
+}
+
 /********** Convolution **********/
 
 /* compute output dimension and padding sizes on both sides */
@@ -1547,28 +1555,50 @@ int kad_op_ce_multi(kad_node_t *p, int action)
 	static const float tiny = 1e-9f;
 	kad_node_t *y1 = p->child[0]; /* test */
 	kad_node_t *y0 = p->child[1]; /* truth */
+	kad_node_t *c = 0;
 	int i, j, n1, d0;
 
 	n1 = y0->d[y0->n_d - 1];
 	d0 = kad_len(y0) / n1;
+	if (p->n_child == 3) {
+		c = p->child[2];
+		assert(c->n_d == 1 && c->d[0] == n1);
+	}
 	if (action == KAD_SYNC_DIM) {
 		if (kad_len(y0) != kad_len(y1) || y0->d[y0->n_d - 1] != y1->d[y1->n_d - 1]) return -1;
 		p->n_d = 0;
 	} else if (action == KAD_FORWARD) {
 		double cost = 0.0;
-		for (j = 0; j < d0; ++j) {
-			float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
-			for (i = 0; i < n1; ++i)
-				if (x0[i] > 0.0f)
-					cost += x0[i] * log(x0[i] / (x1[i] > tiny? x1[i] : tiny));
+		if (c == 0) {
+			for (j = 0; j < d0; ++j) {
+				float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+				for (i = 0; i < n1; ++i)
+					if (x0[i] > 0.0f)
+						cost += x0[i] * log(x0[i] / (x1[i] > tiny? x1[i] : tiny));
+			}
+		} else {
+			for (j = 0; j < d0; ++j) {
+				float *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+				for (i = 0; i < n1; ++i)
+					if (x0[i] > 0.0f)
+						cost += c->x[i] * x0[i] * log(x0[i] / (x1[i] > tiny? x1[i] : tiny));
+			}
 		}
 		p->x[0] = (float)(cost / d0);
 	} else if (action == KAD_BACKWARD && kad_is_back(y1)) {
 		float t = p->g[0] / d0;
-		for (j = 0; j < d0; ++j) {
-			float *g = &y1->g[j * n1], *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
-			for (i = 0; i < n1; ++i)
-				g[i] -= t * x0[i] / (x1[i] > tiny? x1[i] : tiny);
+		if (c == 0) {
+			for (j = 0; j < d0; ++j) {
+				float *g = &y1->g[j * n1], *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+				for (i = 0; i < n1; ++i)
+					g[i] -= t * x0[i] / (x1[i] > tiny? x1[i] : tiny);
+			}
+		} else {
+			for (j = 0; j < d0; ++j) {
+				float *g = &y1->g[j * n1], *x1 = &y1->x[j * n1], *x0 = &y0->x[j * n1];
+				for (i = 0; i < n1; ++i)
+					g[i] -= t * c->x[i] * x0[i] / (x1[i] > tiny? x1[i] : tiny);
+			}
 		}
 	}
 	return 0;

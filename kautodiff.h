@@ -1,7 +1,8 @@
 /*
   The MIT License
 
-  Copyright (c) 2016, 2017  Broad Institute
+  Copyright (c) 2018-2019 Dana-Farber Cancer Institute
+                2016-2018 Broad Institute
 
   Permission is hereby granted, free of charge, to any person obtaining
   a copy of this software and associated documentation files (the
@@ -27,7 +28,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r535"
+#define KAD_VERSION "r544"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -156,6 +157,7 @@ kad_node_t *kad_mse(kad_node_t *x, kad_node_t *y);        /* mean square error *
 kad_node_t *kad_ce_multi(kad_node_t *x, kad_node_t *y);   /* multi-class cross-entropy; x is the preidction and y is the truth */
 kad_node_t *kad_ce_bin(kad_node_t *x, kad_node_t *y);     /* binary cross-entropy for (0,1) */
 kad_node_t *kad_ce_bin_neg(kad_node_t *x, kad_node_t *y); /* binary cross-entropy for (-1,1) */
+kad_node_t *kad_ce_multi_weighted(kad_node_t *pred, kad_node_t *truth, kad_node_t *weight);
 
 #define KAD_PAD_NONE  0      /* use the smallest zero-padding */
 #define KAD_PAD_SAME  (-2)   /* output to have the same dimension as input */
