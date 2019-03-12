@@ -2,6 +2,7 @@
 
 Data used for these examples and pre-trained KANN models from the data can be
 downloaded from [this link][data]:
+(If this failed, you can manually wget from the urls and extract at the current folder)
 ```sh
 curl -s https://github.com/attractivechaos/kann/releases/download/v0/kann-data.tgz | tar -zxf -
 curl -s https://github.com/attractivechaos/kann/releases/download/v0/kann-models.tgz | tar -zxf -
@@ -14,8 +15,8 @@ line, the first column is an arbirary name and the rest of columns gives a
 vector. On training, you need to provide two files, one for network input and
 one for output. On prediction, only network input is needed.
 ```sh
-./mlp -o mnist-mlp.kan kann-data/mnist-train-?.snd.gz
-./mlp -i mnist-mlp.kan kann-data/mnist-test-x.snd.gz | kann-data/mnist-eval.pl
+./mlp -o mnist-mlp.kan kann-data/mnist-train-?.knd.gz
+./mlp -i mnist-mlp.kan kann-data/mnist-test-x.knd.gz | kann-data/mnist-eval.pl
 ```
 
 ### Tied-weight denoising encoder
@@ -27,8 +28,8 @@ shows how to construct a neural network with shared weights.
 
 Implemented in [vae.c](vae.c). It uses sampling and a complex cost function.
 ```sh
-./vae -o mnist-vae.kan -c 3 kann-data/mnist-train-x.snd.gz   # code dimension is 3
-./vae -i mnist-vae.kan -A kann-data/mnist-test-x.snd.gz | kann-data/mnist-ascii.pl # reconstruction
+./vae -o mnist-vae.kan -c 3 kann-data/mnist-train-x.knd.gz   # code dimension is 3
+./vae -i mnist-vae.kan -A kann-data/mnist-test-x.knd.gz | kann-data/mnist-ascii.pl # reconstruction
 ./vae -i mnist-vae.kan -g 10 | kann-data/mnist-ascii.pl    # generate 10 random images
 ```
 
@@ -36,8 +37,8 @@ Implemented in [vae.c](vae.c). It uses sampling and a complex cost function.
 
 Implemented in [mnist-cnn.c](mnist-cnn.c).
 ```sh
-./mnist-cnn -o mnist-cnn.kan -t4 kann-data/mnist-train-?.snd.gz
-./mnist-cnn -i mnist-cnn.kan kann-data/mnist-test-x.snd.gz | kann-data/mnist-eval.pl
+./mnist-cnn -o mnist-cnn.kan -t4 kann-data/mnist-train-?.knd.gz
+./mnist-cnn -i mnist-cnn.kan kann-data/mnist-test-x.knd.gz | kann-data/mnist-eval.pl
 ```
 
 ### RNN for simple arithmetic
