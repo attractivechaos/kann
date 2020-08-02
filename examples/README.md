@@ -3,8 +3,8 @@
 Data used for these examples and pre-trained KANN models from the data can be
 downloaded from [this link][data]:
 ```sh
-curl -LJO https://github.com/attractivechaos/kann/releases/download/v0/kann-data.tgz | tar -zxf -
-curl -LJO https://github.com/attractivechaos/kann/releases/download/v0/kann-models.tgz | tar -zxf -
+curl -LJs https://github.com/attractivechaos/kann/releases/download/v0/kann-data.tgz | tar -zxf -
+curl -LJs https://github.com/attractivechaos/kann/releases/download/v0/kann-models.tgz | tar -zxf -
 ```
 
 ### Multi-layer perceptron
