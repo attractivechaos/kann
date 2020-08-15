@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 		fp = strcmp(argv[optind], "-")? fopen(argv[optind], "r") : stdin;
 		while ((n = read_int(fp, x)) > 0) {
 			float x1[MAX_FIELDS];
-			assert(n >= n_in);
+			/* assert(n >= n_in); */
 			kann_rnn_start(ann);
 			for (k = 0, y = 0; k < 64; ++k) {
 				const float *y1;
