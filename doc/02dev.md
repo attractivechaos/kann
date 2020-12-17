@@ -137,7 +137,7 @@ convolution operation can also be implemented with Fast Fourier Transformation
 KANN uses direct computation with an optimized inner loop. On a machine we use,
 it is eight times faster than a naive implementation, but about twice as slow
 as a CPU-only Theano implementation which is based on matrix product. KANN
-provides a reasonbly fast, though not very fast, implementation that is still
+provides a reasonably fast, though not very fast, implementation that is still
 simple and does not require a lot of working space.
 
 As a side note, the performance of CPU-only Theano and TensorFlow may vary
