@@ -965,13 +965,18 @@ float kann_cost_fnn1(kann_t *ann, int n, float **x, float **y)
 	return (float)(cost / n);
 }
 
-const float *kann_apply1(kann_t *a, float *x)
+const float *kann_apply1_to(kann_t *a, float *x, int ext_flag, int ext_label)
 {
 	int i_out;
-	i_out = kann_find(a, KANN_F_OUT, 0);
+	i_out = kann_find(a, ext_flag, ext_label);
 	if (i_out < 0) return 0;
 	kann_set_batch_size(a, 1);
 	kann_feed_bind(a, KANN_F_IN, 0, &x);
 	kad_eval_at(a->n, a->v, i_out);
 	return a->v[i_out]->x;
+}
+
+const float *kann_apply1(kann_t *a, float *x)
+{
+	return kann_apply1_to(a, x, KANN_F_OUT, 0);
 }

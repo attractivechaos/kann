@@ -28,7 +28,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r536"
+#define KANN_VERSION "r549"
 
 #define KANN_F_IN       0x1   /* input */
 #define KANN_F_OUT      0x2   /* output */
@@ -220,6 +220,7 @@ kad_node_t *kann_layer_gru2(int *offset, kad_node_t **par, kad_node_t *in, kad_n
 /* operations on network with a single input node and a single output node */
 int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y);
 float kann_cost_fnn1(kann_t *a, int n, float **x, float **y);
+const float *kann_apply1_to(kann_t *a, float *x, int ext_flag, int ext_label);
 const float *kann_apply1(kann_t *a, float *x);
 
 /* model I/O */
