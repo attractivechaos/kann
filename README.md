@@ -2,7 +2,7 @@
 ```sh
 # acquire source code and compile
 git clone https://github.com/attractivechaos/kann
-cd kann; make
+cd kann; make  # or "make CBLAS=/path/to/openblas" for faster matrix multiplication
 # learn unsigned addition (30000 samples; numbers within 10000)
 seq 30000 | awk -v m=10000 '{a=int(m*rand());b=int(m*rand());print a,b,a+b}' \
   | ./examples/rnn-bit -m7 -o add.kan -
