@@ -8,7 +8,7 @@
 
 #define const_scalar(x) kann_new_scalar(KAD_CONST, (x))
 
-static kann_t *model_gen(int n_in, int n_hidden, int n_code)
+static kann_t *model_gen(int n_in, int n_hidden, int n_code, int ce_multi)
 {
 	kad_node_t *x, *t, *s, *mu, *sigma;
 
@@ -21,8 +21,14 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 
 	// decoder
 	t = kad_tanh(kann_layer_dense(t, n_hidden));
-	t = kad_sigm(kann_layer_dense(t, n_in)), t->ext_flag = KANN_F_OUT;
-	t = kad_ce_bin(t, x);
+	t = kann_layer_dense(t, n_in);
+	if (ce_multi) {
+		t = kad_softmax(t), t->ext_flag = KANN_F_OUT;
+		t = kad_ce_multi(t, x);
+	} else {
+		t = kad_sigm(t), t->ext_flag = KANN_F_OUT;
+		t = kad_ce_bin(t, x);
+	}
 	t = kad_mul(t, const_scalar((float)n_in));
 
 	// latent loss
@@ -42,13 +48,13 @@ static kann_t *model_gen(int n_in, int n_hidden, int n_code)
 int main(int argc, char *argv[])
 {
 	int max_epoch = 50, mini_size = 64, max_drop_streak = 10;
-	int i, j, c, n_hidden = 64, n_code = 2, seed = 11, to_apply = 0, n_gen = 0;
+	int i, j, c, n_hidden = 64, n_code = 2, seed = 11, to_apply = 0, n_gen = 0, ce_multi = 0;
 	kann_data_t *in = 0;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
 	float lr = 0.01f, frac_val = 0.1f;
 
-	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:Ag:c:")) >= 0) {
+	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:AMg:c:")) >= 0) {
 		if (c == 'n') n_hidden = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') in_fn = optarg;
@@ -57,6 +63,7 @@ int main(int argc, char *argv[])
 		else if (c == 'm') max_epoch = atoi(optarg);
 		else if (c == 'B') mini_size = atoi(optarg);
 		else if (c == 'A') to_apply = 1;
+		else if (c == 'M') ce_multi = 1;
 		else if (c == 'c') n_code = atoi(optarg);
 		else if (c == 'g') n_gen = atoi(optarg);
 	}
@@ -91,7 +98,7 @@ int main(int argc, char *argv[])
 
 	if (!to_apply && n_gen == 0) { // train
 		if (!ann)
-			ann = model_gen(in->n_col, n_hidden, n_code);
+			ann = model_gen(in->n_col, n_hidden, n_code, ce_multi);
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, in->x);
 		if (out_fn) kann_save(out_fn, ann);
 	} else if (to_apply) { // apply
