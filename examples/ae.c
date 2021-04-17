@@ -6,7 +6,7 @@
 #include "kann.h"
 #include "kann_extra/kann_data.h"
 
-static kann_t *model_gen(int n_in, int n_hidden, float i_dropout)
+static kann_t *model_gen(int n_in, int n_hidden, float i_dropout, int ce_multi)
 {
 	kad_node_t *x, *t, *w, *r;
 	w = kann_new_weight(n_hidden, n_in);
@@ -16,21 +16,26 @@ static kann_t *model_gen(int n_in, int n_hidden, float i_dropout)
 	t = kad_tanh(kad_add(kad_cmul(t, w), kann_new_bias(n_hidden)));
 	t = kad_mul(t, r);
 	t = kad_add(kad_matmul(t, w), kann_new_bias(n_in));
-	t = kad_sigm(t), t->ext_flag = KANN_F_OUT;
-	t = kad_ce_bin(t, x), t->ext_flag = KANN_F_COST;
+	if (ce_multi) {
+		t = kad_softmax(t), t->ext_flag = KANN_F_OUT;
+		t = kad_ce_multi(t, x), t->ext_flag = KANN_F_COST;
+	} else {
+		t = kad_sigm(t), t->ext_flag = KANN_F_OUT;
+		t = kad_ce_bin(t, x), t->ext_flag = KANN_F_COST;
+	}
 	return kann_new(t, 0);
 }
 
 int main(int argc, char *argv[])
 {
 	int max_epoch = 50, mini_size = 64, max_drop_streak = 10;
-	int i, j, c, n_hidden = 64, seed = 11, to_apply = 0;
+	int i, j, c, n_hidden = 64, seed = 11, to_apply = 0, ce_multi = 0;
 	kann_data_t *in = 0;
 	kann_t *ann = 0;
 	char *out_fn = 0, *in_fn = 0;
 	float lr = 0.01f, frac_val = 0.1f, i_dropout = 0.0f;
 
-	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:d:A")) >= 0) {
+	while ((c = getopt(argc, argv, "n:s:r:m:B:o:i:d:AM")) >= 0) {
 		if (c == 'n') n_hidden = atoi(optarg);
 		else if (c == 's') seed = atoi(optarg);
 		else if (c == 'i') in_fn = optarg;
@@ -40,6 +45,7 @@ int main(int argc, char *argv[])
 		else if (c == 'B') mini_size = atoi(optarg);
 		else if (c == 'd') i_dropout = atof(optarg);
 		else if (c == 'A') to_apply = 1;
+		else if (c == 'M') ce_multi = 1;
 	}
 	if (argc - optind < 1) {
 		FILE *fp = stdout;
@@ -68,7 +74,7 @@ int main(int argc, char *argv[])
 
 	if (!to_apply) { // train
 		if (!ann)
-			ann = model_gen(in->n_col, n_hidden, i_dropout);
+			ann = model_gen(in->n_col, n_hidden, i_dropout, ce_multi);
 		kann_train_fnn1(ann, lr, mini_size, max_epoch, max_drop_streak, frac_val, in->n_row, in->x, in->x);
 		if (out_fn) kann_save(out_fn, ann);
 	} else { // apply
