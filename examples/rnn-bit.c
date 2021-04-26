@@ -42,7 +42,7 @@ static bit_data_t *read_data(const char *fn)
 	if (fp == 0) return 0;
 	d = (bit_data_t*)calloc(1, sizeof(bit_data_t));
 	while ((i = read_int(fp, x)) > 0) {
-		assert(d->n == 0 || d->n_in == i - 1);
+		/* assert(d->n == 0 || d->n_in == i - 1); */
 		d->n_in = i - 1;
 		if (d->n == d->m) {
 			d->m = d->m? d->m<<1 : 256;
