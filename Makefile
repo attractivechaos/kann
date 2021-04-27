@@ -1,12 +1,11 @@
 CC=			gcc
-CFLAGS=		-g -Wall -pg -Wextra -Wc++-compat -O2
+CFLAGS=		-g -Wall -pg -mavx -Wextra -Wc++-compat -O2
 CFLAGS_LIB=	#-ansi -pedantic -Wno-long-long # ANSI C does not have inline which affects performance a little bit
 CPPFLAGS=	-DHAVE_PTHREAD
 INCLUDES=	-I.
 EXE=		examples/mnist-cnn
 EXE_OPT=		examples/mnist-cnn_opt
 LIBS=		-lpthread -lz -lm
-
 ifdef CBLAS
 	CPPFLAGS+=-DHAVE_CBLAS
 	INCLUDES+=-I$(CBLAS)/include

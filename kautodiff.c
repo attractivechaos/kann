@@ -1027,7 +1027,6 @@ void kad_vec_mul_sum(int n, float *a, const float *b, const float *c)
     int i;
     for (i = 0; i < n; ++i)
         a[i] += b[i] * c[i];
-    printf("N size is: %d\n", n);
 }
 
 void kad_saxpy(int n, float a, const float *x, float *y) { kad_saxpy_inlined(n, a, x, y); }
@@ -2391,14 +2390,15 @@ int kad_op_conv2d(kad_node_t *p, int action) /* in the number-channel-height-wid
                         float *_ww = &(_w)[((c1 * w->d[1] + c0) * w->d[2] + k) * w->d[3]];                                    \
                         for (i = 0, ii = k - aux[0].pad[0]; i < p->d[2] && ii >= 0 && ii < q->d[2]; ++i, ii += aux[0].stride) \
                         { /* output row */                                                                                    \
-                            float *_xx = &(_x)[((n * q->d[1] + c0) * q->d[2] + ii) * q->d[3]];                                \
-                            float *_yy = &(_y)[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];                                 \
+                            /* array indexes */                                                                               \
+                            float *_xx0 = &(_x)[((n * q->d[1] + c0) * q->d[2] + ii) * q->d[3]];                               \
+                            float *_yy0 = &(_y)[((n * p->d[1] + c1) * p->d[2] + i) * p->d[3]];                                \
                             if (x_padded)                                                                                     \
                             {                                                                                                 \
-                                memcpy(x_padded + aux[1].pad[0], _xx, q->d[3] * sizeof(float));                               \
-                                _xx = x_padded + aux[1].pad[0];                                                               \
+                                memcpy(x_padded + aux[1].pad[0], _xx0, q->d[3] * sizeof(float));                              \
+                                _xx0 = x_padded + aux[1].pad[0];                                                              \
                             }                                                                                                 \
-                            _row_func(_xx, _ww, _yy, w->d[3], p->d[3], aux[1].stride, aux[1].pad[0], (_tmp));                 \
+                            _row_func(_xx0, _ww, _yy0, w->d[3], p->d[3], aux[1].stride, aux[1].pad[0], (_tmp));               \
                         } /* ~i */                                                                                            \
                     }     /* ~k, c0, c1, n */                                                                                 \
     } while (0)
@@ -2462,7 +2462,6 @@ int kad_op_conv2d(kad_node_t *p, int action) /* in the number-channel-height-wid
         memset(p->x, 0, kad_len(p) * sizeof(float));
         if (!algo_switch)
         { /* this is the first algorithm */
-
             conv2d_loop1(q->x, w->x, p->x, t, process_row_for);
         }
         else
@@ -2477,7 +2476,6 @@ int kad_op_conv2d(kad_node_t *p, int action) /* in the number-channel-height-wid
     {
         if (kad_is_back(p->child[0]))
         { /* backprop to the input array */
-
             conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->x);
             if (!algo_switch)
             {
@@ -2497,7 +2495,6 @@ int kad_op_conv2d(kad_node_t *p, int action) /* in the number-channel-height-wid
             conv_rot180(w->d[0] * w->d[1], w->d[2] * w->d[3], w->g);
             if (!algo_switch)
             {
-
                 conv2d_loop1(q->x, w->g, p->g, t, process_row_back_w);
             }
             else
@@ -2970,4 +2967,3 @@ void kad_check_grad(int n, kad_node_t **a, int from)
     free(delta);
     free(g0);
 }
-
