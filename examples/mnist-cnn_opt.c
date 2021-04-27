@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#include "kann.h"
+#include "kann_opt.h"
 #include "kann_extra/kann_data.h"
 
 struct timespec diff(struct timespec start, struct timespec end)

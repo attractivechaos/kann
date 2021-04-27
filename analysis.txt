@@ -1,0 +1,593 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls  ms/call  ms/call  name    
+ 82.02    180.40   180.40    14242    12.67    13.04  kad_op_conv2d
+  9.13    200.47    20.07    16525     1.21     1.21  kad_sgemm_simple
+  2.21    205.33     4.86    19641     0.25     0.25  kad_op_relu
+  1.99    209.70     4.37    14169     0.31     0.31  conv2d_move_1to3
+  1.29    212.54     2.84     6584     0.43     0.43  kad_op_max2d
+  0.66    213.99     1.45      938     1.55    60.57  kann_cost
+  0.60    215.32     1.33     3752     0.35     0.35  kad_saxpy
+  0.57    216.58     1.26    10056     0.12     0.24  kad_op_dropout
+  0.52    217.73     1.15 45067523     0.00     0.00  kad_drand
+  0.40    218.60     0.87     6745     0.13     0.13  conv2d_add_3to1
+  0.26    219.18     0.58      844     0.69     0.69  kann_RMSprop
+  0.20    219.62     0.44                             kann_data_read
+  0.06    219.76     0.14    34776     0.00     0.00  conv_rot180
+  0.04    219.85     0.09    10819     0.01     0.01  kad_op_select
+  0.03    219.91     0.07                             kad_rand
+  0.01    219.93     0.02                             kann_train_fnn1
+  0.00    219.94     0.01    11445     0.00     0.00  kad_op_add
+  0.00    219.95     0.01     5784     0.00     0.00  kad_op_ce_bin
+  0.00    219.96     0.01     3752     0.00     0.00  kann_find
+  0.00    219.96     0.00   600608     0.00     0.00  kad_drand_normal
+  0.00    219.96     0.00    10499     0.00     1.91  kad_op_cmul
+  0.00    219.96     0.00     6571     0.00     0.15  kad_sync_dim
+  0.00    219.96     0.00     6244     0.00     0.00  kad_propagate_marks
+  0.00    219.96     0.00     5725     0.00     0.00  kad_op_sigm
+  0.00    219.96     0.00     4690     0.00     0.15  mt_kickoff
+  0.00    219.96     0.00     3752     0.00    29.74  kad_eval_at
+  0.00    219.96     0.00     3752     0.00    29.74  kad_eval_marked
+  0.00    219.96     0.00     3752     0.00    57.31  kann_cost_core
+  0.00    219.96     0.00     2538     0.00    40.75  kad_grad
+  0.00    219.96     0.00     1883     0.00     0.00  kad_size_var
+  0.00    219.96     0.00      938     0.00     0.60  kann_class_error
+  0.00    219.96     0.00       11     0.00    31.58  kad_allocate_internal
+  0.00    219.96     0.00       11     0.00     0.00  kad_mark_back
+  0.00    219.96     0.00       10     0.00     0.00  kad_rng
+  0.00    219.96     0.00        8     0.00     2.44  kann_new_leaf_array
+  0.00    219.96     0.00        7     0.00     0.00  kad_size_const
+  0.00    219.96     0.00        6     0.00     2.44  kann_new_leaf2
+  0.00    219.96     0.00        5     0.00     0.00  kad_delete
+  0.00    219.96     0.00        5     0.00     0.00  kad_ext_collate
+  0.00    219.96     0.00        4     0.00     0.15  kad_clone
+  0.00    219.96     0.00        4     0.00     0.15  kann_clone
+  0.00    219.96     0.00        4     0.00     0.00  kann_delete
+  0.00    219.96     0.00        4     0.00     0.00  kann_delete_unrolled
+  0.00    219.96     0.00        2     0.00     1.91  kad_cmul
+  0.00    219.96     0.00        2     0.00     0.24  kad_dropout
+  0.00    219.96     0.00        2     0.00     0.01  kad_switch
+  0.00    219.96     0.00        2     0.00     0.00  kann_feed_bind
+  0.00    219.96     0.00        2     0.00     0.00  kann_feed_dim
+  0.00    219.96     0.00        2     0.00     2.44  kann_new_leaf
+  0.00    219.96     0.00        2     0.00     1.45  kann_shuffle
+  0.00    219.96     0.00        2     0.00     0.00  kann_switch
+  0.00    219.96     0.00        1     0.00     0.00  kad_add
+  0.00    219.96     0.00        1     0.00     0.00  kad_ce_bin
+  0.00    219.96     0.00        1     0.00    31.58  kad_compile_array
+  0.00    219.96     0.00        1     0.00     0.00  kad_feed
+  0.00    219.96     0.00        1     0.00     0.00  kad_save
+  0.00    219.96     0.00        1     0.00     0.00  kad_sigm
+  0.00    219.96     0.00        1     0.00    13.60  kann_layer_dense2
+  0.00    219.96     0.00        1     0.00     0.60  kann_mt
+  0.00    219.96     0.00        1     0.00     0.15  kann_save_fp
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+Copyright (C) 2012-2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 2 byte(s) for 0.00% of 219.96 seconds
+
+index % time    self  children    called     name
+                0.00   53.75     938/3752        kann_cost [8]
+                0.00  161.26    2814/3752        mt_worker [3]
+[1]     97.7    0.00  215.01    3752         kann_cost_core [1]
+                0.00  111.57    3752/3752        kad_eval_at [4]
+                0.00  103.43    2538/2538        kad_grad [6]
+                0.01    0.00    3752/3752        kann_find [37]
+-----------------------------------------------
+                0.03    0.00       2/14242       kad_conv2d [29]
+                0.28    0.01      22/14242       kad_allocate_internal [23]
+                0.53    0.02      42/14242       kad_sync_dim [17]
+               84.70    2.53    6687/14242       kad_grad [6]
+               94.86    2.83    7489/14242       kad_eval_marked [5]
+[2]     84.5  180.40    5.38   14242         kad_op_conv2d [2]
+                4.37    0.00   14169/14169       conv2d_move_1to3 [12]
+                0.87    0.00    6745/6745        conv2d_add_3to1 [18]
+                0.14    0.00   34776/34776       conv_rot180 [24]
+-----------------------------------------------
+                                                 <spontaneous>
+[3]     73.3    0.00  161.26                 mt_worker [3]
+                0.00  161.26    2814/3752        kann_cost_core [1]
+-----------------------------------------------
+                0.00  111.57    3752/3752        kann_cost_core [1]
+[4]     50.7    0.00  111.57    3752         kad_eval_at [4]
+                0.00  111.57    3752/3752        kad_eval_marked [5]
+-----------------------------------------------
+                0.00  111.57    3752/3752        kad_eval_at [4]
+[5]     50.7    0.00  111.57    3752         kad_eval_marked [5]
+               94.86    2.83    7489/14242       kad_op_conv2d [2]
+                0.00    9.04    4731/10499       kad_op_cmul [10]
+                2.48    0.00   10013/19641       kad_op_relu [11]
+                1.40    0.00    3241/6584        kad_op_max2d [13]
+                0.48    0.43    3849/10056       kad_op_dropout [14]
+                0.04    0.00    4610/10819       kad_op_select [25]
+                0.00    0.00    5695/11445       kad_op_add [35]
+                0.00    0.00    2863/5784        kad_op_ce_bin [36]
+                0.00    0.00    3752/6244        kad_propagate_marks [55]
+                0.00    0.00    2853/5725        kad_op_sigm [56]
+-----------------------------------------------
+                0.00  103.43    2538/2538        kann_cost_core [1]
+[6]     47.0    0.00  103.43    2538         kad_grad [6]
+               84.70    2.53    6687/14242       kad_op_conv2d [2]
+                0.00   10.90    5702/10499       kad_op_cmul [10]
+                2.36    0.00    9529/19641       kad_op_relu [11]
+                0.77    0.69    6141/10056       kad_op_dropout [14]
+                1.43    0.00    3310/6584        kad_op_max2d [13]
+                0.05    0.00    6143/10819       kad_op_select [25]
+                0.00    0.00    2888/5784        kad_op_ce_bin [36]
+                0.00    0.00    5684/11445       kad_op_add [35]
+                0.00    0.00    2839/5725        kad_op_sigm [56]
+                0.00    0.00    2492/6244        kad_propagate_marks [55]
+-----------------------------------------------
+                                                 <spontaneous>
+[7]     26.4    0.02   58.09                 kann_train_fnn1 [7]
+                1.45   55.36     938/938         kann_cost [8]
+                0.58    0.00     844/844         kann_RMSprop [20]
+                0.00    0.56     938/938         kann_class_error [21]
+                0.00    0.14     938/6571        kad_sync_dim [17]
+                0.00    0.00       2/2           kann_shuffle [42]
+                0.00    0.00       2/2           kann_feed_dim [66]
+                0.00    0.00       2/2           kann_feed_bind [65]
+                0.00    0.00       2/2           kann_switch [67]
+                0.00    0.00       1/1883        kad_size_var [57]
+                0.00    0.00       1/7           kad_size_const [60]
+-----------------------------------------------
+                1.45   55.36     938/938         kann_train_fnn1 [7]
+[8]     25.8    1.45   55.36     938         kann_cost [8]
+                0.00   53.75     938/3752        kann_cost_core [1]
+                1.33    0.00    3752/3752        kad_saxpy [15]
+                0.00    0.14     938/4690        mt_kickoff [19]
+                0.00    0.14     938/6571        kad_sync_dim [17]
+                0.00    0.00     938/1883        kad_size_var [57]
+-----------------------------------------------
+               20.07    0.00   16525/16525       kad_op_cmul [10]
+[9]      9.1   20.07    0.00   16525         kad_sgemm_simple [9]
+-----------------------------------------------
+                0.00    0.00       2/10499       kad_cmul [41]
+                0.00    0.04      22/10499       kad_allocate_internal [23]
+                0.00    0.08      42/10499       kad_sync_dim [17]
+                0.00    9.04    4731/10499       kad_eval_marked [5]
+                0.00   10.90    5702/10499       kad_grad [6]
+[10]     9.1    0.00   20.07   10499         kad_op_cmul [10]
+               20.07    0.00   16525/16525       kad_sgemm_simple [9]
+-----------------------------------------------
+                0.00    0.00       3/19641       kad_relu [43]
+                0.01    0.00      33/19641       kad_allocate_internal [23]
+                0.02    0.00      63/19641       kad_sync_dim [17]
+                2.36    0.00    9529/19641       kad_grad [6]
+                2.48    0.00   10013/19641       kad_eval_marked [5]
+[11]     2.2    4.86    0.00   19641         kad_op_relu [11]
+-----------------------------------------------
+                4.37    0.00   14169/14169       kad_op_conv2d [2]
+[12]     2.0    4.37    0.00   14169         conv2d_move_1to3 [12]
+-----------------------------------------------
+                0.00    0.00       1/6584        kad_max2d [49]
+                0.00    0.00      11/6584        kad_allocate_internal [23]
+                0.01    0.00      21/6584        kad_sync_dim [17]
+                1.40    0.00    3241/6584        kad_eval_marked [5]
+                1.43    0.00    3310/6584        kad_grad [6]
+[13]     1.3    2.84    0.00    6584         kad_op_max2d [13]
+-----------------------------------------------
+                0.00    0.00       2/10056       kad_dropout [48]
+                0.00    0.00      22/10056       kad_allocate_internal [23]
+                0.01    0.00      42/10056       kad_sync_dim [17]
+                0.48    0.43    3849/10056       kad_eval_marked [5]
+                0.77    0.69    6141/10056       kad_grad [6]
+[14]     1.1    1.26    1.13   10056         kad_op_dropout [14]
+                1.13    0.00 44187681/45067523     kad_drand [16]
+-----------------------------------------------
+                1.33    0.00    3752/3752        kann_cost [8]
+[15]     0.6    1.33    0.00    3752         kad_saxpy [15]
+-----------------------------------------------
+                0.00    0.00  114000/45067523     kann_shuffle [42]
+                0.02    0.00  765842/45067523     kad_drand_normal [30]
+                1.13    0.00 44187681/45067523     kad_op_dropout [14]
+[16]     0.5    1.15    0.00 45067523         kad_drand [16]
+-----------------------------------------------
+                0.00    0.00       1/6571        kann_save_fp [50]
+                0.00    0.00       4/6571        kad_clone [45]
+                0.00    0.14     938/6571        kann_cost [8]
+                0.00    0.14     938/6571        kann_train_fnn1 [7]
+                0.00    0.70    4690/6571        mt_kickoff [19]
+[17]     0.4    0.00    0.98    6571         kad_sync_dim [17]
+                0.53    0.02      42/14242       kad_op_conv2d [2]
+                0.00    0.32      10/11          kad_allocate_internal [23]
+                0.00    0.08      42/10499       kad_op_cmul [10]
+                0.02    0.00      63/19641       kad_op_relu [11]
+                0.01    0.00      42/10056       kad_op_dropout [14]
+                0.01    0.00      21/6584        kad_op_max2d [13]
+                0.00    0.00      42/10819       kad_op_select [25]
+                0.00    0.00      42/11445       kad_op_add [35]
+                0.00    0.00      21/5784        kad_op_ce_bin [36]
+                0.00    0.00      21/5725        kad_op_sigm [56]
+-----------------------------------------------
+                0.87    0.00    6745/6745        kad_op_conv2d [2]
+[18]     0.4    0.87    0.00    6745         conv2d_add_3to1 [18]
+-----------------------------------------------
+                0.00    0.14     938/4690        kann_cost [8]
+                0.00    0.56    3752/4690        kann_class_error [21]
+[19]     0.3    0.00    0.70    4690         mt_kickoff [19]
+                0.00    0.70    4690/6571        kad_sync_dim [17]
+                0.00    0.00     938/1883        kad_size_var [57]
+-----------------------------------------------
+                0.58    0.00     844/844         kann_train_fnn1 [7]
+[20]     0.3    0.58    0.00     844         kann_RMSprop [20]
+-----------------------------------------------
+                0.00    0.56     938/938         kann_train_fnn1 [7]
+[21]     0.3    0.00    0.56     938         kann_class_error [21]
+                0.00    0.56    3752/4690        mt_kickoff [19]
+-----------------------------------------------
+                                                 <spontaneous>
+[22]     0.2    0.44    0.00                 kann_data_read [22]
+-----------------------------------------------
+                0.00    0.03       1/11          kad_compile_array [27]
+                0.00    0.32      10/11          kad_sync_dim [17]
+[23]     0.2    0.00    0.35      11         kad_allocate_internal [23]
+                0.28    0.01      22/14242       kad_op_conv2d [2]
+                0.00    0.04      22/10499       kad_op_cmul [10]
+                0.01    0.00      33/19641       kad_op_relu [11]
+                0.00    0.00      22/10056       kad_op_dropout [14]
+                0.00    0.00      11/6584        kad_op_max2d [13]
+                0.00    0.00      22/10819       kad_op_select [25]
+                0.00    0.00      22/11445       kad_op_add [35]
+                0.00    0.00      11/5784        kad_op_ce_bin [36]
+                0.00    0.00      11/11          kad_mark_back [58]
+                0.00    0.00      11/5725        kad_op_sigm [56]
+-----------------------------------------------
+                0.14    0.00   34776/34776       kad_op_conv2d [2]
+[24]     0.1    0.14    0.00   34776         conv_rot180 [24]
+-----------------------------------------------
+                0.00    0.00       2/10819       kad_switch [52]
+                0.00    0.00      22/10819       kad_allocate_internal [23]
+                0.00    0.00      42/10819       kad_sync_dim [17]
+                0.04    0.00    4610/10819       kad_eval_marked [5]
+                0.05    0.00    6143/10819       kad_grad [6]
+[25]     0.0    0.09    0.00   10819         kad_op_select [25]
+-----------------------------------------------
+                                                 <spontaneous>
+[26]     0.0    0.07    0.00                 kad_rand [26]
+-----------------------------------------------
+                0.00    0.03       1/1           kann_new [28]
+[27]     0.0    0.00    0.03       1         kad_compile_array [27]
+                0.00    0.03       1/11          kad_allocate_internal [23]
+-----------------------------------------------
+                                                 <spontaneous>
+[28]     0.0    0.00    0.03                 kann_new [28]
+                0.00    0.03       1/1           kad_compile_array [27]
+                0.00    0.00       1/5           kad_ext_collate [62]
+-----------------------------------------------
+                                                 <spontaneous>
+[29]     0.0    0.00    0.03                 kad_conv2d [29]
+                0.03    0.00       2/14242       kad_op_conv2d [2]
+-----------------------------------------------
+                0.00    0.02  600608/600608      kann_new_leaf_array [31]
+[30]     0.0    0.00    0.02  600608         kad_drand_normal [30]
+                0.02    0.00  765842/45067523     kad_drand [16]
+-----------------------------------------------
+                0.00    0.00       2/8           kann_new_leaf [39]
+                0.00    0.01       6/8           kann_new_leaf2 [32]
+[31]     0.0    0.00    0.02       8         kann_new_leaf_array [31]
+                0.00    0.02  600608/600608      kad_drand_normal [30]
+-----------------------------------------------
+                0.00    0.00       2/6           kann_layer_dropout2 [38]
+                0.00    0.01       4/6           kann_layer_dense2 [34]
+[32]     0.0    0.00    0.01       6         kann_new_leaf2 [32]
+                0.00    0.01       6/8           kann_new_leaf_array [31]
+-----------------------------------------------
+                                                 <spontaneous>
+[33]     0.0    0.00    0.01                 kann_layer_cost [33]
+                0.00    0.01       1/1           kann_layer_dense2 [34]
+                0.00    0.00       1/1           kad_add [53]
+                0.00    0.00       1/1           kad_ce_bin [54]
+                0.00    0.00       1/1           kad_feed [68]
+                0.00    0.00       1/1           kad_sigm [70]
+-----------------------------------------------
+                0.00    0.01       1/1           kann_layer_cost [33]
+[34]     0.0    0.00    0.01       1         kann_layer_dense2 [34]
+                0.00    0.01       4/6           kann_new_leaf2 [32]
+                0.00    0.00       2/2           kad_cmul [41]
+-----------------------------------------------
+                0.00    0.00       2/11445       kad_add [53]
+                0.00    0.00      22/11445       kad_allocate_internal [23]
+                0.00    0.00      42/11445       kad_sync_dim [17]
+                0.00    0.00    5684/11445       kad_grad [6]
+                0.00    0.00    5695/11445       kad_eval_marked [5]
+[35]     0.0    0.01    0.00   11445         kad_op_add [35]
+-----------------------------------------------
+                0.00    0.00       1/5784        kad_ce_bin [54]
+                0.00    0.00      11/5784        kad_allocate_internal [23]
+                0.00    0.00      21/5784        kad_sync_dim [17]
+                0.00    0.00    2863/5784        kad_eval_marked [5]
+                0.00    0.00    2888/5784        kad_grad [6]
+[36]     0.0    0.01    0.00    5784         kad_op_ce_bin [36]
+-----------------------------------------------
+                0.01    0.00    3752/3752        kann_cost_core [1]
+[37]     0.0    0.01    0.00    3752         kann_find [37]
+-----------------------------------------------
+                                                 <spontaneous>
+[38]     0.0    0.00    0.01                 kann_layer_dropout2 [38]
+                0.00    0.00       2/6           kann_new_leaf2 [32]
+                0.00    0.00       2/2           kad_dropout [48]
+                0.00    0.00       2/2           kad_switch [52]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_layer_conv2d [40]
+[39]     0.0    0.00    0.00       2         kann_new_leaf [39]
+                0.00    0.00       2/8           kann_new_leaf_array [31]
+-----------------------------------------------
+                                                 <spontaneous>
+[40]     0.0    0.00    0.00                 kann_layer_conv2d [40]
+                0.00    0.00       2/2           kann_new_leaf [39]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_layer_dense2 [34]
+[41]     0.0    0.00    0.00       2         kad_cmul [41]
+                0.00    0.00       2/10499       kad_op_cmul [10]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_train_fnn1 [7]
+[42]     0.0    0.00    0.00       2         kann_shuffle [42]
+                0.00    0.00  114000/45067523     kad_drand [16]
+-----------------------------------------------
+                                                 <spontaneous>
+[43]     0.0    0.00    0.00                 kad_relu [43]
+                0.00    0.00       3/19641       kad_op_relu [11]
+-----------------------------------------------
+                0.00    0.00       4/4           kann_clone [46]
+[45]     0.0    0.00    0.00       4         kad_clone [45]
+                0.00    0.00       4/6571        kad_sync_dim [17]
+                0.00    0.00       8/10          kad_rng [59]
+-----------------------------------------------
+                0.00    0.00       4/4           kann_mt <cycle 1> [47]
+[46]     0.0    0.00    0.00       4         kann_clone [46]
+                0.00    0.00       4/4           kad_clone [45]
+                0.00    0.00       4/5           kad_ext_collate [62]
+-----------------------------------------------
+                                   1             kann_delete_unrolled <cycle 1> [64]
+[47]     0.0    0.00    0.00       1         kann_mt <cycle 1> [47]
+                0.00    0.00       4/4           kann_clone [46]
+                0.00    0.00       4/4           kann_delete [63]
+                                   4             kann_delete_unrolled <cycle 1> [64]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_layer_dropout2 [38]
+[48]     0.0    0.00    0.00       2         kad_dropout [48]
+                0.00    0.00       2/10056       kad_op_dropout [14]
+                0.00    0.00       2/10          kad_rng [59]
+-----------------------------------------------
+                                                 <spontaneous>
+[49]     0.0    0.00    0.00                 kad_max2d [49]
+                0.00    0.00       1/6584        kad_op_max2d [13]
+-----------------------------------------------
+                0.00    0.00       1/1           kann_save [51]
+[50]     0.0    0.00    0.00       1         kann_save_fp [50]
+                0.00    0.00       1/6571        kad_sync_dim [17]
+                0.00    0.00       1/1           kad_save [69]
+                0.00    0.00       1/1883        kad_size_var [57]
+                0.00    0.00       1/7           kad_size_const [60]
+-----------------------------------------------
+                                                 <spontaneous>
+[51]     0.0    0.00    0.00                 kann_save [51]
+                0.00    0.00       1/1           kann_save_fp [50]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_layer_dropout2 [38]
+[52]     0.0    0.00    0.00       2         kad_switch [52]
+                0.00    0.00       2/10819       kad_op_select [25]
+-----------------------------------------------
+                0.00    0.00       1/1           kann_layer_cost [33]
+[53]     0.0    0.00    0.00       1         kad_add [53]
+                0.00    0.00       2/11445       kad_op_add [35]
+-----------------------------------------------
+                0.00    0.00       1/1           kann_layer_cost [33]
+[54]     0.0    0.00    0.00       1         kad_ce_bin [54]
+                0.00    0.00       1/5784        kad_op_ce_bin [36]
+-----------------------------------------------
+                0.00    0.00    2492/6244        kad_grad [6]
+                0.00    0.00    3752/6244        kad_eval_marked [5]
+[55]     0.0    0.00    0.00    6244         kad_propagate_marks [55]
+-----------------------------------------------
+                0.00    0.00       1/5725        kad_sigm [70]
+                0.00    0.00      11/5725        kad_allocate_internal [23]
+                0.00    0.00      21/5725        kad_sync_dim [17]
+                0.00    0.00    2839/5725        kad_grad [6]
+                0.00    0.00    2853/5725        kad_eval_marked [5]
+[56]     0.0    0.00    0.00    5725         kad_op_sigm [56]
+-----------------------------------------------
+                0.00    0.00       1/1883        kann_save_fp [50]
+                0.00    0.00       1/1883        kann_train_fnn1 [7]
+                0.00    0.00       5/1883        kad_ext_collate [62]
+                0.00    0.00     938/1883        mt_kickoff [19]
+                0.00    0.00     938/1883        kann_cost [8]
+[57]     0.0    0.00    0.00    1883         kad_size_var [57]
+-----------------------------------------------
+                0.00    0.00      11/11          kad_allocate_internal [23]
+[58]     0.0    0.00    0.00      11         kad_mark_back [58]
+-----------------------------------------------
+                0.00    0.00       2/10          kad_dropout [48]
+                0.00    0.00       8/10          kad_clone [45]
+[59]     0.0    0.00    0.00      10         kad_rng [59]
+-----------------------------------------------
+                0.00    0.00       1/7           kann_save_fp [50]
+                0.00    0.00       1/7           kann_train_fnn1 [7]
+                0.00    0.00       5/7           kad_ext_collate [62]
+[60]     0.0    0.00    0.00       7         kad_size_const [60]
+-----------------------------------------------
+                0.00    0.00       5/5           kann_delete_unrolled <cycle 1> [64]
+[61]     0.0    0.00    0.00       5         kad_delete [61]
+-----------------------------------------------
+                0.00    0.00       1/5           kann_new [28]
+                0.00    0.00       4/5           kann_clone [46]
+[62]     0.0    0.00    0.00       5         kad_ext_collate [62]
+                0.00    0.00       5/1883        kad_size_var [57]
+                0.00    0.00       5/7           kad_size_const [60]
+-----------------------------------------------
+                0.00    0.00       4/4           kann_mt <cycle 1> [47]
+[63]     0.0    0.00    0.00       4         kann_delete [63]
+-----------------------------------------------
+                                   4             kann_mt <cycle 1> [47]
+[64]     0.0    0.00    0.00       4         kann_delete_unrolled <cycle 1> [64]
+                0.00    0.00       5/5           kad_delete [61]
+                                   1             kann_mt <cycle 1> [47]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_train_fnn1 [7]
+[65]     0.0    0.00    0.00       2         kann_feed_bind [65]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_train_fnn1 [7]
+[66]     0.0    0.00    0.00       2         kann_feed_dim [66]
+-----------------------------------------------
+                0.00    0.00       2/2           kann_train_fnn1 [7]
+[67]     0.0    0.00    0.00       2         kann_switch [67]
+-----------------------------------------------
+                0.00    0.00       1/1           kann_layer_cost [33]
+[68]     0.0    0.00    0.00       1         kad_feed [68]
+-----------------------------------------------
+                0.00    0.00       1/1           kann_save_fp [50]
+[69]     0.0    0.00    0.00       1         kad_save [69]
+-----------------------------------------------
+                0.00    0.00       1/1           kann_layer_cost [33]
+[70]     0.0    0.00    0.00       1         kad_sigm [70]
+                0.00    0.00       1/5725        kad_op_sigm [56]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function is in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+Copyright (C) 2012-2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Index by function name
+
+  [18] conv2d_add_3to1 (kautodiff.c) [10] kad_op_cmul      [8] kann_cost
+  [12] conv2d_move_1to3 (kautodiff.c) [2] kad_op_conv2d    [1] kann_cost_core (kann.c)
+  [24] conv_rot180 (kautodiff.c) [14] kad_op_dropout      [22] kann_data_read
+  [53] kad_add                [13] kad_op_max2d           [63] kann_delete
+  [23] kad_allocate_internal (kautodiff.c) [11] kad_op_relu [64] kann_delete_unrolled
+  [54] kad_ce_bin             [25] kad_op_select          [65] kann_feed_bind
+  [45] kad_clone              [56] kad_op_sigm            [66] kann_feed_dim
+  [41] kad_cmul               [55] kad_propagate_marks (kautodiff.c) [37] kann_find
+  [27] kad_compile_array      [26] kad_rand               [34] kann_layer_dense2
+  [61] kad_delete             [59] kad_rng                [47] kann_mt
+  [16] kad_drand              [69] kad_save               [39] kann_new_leaf
+  [30] kad_drand_normal       [15] kad_saxpy              [32] kann_new_leaf2
+  [48] kad_dropout             [9] kad_sgemm_simple       [31] kann_new_leaf_array
+   [4] kad_eval_at            [70] kad_sigm               [50] kann_save_fp
+   [5] kad_eval_marked        [60] kad_size_const         [42] kann_shuffle
+  [62] kad_ext_collate (kann.c) [57] kad_size_var         [67] kann_switch
+  [68] kad_feed               [52] kad_switch              [7] kann_train_fnn1
+   [6] kad_grad               [17] kad_sync_dim           [19] mt_kickoff (kann.c)
+  [58] kad_mark_back (kautodiff.c) [20] kann_RMSprop      (44) <cycle 1>
+  [35] kad_op_add             [21] kann_class_error
+  [36] kad_op_ce_bin          [46] kann_clone
