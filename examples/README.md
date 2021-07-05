@@ -2,6 +2,7 @@
 
 Data used for these examples and pre-trained KANN models from the data can be
 downloaded from [this link][data]:
+(If this failed, you can manually wget from the urls and extract at the current folder)
 ```sh
 curl -LJs https://github.com/attractivechaos/kann/releases/download/v0/kann-data.tgz | tar -zxf -
 curl -LJs https://github.com/attractivechaos/kann/releases/download/v0/kann-models.tgz | tar -zxf -
