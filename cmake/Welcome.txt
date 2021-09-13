@@ -1,0 +1,2 @@
+KANN is a standalone and lightweight library in C for constructing and training
+small to medium artificial neural networks.
