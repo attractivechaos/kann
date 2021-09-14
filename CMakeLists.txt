@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(Kann VERSION 0.0.0 LANGUAGES C)
+project(Kann VERSION 0.0.549 LANGUAGES C)
 string(TOLOWER "${PROJECT_NAME}" PROJECT_LOWER_NAME)
 
 set(CMAKE_C_STANDARD 90)
@@ -36,14 +36,23 @@ if (CMAKE_C_COMPILER_ID STREQUAL "Clang" OR CMAKE_C_COMPILER_ID STREQUAL "AppleC
     set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
 endif()
 
-add_subdirectory("kann")
-add_subdirectory("kann_extra")
-
 # configure a header file to pass the version number only
 configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.h.in"
         "${PROJECT_NAME}Config.h"
 )
+
+add_subdirectory("kann")
+
+option(BUILD_KANN_EXTRA "Build kann_extra" ON)
+if (BUILD_KANN_EXTRA)
+    add_subdirectory("kann_extra")
+endif (BUILD_KANN_EXTRA)
+
+option(BUILD_KANN_EXAMPLES "Build kann examples" ON)
+if (BUILD_KANN_EXAMPLES)
+    add_subdirectory("examples")
+endif (BUILD_KANN_EXAMPLES)
 
 install(
         FILES "${PROJECT_BINARY_DIR}/${PROJECT_NAME}Config.h"
@@ -70,12 +79,15 @@ set(CPACK_PACKAGE_CONTACT "https://github.com/attractivechaos/kann")
 include(CPack)
 include(CMakePackageConfigHelpers)
 
-# install the configuration targets
-install(
-        EXPORT "kann_extraTargets"
-        FILE "kann_extraTargets.cmake"
-        DESTINATION "lib/cmake/kann_extra"
-)
+if (BUILD_KANN_EXTRA)
+    # install the configuration targets
+    install(
+            EXPORT "kann_extraTargets"
+            FILE "kann_extraTargets.cmake"
+            DESTINATION "lib/cmake/kann_extra"
+    )
+endif (BUILD_KANN_EXTRA)
+
 install(
         EXPORT "kannTargets"
         FILE "kannTargets.cmake"
@@ -98,12 +110,18 @@ write_basic_package_version_file(
         COMPATIBILITY AnyNewerVersion
 )
 
-# install the configuration file
-install(
-        FILES
-        "${CMAKE_CURRENT_BINARY_DIR}/KannConfig.cmake"
-        DESTINATION "lib/cmake/kann_extra"
-)
+if (BUILD_KANN_EXTRA)
+    # install the configuration file
+    install(
+            FILES
+            "${CMAKE_CURRENT_BINARY_DIR}/KannConfig.cmake"
+            DESTINATION "lib/cmake/kann_extra"
+    )
+    export(
+            EXPORT "kann_extraTargets"
+            FILE "${CMAKE_CURRENT_BINARY_DIR}/kann_extraTargets.cmake"
+    )
+endif (BUILD_KANN_EXTRA)
 
 # generate the export targets for the build tree
 # needs to be after the install(TARGETS ) command
@@ -111,7 +129,4 @@ export(
         EXPORT "kannTargets"
         FILE "${CMAKE_CURRENT_BINARY_DIR}/kannTargets.cmake"
 )
-export(
-        EXPORT "kann_extraTargets"
-        FILE "${CMAKE_CURRENT_BINARY_DIR}/kann_extraTargets.cmake"
-)
+
