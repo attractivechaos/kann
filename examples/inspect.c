@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "kann.h"
 
 void kad_print_dot(FILE *fp, int n, kad_node_t **v)

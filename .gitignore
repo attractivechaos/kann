@@ -4,3 +4,6 @@
 *.kan
 *.dSYM
 a.out
+*build*
+.idea
+*_export.h

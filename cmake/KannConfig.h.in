@@ -1,0 +1,9 @@
+#ifndef Kann_CONFIG_H
+#define Kann_CONFIG_H
+
+#define Kann_VERSION_MAJOR @Kann_VERSION_MAJOR@
+#define Kann_VERSION_MINOR @Kann_VERSION_MINOR@
+#define Kann_VERSION_PATCH @Kann_VERSION_PATCH@
+#define Kann_VERSION "@Kann_VERSION@"
+
+#endif /* Kann_CONFIG_H */
