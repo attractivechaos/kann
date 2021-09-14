@@ -7,7 +7,9 @@ foreach(example ${examples})
     add_executable("${EXEC_NAME}" "${Source_Files}")
 
     set(_libs "kann")
-    if (example STREQUAL "minst-cnn")
+    if (example MATCHES "ae|mlp|inspect|vae"
+            OR example STREQUAL "mnist-cnn"
+            OR example STREQUAL "rnn-bit")
         list(APPEND _libs "kann_extra")
     endif ()
     target_link_libraries("${EXEC_NAME}" PRIVATE "${_libs}")
