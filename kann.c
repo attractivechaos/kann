@@ -845,6 +845,16 @@ float kann_grad_clip(float thres, int n, float *g)
 /****************************************************************
  *** @@XY: simpler API for network with a single input/output ***
  ****************************************************************/
+#include <signal.h>
+#include <limits.h>
+static volatile int epoch_i;
+
+void interupt(int sig)
+{
+    epoch_i = INT_MAX - 1;
+    fprintf(stderr, "\nSafeley leaving training loop on signal %d\n", sig);
+}
+
 
 int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y)
 {
@@ -872,8 +882,9 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 	y1 = (float*)malloc(n_out * mini_size * sizeof(float));
 	kann_feed_bind(ann, KANN_F_IN,    0, &x1);
 	kann_feed_bind(ann, KANN_F_TRUTH, 0, &y1);
-
-	for (i = 0; i < max_epoch; ++i) {
+  signal(SIGINT, interupt);
+	for (epoch_i = 0; epoch_i < max_epoch; ++epoch_i) {
+    i = epoch_i;
 		int n_proc = 0, n_train_err = 0, n_val_err = 0, n_train_base = 0, n_val_base = 0;
 		double train_cost = 0.0, val_cost = 0.0;
 		kann_shuffle(n_train, shuf);
