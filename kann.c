@@ -846,7 +846,7 @@ float kann_grad_clip(float thres, int n, float *g)
  *** @@XY: simpler API for network with a single input/output ***
  ****************************************************************/
 
-int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y)
+int kann_train_fnn1b(kann_t *ann, float lr, int mini_size, int max_epoch, int min_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y)
 {
 	int i, j, *shuf, n_train, n_val, n_in, n_out, n_var, n_const, drop_streak = 0, min_set = 0;
 	float **x, **y, *x1, *y1, *r, min_val_cost = FLT_MAX, *min_x, *min_c;
@@ -916,7 +916,7 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 			}
 			fputc('\n', stderr);
 		}
-		if (i >= max_drop_streak && n_val > 0) {
+		if (i >= min_epoch && n_val > 0) {
 			if (val_cost < min_val_cost) {
 				min_set = 1;
 				memcpy(min_x, ann->x, n_var * sizeof(float));
@@ -934,6 +934,11 @@ int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max
 
 	free(min_c); free(min_x); free(y1); free(x1); free(y); free(x); free(shuf); free(r);
 	return i;
+}
+
+int kann_train_fnn1(kann_t *ann, float lr, int mini_size, int max_epoch, int max_drop_streak, float frac_val, int n, float **_x, float **_y)
+{
+	return kann_train_fnn1b(ann, lr, mini_size, max_epoch, max_drop_streak, max_drop_streak, frac_val, n, _x, _y);
 }
 
 float kann_cost_fnn1(kann_t *ann, int n, float **x, float **y)

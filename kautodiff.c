@@ -874,6 +874,49 @@ static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) /
 	}
 	for (; i < n; ++i) y[i] += a * x[i];
 }
+#elif defined(__ARM_NEON)
+#include <arm_neon.h> /* translated from SSE to NEON by LLM */
+
+static inline float kad_sdot(int n, const float *x, const float *y) /* BLAS sdot using NEON */
+{
+	int i, n8 = n >> 3 << 3;
+	float32x4_t vs1, vs2;
+	float s, t[4];
+	vs1 = vdupq_n_f32(0.0f);
+	vs2 = vdupq_n_f32(0.0f);
+	for (i = 0; i < n8; i += 8) {
+		float32x4_t vx1 = vld1q_f32(&x[i]);
+		float32x4_t vx2 = vld1q_f32(&x[i + 4]);
+		float32x4_t vy1 = vld1q_f32(&y[i]);
+		float32x4_t vy2 = vld1q_f32(&y[i + 4]);
+		vs1 = vmlaq_f32(vs1, vx1, vy1);
+		vs2 = vmlaq_f32(vs2, vx2, vy2);
+	}
+	for (s = 0.; i < n; ++i) s += x[i] * y[i];
+	vst1q_f32(t, vs1);
+	s += t[0] + t[1] + t[2] + t[3];
+	vst1q_f32(t, vs2);
+	s += t[0] + t[1] + t[2] + t[3];
+	return s;
+}
+
+static inline void kad_saxpy_inlined(int n, float a, const float *x, float *y) /* BLAS saxpy using NEON */
+{
+	int i, n8 = n >> 3 << 3;
+	float32x4_t va;
+	va = vdupq_n_f32(a);
+	for (i = 0; i < n8; i += 8) {
+		float32x4_t vx1 = vld1q_f32(&x[i]);
+		float32x4_t vx2 = vld1q_f32(&x[i + 4]);
+		float32x4_t vy1 = vld1q_f32(&y[i]);
+		float32x4_t vy2 = vld1q_f32(&y[i + 4]);
+		float32x4_t vt1 = vmlaq_f32(vy1, va, vx1);
+		float32x4_t vt2 = vmlaq_f32(vy2, va, vx2);
+		vst1q_f32(&y[i], vt1);
+		vst1q_f32(&y[i + 4], vt2);
+	}
+	for (; i < n; ++i) y[i] += a * x[i];
+}
 #else
 static inline float kad_sdot(int n, const float *x, const float *y) /* BLAS sdot */
 {
