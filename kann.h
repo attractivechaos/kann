@@ -1,7 +1,7 @@
 /*
   The MIT License
 
-  Copyright (c) 2018-2019 Dana-Farber Cancer Institute
+  Copyright (c) 2018-     Dana-Farber Cancer Institute
                 2016-2018 Broad Institute
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -28,7 +28,7 @@
 #ifndef KANN_H
 #define KANN_H
 
-#define KANN_VERSION "r549"
+#define KANN_VERSION "r557"
 
 #define KANN_F_IN       0x1   /* input */
 #define KANN_F_OUT      0x2   /* output */
@@ -135,6 +135,18 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad);
 int kann_eval(kann_t *a, uint32_t ext_flag, int ext_label);
 int kann_eval_out(kann_t *a);
 int kann_class_error(const kann_t *ann, int *base);
+
+/**
+ * Copy internal values back to a node
+ *
+ * In the multi-threading mode, node values are stored in kann_t::mt but not in
+ * each node. This function copies values back to a specified node.
+ *
+ * @param a        network
+ * @param mbs      mini-batch size; use kad_sync_dim(a->n, a->v, -1) for robustness to RNN
+ * @param i        node ID
+ */
+void kann_copy_mt(kann_t *a, int mbs, int i);
 
 /**
  * Find a node

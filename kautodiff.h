@@ -1,7 +1,7 @@
 /*
   The MIT License
 
-  Copyright (c) 2018-2019 Dana-Farber Cancer Institute
+  Copyright (c) 2018-     Dana-Farber Cancer Institute
                 2016-2018 Broad Institute
 
   Permission is hereby granted, free of charge, to any person obtaining
@@ -28,7 +28,7 @@
 #ifndef KANN_AUTODIFF_H
 #define KANN_AUTODIFF_H
 
-#define KAD_VERSION "r544"
+#define KAD_VERSION "r556"
 
 #include <stdio.h>
 #include <stdint.h>

@@ -406,6 +406,24 @@ float kann_cost(kann_t *a, int cost_label, int cal_grad)
 	return cost;
 }
 
+void kann_copy_mt(kann_t *a, int B, int j)
+{
+	const mtaux_t *mt = (mtaux_t*)a->mt;
+	kad_node_t *p = a->v[j];
+	int i, t, k, d0 = p->d[0] / B, d1 = 1; /* for RNN, p->d[0] may equal unroll_len * batch_size */
+	assert(p->d[0] % B == 0);
+	if (mt == 0) return;
+	for (i = 1; i < p->n_d; ++i) d1 *= p->d[i];
+	for (i = 0; i < d0; ++i) {
+		for (t = k = 0; t < mt->n_threads; ++t) { /* similar to the forward pass of kad_op_concat() */
+			kad_node_t *q = mt->mt[t].a->v[j];
+			int size = q->d[0] / d0;
+			memcpy(&p->x[(i * B + k) * d1], &q->x[i * size * d1], size * d1 * sizeof(float));
+			k += size;
+		}
+	}
+}
+
 int kann_eval_out(kann_t *a)
 {
 	mtaux_t *mt = (mtaux_t*)a->mt;
@@ -415,22 +433,9 @@ int kann_eval_out(kann_t *a)
 	mt_kickoff(a, 0, 0, 1);
 	n_eval = kann_eval(mt->mt[0].a, KANN_F_OUT, 0);
 	while (mt->n_idle < mt->n_threads - 1); /* busy waiting until all threads in sync */
-	for (j = 0; j < a->n; ++j) { /* copy output values back */
-		kad_node_t *p = a->v[j];
-		if (p->ext_flag & KANN_F_OUT) {
-			int i, t, k, d0 = p->d[0] / B, d1 = 1; /* for RNN, p->d[0] may equal unroll_len * batch_size */
-			assert(p->d[0] % B == 0);
-			for (i = 1; i < p->n_d; ++i) d1 *= p->d[i];
-			for (i = 0; i < d0; ++i) {
-				for (t = k = 0; t < mt->n_threads; ++t) { /* similar to the forward pass of kad_op_concat() */
-					kad_node_t *q = mt->mt[t].a->v[j];
-					int size = q->d[0] / d0;
-					memcpy(&p->x[(i * B + k) * d1], &q->x[i * size * d1], size * d1 * sizeof(float));
-					k += size;
-				}
-			}
-		}
-	}
+	for (j = 0; j < a->n; ++j) /* copy output values back */
+		if (a->v[j]->ext_flag & KANN_F_OUT)
+			kann_copy_mt(a, B, j);
 	return n_eval;
 }
 
