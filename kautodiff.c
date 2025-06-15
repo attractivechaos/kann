@@ -2349,7 +2349,7 @@ kad_op_f kad_op_list[KAD_MAX_OP] = {
 	kad_op_reverse     /* 36: tf.reverse, but on one axis only */
 };
 
-char *kad_op_name[KAD_MAX_OP] = {
+const char *kad_op_name[KAD_MAX_OP] = {
 	0, "add", "mul", "cmul", "ce_bin_neg", "square", "sigm", "tanh", "relu", "matmul", "avg", "1minus", "select", "ce_multi", "softmax",
 	"dropout", "conv2d", "max2d", "conv1d", "max1d", "slice", "max", "ce_bin", "sub", "sample_normal", "reduce_sum", "reduce_mean", "log",
 	"avg1d", "mse", "reshape", "concat", "stdnorm", "exp", "sin", "stack", "reverse"

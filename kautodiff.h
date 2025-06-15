@@ -234,7 +234,7 @@ void kad_check_grad(int n, kad_node_t **a, int from);
 
 typedef int (*kad_op_f)(kad_node_t*, int);
 extern kad_op_f kad_op_list[KAD_MAX_OP];
-extern char *kad_op_name[KAD_MAX_OP];
+extern const char *kad_op_name[KAD_MAX_OP];
 
 static inline int kad_len(const kad_node_t *p) /* calculate the size of p->x */
 {
