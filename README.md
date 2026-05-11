@@ -160,7 +160,7 @@ int main(void)
   power of mainstream deep learning frameworks. *Please don't read too much into
   the table*.
 
-* "Linux" has 48 cores on two Xeno E5-2697 CPUs at 2.7GHz. MKL, NumPy-1.12.0
+* "Linux" has 48 cores on two Intel Xeon E5-2697 CPUs at 2.7GHz. MKL, NumPy-1.12.0
   and Theano-0.8.2 were installed with Conda; Keras-1.2.2 installed with pip.
   The official TensorFlow-1.0.0 wheel does not work with Cent OS 6 on this
   machine, due to glibc. This machine has one Tesla K40c GPU installed. We are
